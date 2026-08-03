@@ -17,6 +17,10 @@ import { Route as RegistraciyaRouteImport } from './routes/registraciya'
 import { Route as RoditelRouteImport } from './routes/roditel'
 import { Route as UchenikRouteImport } from './routes/uchenik'
 import { Route as VhodRouteImport } from './routes/vhod'
+import { Route as SchetRouteImport } from './routes/schet'
+import { Route as KtoRouteImport } from './routes/kto'
+import { Route as DemoRouteImport } from './routes/demo'
+import { Route as ChtenieRouteImport } from './routes/chtenie'
 import { Route as UrokTopicIdRouteImport } from './routes/urok.$topicId'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
@@ -60,6 +64,26 @@ const VhodRoute = VhodRouteImport.update({
   path: '/vhod',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SchetRoute = SchetRouteImport.update({
+  id: '/schet',
+  path: '/schet',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const KtoRoute = KtoRouteImport.update({
+  id: '/kto',
+  path: '/kto',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DemoRoute = DemoRouteImport.update({
+  id: '/demo',
+  path: '/demo',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ChtenieRoute = ChtenieRouteImport.update({
+  id: '/chtenie',
+  path: '/chtenie',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const UrokTopicIdRoute = UrokTopicIdRouteImport.update({
   id: '/urok/$topicId',
   path: '/urok/$topicId',
@@ -72,6 +96,10 @@ export interface FileRoutesByFullPath {
   '/roditel': typeof RoditelRoute
   '/uchenik': typeof UchenikRoute
   '/vhod': typeof VhodRoute
+  '/chtenie': typeof ChtenieRoute
+  '/demo': typeof DemoRoute
+  '/kto': typeof KtoRoute
+  '/schet': typeof SchetRoute
   '/urok/$topicId': typeof UrokTopicIdRoute
   '/': typeof IndexRoute
   '/robots.txt': typeof RobotsDottxtRoute
@@ -83,6 +111,10 @@ export interface FileRoutesByTo {
   '/roditel': typeof RoditelRoute
   '/uchenik': typeof UchenikRoute
   '/vhod': typeof VhodRoute
+  '/chtenie': typeof ChtenieRoute
+  '/demo': typeof DemoRoute
+  '/kto': typeof KtoRoute
+  '/schet': typeof SchetRoute
   '/urok/$topicId': typeof UrokTopicIdRoute
   '/': typeof IndexRoute
   '/robots.txt': typeof RobotsDottxtRoute
@@ -94,6 +126,10 @@ export interface FileRoutesById {
   '/roditel': typeof RoditelRoute
   '/uchenik': typeof UchenikRoute
   '/vhod': typeof VhodRoute
+  '/chtenie': typeof ChtenieRoute
+  '/demo': typeof DemoRoute
+  '/kto': typeof KtoRoute
+  '/schet': typeof SchetRoute
   '/urok/$topicId': typeof UrokTopicIdRoute
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
@@ -102,10 +138,10 @@ export interface FileRoutesById {
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/robots.txt' | '/sitemap.xml' | '/admin' | '/registraciya' | '/roditel' | '/uchenik' | '/vhod' | '/urok/$topicId'
+  fullPaths: '/' | '/robots.txt' | '/sitemap.xml' | '/admin' | '/chtenie' | '/demo' | '/kto' | '/registraciya' | '/roditel' | '/schet' | '/uchenik' | '/vhod' | '/urok/$topicId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/robots.txt' | '/sitemap.xml' | '/admin' | '/registraciya' | '/roditel' | '/uchenik' | '/vhod' | '/urok/$topicId'
-  id: '__root__' | '/' | '/robots.txt' | '/sitemap.xml' | '/admin' | '/registraciya' | '/roditel' | '/uchenik' | '/vhod' | '/urok/$topicId'
+  to: '/' | '/robots.txt' | '/sitemap.xml' | '/admin' | '/chtenie' | '/demo' | '/kto' | '/registraciya' | '/roditel' | '/schet' | '/uchenik' | '/vhod' | '/urok/$topicId'
+  id: '__root__' | '/' | '/robots.txt' | '/sitemap.xml' | '/admin' | '/chtenie' | '/demo' | '/kto' | '/registraciya' | '/roditel' | '/schet' | '/uchenik' | '/vhod' | '/urok/$topicId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -164,6 +200,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof UrokTopicIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/chtenie': {
+      id: '/chtenie'
+      path: '/chtenie'
+      fullPath: '/chtenie'
+      preLoaderRoute: typeof ChtenieRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/demo': {
+      id: '/demo'
+      path: '/demo'
+      fullPath: '/demo'
+      preLoaderRoute: typeof DemoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/kto': {
+      id: '/kto'
+      path: '/kto'
+      fullPath: '/kto'
+      preLoaderRoute: typeof KtoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/schet': {
+      id: '/schet'
+      path: '/schet'
+      fullPath: '/schet'
+      preLoaderRoute: typeof SchetRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sitemap.xml': {
       id: '/sitemap.xml'
       path: '/sitemap.xml'
@@ -195,6 +259,10 @@ const rootRouteChildren: RootRouteChildren = {
   UchenikRoute: UchenikRoute,
   VhodRoute: VhodRoute,
   UrokTopicIdRoute: UrokTopicIdRoute,
+  ChtenieRoute: ChtenieRoute,
+  DemoRoute: DemoRoute,
+  KtoRoute: KtoRoute,
+  SchetRoute: SchetRoute,
   IndexRoute: IndexRoute,
   RobotsDottxtRoute: RobotsDottxtRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,

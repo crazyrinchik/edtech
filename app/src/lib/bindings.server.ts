@@ -24,6 +24,16 @@ type AppEnv = {
   CONTAINER?: DurableObjectNamespace;
   HF_ENV?: string;
   APP_SLUG?: string;
+  // Развёртывание на своём сервере: PostgreSQL за внутренним HTTP-шлюзом.
+  // Если заданы обе переменные, db() идёт туда вместо биндинга DB.
+  DB_GATEWAY_URL?: string;
+  DB_GATEWAY_TOKEN?: string;
+  // Напоминания родителю. Без токена канал просто не предлагается в кабинете,
+  // остальное приложение работает как раньше (см. lib/notify.server.ts).
+  TELEGRAM_BOT_TOKEN?: string;
+  MAX_BOT_TOKEN?: string;
+  /** Общий секрет в адресе вебхука: без него бот-обработчик отвечает 404. */
+  NOTIFY_WEBHOOK_SECRET?: string;
 };
 
 export function bindings(): AppEnv {

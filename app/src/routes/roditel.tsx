@@ -1,9 +1,11 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 
-import { FormAction, SiteFooter, SiteHeader } from "../components/brand";
+import { CHILD_AVATARS, ChildAvatar, FormAction, Owl, SiteFooter, SiteHeader } from "../components/brand";
 import {
-  addChild, cancelSubscription, logout, me, parentReport, redeemPromo, selectChild, updateChild,
+  addChild, cancelSubscription, lockParentCabinet, logout, me, notifyConnect, notifyDisconnect,
+  notifySettings, notifyToggle, parentReport, redeemPromo, selectChild, setParentPin, unlockParentCabinet,
+  updateChild,
 } from "../lib/api/app.functions";
 
 export const Route = createFileRoute("/roditel")({
@@ -16,12 +18,23 @@ type Report = {
   accuracy: number; attempts: number; weekLessons: number; weekMinutes: number; topicsDone: number; stars: number;
   risk: { topic: string; subject: string; percent: number }[];
   history: { started_at: string; seconds: number; correct: number; total: number; topic: string; subject: string }[];
+  drills: { kind: string; runs: number; correct: number; total: number; last_at: string }[];
   subscription: string;
 };
 type Account = {
   user: { id: string; email: string; name: string | null; role: string; subscriptionStatus: string } | null;
-  children: { id: string; name: string; grade: number }[];
+  children: { id: string; name: string; grade: number; avatar: string }[];
   activeChildId: string | null;
+  parentPinSet: boolean;
+  parentUnlocked: boolean;
+};
+type Channel = {
+  channel: "tg" | "max";
+  title: string;
+  ready: boolean;
+  connected: boolean;
+  enabled: boolean;
+  code: string | null;
 };
 
 const fmt = (iso: string) =>
@@ -31,17 +44,23 @@ function ParentPage() {
   const navigate = useNavigate();
   const [account, setAccount] = useState<Account | null>(null);
   const [report, setReport] = useState<Report | null>(null);
-  const [tab, setTab] = useState<"progress" | "history" | "settings" | "billing">("progress");
+  const [tab, setTab] = useState<"progress" | "history" | "settings" | "billing" | "notify">("progress");
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
   const load = useCallback(async () => {
-    const acc = await me();
+    const acc = (await me()) as unknown as Account;
     if (!acc.user) {
       await navigate({ to: "/vhod" });
       return;
     }
     setAccount(acc);
+    // Отчёт запрашивается только за открытой дверью: сервер всё равно
+    // ответит отказом, а лишняя ошибка в консоли путает.
+    if (acc.parentPinSet && !acc.parentUnlocked) {
+      setReport(null);
+      return;
+    }
     const active = acc.activeChildId ?? acc.children[0]?.id;
     if (active) setReport(await parentReport({ data: { childId: active } }));
     else setReport(null);
@@ -62,6 +81,12 @@ function ParentPage() {
     );
   }
 
+  // Вход в приложение один на семью, поэтому дверь в кабинет своя: без кода
+  // ребёнок в два касания снял бы себе лимит времени и выдал подписку.
+  if (!account.parentPinSet || !account.parentUnlocked) {
+    return <PinGate creating={!account.parentPinSet} onDone={load} />;
+  }
+
   return (
     <div className="sov">
       <SiteHeader
@@ -71,6 +96,15 @@ function ParentPage() {
             {account.user?.role === "admin" ? (
               <Link to="/admin" className="sov-act-ghost" style={{ textDecoration: "none" }}>Админка</Link>
             ) : null}
+            <button
+              className="sov-act-ghost"
+              onClick={async () => {
+                await lockParentCabinet();
+                await load();
+              }}
+            >
+              Закрыть кабинет
+            </button>
             <button className="sov-act-ghost" onClick={async () => { await logout(); await navigate({ to: "/" }); }}>
               Выйти
             </button>
@@ -87,13 +121,14 @@ function ParentPage() {
           {account.children.map((child) => (
             <button
               key={child.id}
-              className="sov-chip"
+              className="sov-chip sov-chip--child"
               data-active={report?.child.id === child.id}
               onClick={async () => {
                 await selectChild({ data: { childId: child.id } });
                 await load();
               }}
             >
+              <ChildAvatar avatar={child.avatar} size={24} />
               {child.name}, {child.grade} класс
             </button>
           ))}
@@ -113,7 +148,7 @@ function ParentPage() {
             </div>
 
             <div className="sov-tabs">
-              {([["progress","Прогресс"],["history","История"],["settings","Настройки"],["billing","Подписка"]] as const).map(([id,label]) => (
+              {([["progress","Прогресс"],["history","История"],["notify","Напоминания"],["settings","Настройки"],["billing","Подписка"]] as const).map(([id,label]) => (
                 <button key={id} data-active={tab === id} onClick={() => setTab(id)}>{label}</button>
               ))}
             </div>
@@ -141,6 +176,29 @@ function ParentPage() {
                     ))
                   )}
                 </div>
+                <h2 style={{ fontSize: "1.3rem", fontWeight: 600, marginTop: 32 }}>Тренажёры</h2>
+                {report.drills.length === 0 ? (
+                  <p style={{ marginTop: 10, color: "var(--sov-ink-soft)", fontSize: ".95rem" }}>
+                    Устный счёт и скорочтение доступны с карты занятий. Результаты появятся здесь.
+                  </p>
+                ) : (
+                  <table className="sov-table">
+                    <thead>
+                      <tr><th>Тренажёр</th><th>Заходов</th><th>Верных</th><th>Последний раз</th></tr>
+                    </thead>
+                    <tbody>
+                      {report.drills.map((d) => (
+                        <tr key={d.kind}>
+                          <td>{d.kind === "mental" ? "Устный счёт" : "Скорочтение"}</td>
+                          <td>{d.runs}</td>
+                          <td>{d.total ? Math.round((d.correct / d.total) * 100) : 0}%</td>
+                          <td>{d.last_at ? fmt(d.last_at) : "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+
                 {!report.child.diagnosticsDone ? (
                   <div className="sov-panel" style={{ marginTop: 20 }}>
                     <h3>Диагностика не пройдена</h3>
@@ -178,6 +236,8 @@ function ParentPage() {
               </section>
             ) : null}
 
+            {tab === "notify" ? <NotifyTab onNotice={setNotice} /> : null}
+
             {tab === "settings" ? (
               <section style={{ marginTop: 24, maxWidth: 520 }}>
                 <h2 style={{ fontSize: "1.3rem", fontWeight: 600 }}>Настройки занятий</h2>
@@ -211,6 +271,15 @@ function ParentPage() {
                   </label>
                   <FormAction pending={pending}>Сохранить</FormAction>
                 </form>
+                <div style={{ marginTop: 40 }}>
+                  <h2 style={{ fontSize: "1.3rem", fontWeight: 600 }}>Код родителя</h2>
+                  <p style={{ marginTop: 8, color: "var(--sov-ink-soft)", fontSize: ".95rem" }}>
+                    Четыре цифры, которые спрашивают на входе в кабинет. Занятия ребёнка кодом не
+                    закрываются — он открывает их сам.
+                  </p>
+                  <ChangePinForm onNotice={setNotice} />
+                </div>
+
                 <div style={{ marginTop: 40 }}>
                   <h2 style={{ fontSize: "1.3rem", fontWeight: 600 }}>Добавить ещё ребёнка</h2>
                   <AddChildForm onAdded={load} compact />
@@ -272,6 +341,7 @@ function ParentPage() {
 
 function AddChildForm({ onAdded, compact }: { onAdded: () => Promise<void>; compact?: boolean }) {
   const [pending, setPending] = useState(false);
+  const [avatar, setAvatar] = useState("owl");
   return (
     <div style={{ marginTop: compact ? 16 : 32, maxWidth: 520 }}>
       {!compact ? <h2 style={{ fontSize: "1.3rem", fontWeight: 600 }}>Добавьте профиль ребёнка</h2> : null}
@@ -286,7 +356,7 @@ function AddChildForm({ onAdded, compact }: { onAdded: () => Promise<void>; comp
             data: {
               name: String(form.get("name") ?? ""),
               grade: Number(form.get("grade") ?? 1),
-              avatar: "owl",
+              avatar,
               birthYear: null,
             },
           });
@@ -306,8 +376,258 @@ function AddChildForm({ onAdded, compact }: { onAdded: () => Promise<void>; comp
             <option value="2">2 класс</option>
           </select>
         </div>
+        {/* Аватар нужен не для красоты: по нему ребёнок находит себя на экране
+            выбора профиля, ещё не умея читать имена. */}
+        <div className="sov-field">
+          <label>Аватар</label>
+          <AvatarPicker value={avatar} onChange={setAvatar} />
+        </div>
         <FormAction pending={pending}>Добавить</FormAction>
       </form>
     </div>
+  );
+}
+
+export function AvatarPicker({ value, onChange }: { value: string; onChange: (id: string) => void }) {
+  return (
+    <div className="sov-avatar-pick">
+      {CHILD_AVATARS.map((a) => (
+        <button
+          key={a.id}
+          type="button"
+          className="sov-avatar-pick__item"
+          data-active={value === a.id}
+          aria-label={a.label}
+          aria-pressed={value === a.id}
+          onClick={() => onChange(a.id)}
+        >
+          <ChildAvatar avatar={a.id} size={44} />
+          <span>{a.label}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Дверь в кабинет: придумать код или ввести его. Пока кода нет, кабинет
+ * открыт — иначе родитель, заведённый до появления этой проверки, оказался бы
+ * заперт снаружи; поэтому первый экран не пропускает дальше без кода.
+ */
+function PinGate({ creating, onDone }: { creating: boolean; onDone: () => Promise<void> }) {
+  const [pin, setPin] = useState("");
+  const [repeat, setRepeat] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+
+  async function submit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError(null);
+    setPending(true);
+    try {
+      if (creating) {
+        if (pin !== repeat) throw new Error("Коды не совпали");
+        await setParentPin({ data: { pin, currentPin: null } });
+      } else {
+        await unlockParentCabinet({ data: { pin } });
+      }
+      await onDone();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не получилось");
+      setPin("");
+      setRepeat("");
+    }
+    setPending(false);
+  }
+
+  return (
+    <div className="sov">
+      <SiteHeader />
+      <main className="sov-narrow" style={{ paddingTop: 56, paddingBottom: 80 }}>
+        <Owl size={64} />
+        <h1 style={{ fontSize: "2rem", fontWeight: 700, marginTop: 18 }}>
+          {creating ? "Придумайте код родителя" : "Кабинет родителя закрыт"}
+        </h1>
+        <p style={{ marginTop: 12, color: "var(--sov-ink-soft)" }}>
+          {creating
+            ? "Четыре цифры, которые знает только взрослый. Занятия ребёнка кодом не закрываются — он заходит в них сам."
+            : "Введите четыре цифры, чтобы открыть отчёты, настройки и подписку."}
+        </p>
+        <form className="sov-form" style={{ marginTop: 30 }} onSubmit={submit}>
+          {error ? <div className="sov-alert">{error}</div> : null}
+          <div className="sov-field">
+            <label htmlFor="pin">{creating ? "Новый код" : "Код"}</label>
+            <input
+              id="pin"
+              className="sov-pin"
+              value={pin}
+              onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+              inputMode="numeric"
+              autoComplete="off"
+              autoFocus
+              required
+            />
+          </div>
+          {creating ? (
+            <div className="sov-field">
+              <label htmlFor="pin2">Повторите код</label>
+              <input
+                id="pin2"
+                className="sov-pin"
+                value={repeat}
+                onChange={(e) => setRepeat(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                inputMode="numeric"
+                autoComplete="off"
+                required
+              />
+              <span className="sov-field__hint">
+                Не ставьте дату рождения ребёнка и четыре одинаковые цифры.
+              </span>
+            </div>
+          ) : null}
+          <FormAction pending={pending}>{creating ? "Сохранить код" : "Открыть кабинет"}</FormAction>
+        </form>
+        <div style={{ marginTop: 24 }}>
+          <Link to="/uchenik" className="sov-act-ghost" style={{ textDecoration: "none" }}>
+            Вернуться к занятиям
+          </Link>
+        </div>
+      </main>
+      <SiteFooter />
+    </div>
+  );
+}
+
+function ChangePinForm({ onNotice }: { onNotice: (text: string) => void }) {
+  const [pin, setPin] = useState("");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  return (
+    <form
+      className="sov-form"
+      style={{ marginTop: 16 }}
+      onSubmit={async (e) => {
+        e.preventDefault();
+        setError(null);
+        setPending(true);
+        try {
+          await setParentPin({ data: { pin, currentPin: null } });
+          onNotice("Код обновлён");
+          setPin("");
+        } catch (err) {
+          setError(err instanceof Error ? err.message : "Не получилось");
+        }
+        setPending(false);
+      }}
+    >
+      {error ? <div className="sov-alert">{error}</div> : null}
+      <div className="sov-field">
+        <label htmlFor="newpin">Новый код</label>
+        <input
+          id="newpin"
+          className="sov-pin"
+          value={pin}
+          onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+          inputMode="numeric"
+          autoComplete="off"
+          required
+        />
+      </div>
+      <FormAction pending={pending}>Сменить код</FormAction>
+    </form>
+  );
+}
+
+/**
+ * Напоминания в мессенджер.
+ *
+ * Родитель редко открывает кабинет каждый день, но хочет знать, что ребёнок
+ * сел заниматься. Привязка идёт кодом: он пишет боту короткое слово, бот
+ * запоминает чат. Логин мессенджера мы не спрашиваем и не храним.
+ */
+function NotifyTab({ onNotice }: { onNotice: (text: string) => void }) {
+  const [channels, setChannels] = useState<Channel[] | null>(null);
+
+  const load = useCallback(async () => {
+    const data = await notifySettings();
+    setChannels(data.channels as Channel[]);
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  if (!channels) {
+    return <p style={{ marginTop: 24, color: "var(--sov-ink-soft)" }}>Загружаем…</p>;
+  }
+
+  return (
+    <section style={{ marginTop: 24, maxWidth: 640 }}>
+      <h2 style={{ fontSize: "1.3rem", fontWeight: 600 }}>Напоминания</h2>
+      <p style={{ marginTop: 8, color: "var(--sov-ink-soft)", fontSize: ".95rem" }}>
+        Короткое сообщение после каждой проверочной работы и тренажёра: тема, доля верных ответов
+        и время. Ничего, кроме этого, бот не присылает.
+      </p>
+
+      {channels.map((ch) => (
+        <div key={ch.channel} className="sov-panel" style={{ marginTop: 18 }}>
+          <h3>{ch.title}</h3>
+          {!ch.ready ? (
+            <p style={{ marginTop: 8, color: "var(--sov-ink-soft)", fontSize: ".95rem" }}>
+              Канал пока не подключён на сервере: администратору нужно задать токен бота.
+            </p>
+          ) : ch.connected ? (
+            <>
+              <p style={{ marginTop: 8, color: "var(--sov-ok)", fontSize: ".95rem" }}>
+                Подключено. Сообщения {ch.enabled ? "приходят" : "поставлены на паузу"}.
+              </p>
+              <div style={{ marginTop: 14, display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <button
+                  className="sov-act-ghost"
+                  onClick={async () => {
+                    await notifyToggle({ data: { channel: ch.channel, enabled: !ch.enabled } });
+                    await load();
+                  }}
+                >
+                  {ch.enabled ? "Поставить на паузу" : "Включить снова"}
+                </button>
+                <button
+                  className="sov-act-ghost"
+                  onClick={async () => {
+                    await notifyDisconnect({ data: { channel: ch.channel } });
+                    onNotice(`${ch.title} отключён`);
+                    await load();
+                  }}
+                >
+                  Отключить
+                </button>
+              </div>
+            </>
+          ) : ch.code ? (
+            <>
+              <p style={{ marginTop: 8, color: "var(--sov-ink-soft)", fontSize: ".95rem" }}>
+                Напишите боту «Совёнок» в {ch.title} этот код:
+              </p>
+              <div className="sov-code">{ch.code}</div>
+              <button className="sov-act-ghost" style={{ marginTop: 14 }} onClick={() => void load()}>
+                Я отправил код, проверить
+              </button>
+            </>
+          ) : (
+            <button
+              className="sov-act-ghost"
+              style={{ marginTop: 12 }}
+              onClick={async () => {
+                await notifyConnect({ data: { channel: ch.channel } });
+                await load();
+              }}
+            >
+              Получить код привязки
+            </button>
+          )}
+        </div>
+      ))}
+    </section>
   );
 }

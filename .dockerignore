@@ -1,0 +1,9 @@
+.git
+.github
+**/node_modules
+**/dist
+**/.wrangler
+**/.output
+**/.nitro
+**/.tanstack
+*.log

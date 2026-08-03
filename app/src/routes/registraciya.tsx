@@ -1,27 +1,24 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
-import { FormAction, QuietAction, SiteHeader } from "../components/brand";
-import { addChild, registerParent } from "../lib/api/app.functions";
+import { ChildAvatar, CHILD_AVATARS, FormAction, QuietAction, SiteHeader } from "../components/brand";
+import { addChild, registerParent, setParentPin } from "../lib/api/app.functions";
 
 export const Route = createFileRoute("/registraciya")({
   head: () => ({ meta: [{ title: "Регистрация, Совёнок" }] }),
   component: RegisterPage,
 });
 
-const AVATARS = [
-  ["owl", "Совёнок"],
-  ["fox", "Лисёнок"],
-  ["bear", "Медвежонок"],
-  ["hare", "Зайчонок"],
-];
+const STEPS = ["parent", "child", "pin"] as const;
 
 function RegisterPage() {
   const navigate = useNavigate();
-  const [step, setStep] = useState<"parent" | "child">("parent");
+  const [step, setStep] = useState<(typeof STEPS)[number]>("parent");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [avatar, setAvatar] = useState("owl");
+  const [pin, setPin] = useState("");
+  const [pinRepeat, setPinRepeat] = useState("");
 
   async function submitParent(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -59,9 +56,23 @@ function RegisterPage() {
           birthYear: form.get("birthYear") ? Number(form.get("birthYear")) : null,
         },
       });
-      await navigate({ to: "/uchenik" });
+      setStep("pin");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Не получилось создать профиль");
+    }
+    setPending(false);
+  }
+
+  async function submitPin(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPending(true);
+    setError(null);
+    try {
+      if (pin !== pinRepeat) throw new Error("Коды не совпали");
+      await setParentPin({ data: { pin, currentPin: null } });
+      await navigate({ to: "/uchenik" });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Не получилось сохранить код");
       setPending(false);
     }
   }
@@ -71,7 +82,7 @@ function RegisterPage() {
       <SiteHeader right={<QuietAction to="/vhod">Войти</QuietAction>} />
       <main className="sov-narrow" style={{ paddingTop: 48, paddingBottom: 80 }}>
         <p className="sov-mono" style={{ color: "var(--sov-ink-soft)" }}>
-          Шаг {step === "parent" ? "1" : "2"} из 2
+          Шаг {STEPS.indexOf(step) + 1} из {STEPS.length}
         </p>
 
         {step === "parent" ? (
@@ -109,7 +120,9 @@ function RegisterPage() {
               <FormAction pending={pending}>Продолжить</FormAction>
             </form>
           </>
-        ) : (
+        ) : null}
+
+        {step === "child" ? (
           <>
             <h1 style={{ fontSize: "2.2rem", fontWeight: 700, marginTop: 10 }}>Профиль ребёнка</h1>
             <p style={{ marginTop: 12, color: "var(--sov-ink-soft)" }}>
@@ -135,24 +148,71 @@ function RegisterPage() {
               </div>
               <div className="sov-field">
                 <label>Аватар</label>
-                <div className="sov-chips">
-                  {AVATARS.map(([value, label]) => (
+                <div className="sov-avatar-pick">
+                  {CHILD_AVATARS.map((a) => (
                     <button
-                      key={value}
+                      key={a.id}
                       type="button"
-                      className="sov-chip"
-                      data-active={avatar === value}
-                      onClick={() => setAvatar(value)}
+                      className="sov-avatar-pick__item"
+                      data-active={avatar === a.id}
+                      aria-pressed={avatar === a.id}
+                      aria-label={a.label}
+                      onClick={() => setAvatar(a.id)}
                     >
-                      {label}
+                      <ChildAvatar avatar={a.id} size={44} />
+                      <span>{a.label}</span>
                     </button>
                   ))}
                 </div>
+                <span className="sov-field__hint">
+                  По нему ребёнок находит себя, если в аккаунте несколько детей.
+                </span>
+              </div>
+              <FormAction pending={pending}>Дальше</FormAction>
+            </form>
+          </>
+        ) : null}
+
+        {step === "pin" ? (
+          <>
+            <h1 style={{ fontSize: "2.2rem", fontWeight: 700, marginTop: 10 }}>Код родителя</h1>
+            <p style={{ marginTop: 12, color: "var(--sov-ink-soft)" }}>
+              Четыре цифры для входа в кабинет: отчёты, настройки и подписка. Ребёнок открывает
+              занятия без кода — он нужен только взрослой части.
+            </p>
+            <form className="sov-form" style={{ marginTop: 32 }} onSubmit={submitPin}>
+              {error ? <div className="sov-alert">{error}</div> : null}
+              <div className="sov-field">
+                <label htmlFor="pin">Код</label>
+                <input
+                  id="pin"
+                  className="sov-pin"
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                  inputMode="numeric"
+                  autoComplete="off"
+                  required
+                />
+              </div>
+              <div className="sov-field">
+                <label htmlFor="pin2">Повторите код</label>
+                <input
+                  id="pin2"
+                  className="sov-pin"
+                  value={pinRepeat}
+                  onChange={(e) => setPinRepeat(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                  inputMode="numeric"
+                  autoComplete="off"
+                  required
+                />
+                <span className="sov-field__hint">
+                  Не берите дату рождения ребёнка и четыре одинаковые цифры.
+                </span>
               </div>
               <FormAction pending={pending}>Открыть занятия</FormAction>
             </form>
           </>
-        )}
+        ) : null}
       </main>
     </div>
   );

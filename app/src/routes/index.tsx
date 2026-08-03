@@ -55,6 +55,7 @@ function Landing() {
       />
       <Hero />
       <Journey />
+      <Trainers />
       <HowItWorks />
       <ForParents />
       <Safety />
@@ -77,9 +78,16 @@ function Hero() {
             ошибки разбираются словами, а прогресс виден родителю в отдельном кабинете.
           </p>
           <div className="sov-hero__actions">
-            <StartAction to="/registraciya">Начать бесплатно</StartAction>
+            {/* Нулевой урок стоит первым: попробовать до регистрации — самый
+                короткий путь понять, подходит ли тренажёр ребёнку. */}
+            <StartAction to="/demo">Попробовать без регистрации</StartAction>
+            <QuietAction to="/registraciya">Завести аккаунт</QuietAction>
             <QuietAction to="/vhod">У меня уже есть аккаунт</QuietAction>
           </div>
+          <p className="sov-mono" style={{ marginTop: 18, color: "var(--sov-ink-soft)" }}>
+            Нулевой урок — 7 заданий, без почты и пароля. Там же кнопка-ушко: задание можно
+            послушать, если ребёнок ещё не читает.
+          </p>
         </div>
         <div className="sov-hero__art">
           <img
@@ -200,6 +208,41 @@ function Journey() {
   );
 }
 
+/** Тренажёры открыты без аккаунта — это отдельный вход в продукт, не подраздел тем. */
+function Trainers() {
+  return (
+    <section className="sov-section sov-shell">
+      <h2>Два тренажёра работают сразу</h2>
+      <p className="sov-section__lead">
+        Ни регистрации, ни оплаты: открыл и занимаешься. Прогресс сохраняется только с аккаунтом —
+        об этом сказано прямо на экране результата, а не мелким шрифтом.
+      </p>
+      <div className="sov-split">
+        <div className="sov-panel">
+          <h3>Устный счёт</h3>
+          <p style={{ color: "var(--sov-ink-soft)", marginTop: 8, fontSize: ".95rem" }}>
+            Однозначные, двузначные и трёхзначные числа, выбор действий и таймер на каждый ответ —
+            от пяти секунд до «без ограничения».
+          </p>
+          <div style={{ marginTop: 18 }}>
+            <StartAction to="/schet">Открыть тренажёр</StartAction>
+          </div>
+        </div>
+        <div className="sov-panel">
+          <h3>Скорочтение</h3>
+          <p style={{ color: "var(--sov-ink-soft)", marginTop: 8, fontSize: ".95rem" }}>
+            Слова показываются по одному с выбранной скоростью, после текста — вопросы на
+            понимание. Три уровня сложности текстов.
+          </p>
+          <div style={{ marginTop: 18 }}>
+            <StartAction to="/chtenie">Открыть тренажёр</StartAction>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function HowItWorks() {
   return (
     <section className="sov-section sov-shell">
@@ -309,6 +352,7 @@ function Plans() {
           <h3>Бесплатно</h3>
           <div className="sov-plan__price">0 ₽</div>
           <ul>
+            <li>Нулевой урок и оба тренажёра без регистрации</li>
             <li>Входная диагностика</li>
             <li>По одной теме в математике и русском</li>
             <li>Кабинет родителя целиком</li>

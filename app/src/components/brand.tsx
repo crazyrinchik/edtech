@@ -1,20 +1,34 @@
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 
-/** Совёнок: маскот. Бумажная аппликация, один акцент. */
-export function Owl({ size = 48, className = "" }: { size?: number; className?: string }) {
+import { Owl as Mascot } from "./mascot";
+
+export { currentOwlItem, ForestScene, OWL_UNLOCKS, owlStage } from "./mascot";
+export type { OwlItem, OwlMood } from "./mascot";
+
+/**
+ * Совёнок: маскот. Прежняя версия была плоской аппликацией из нескольких
+ * фигур; теперь это мягкая мультяшная сова, умеющая расти и менять настроение
+ * (см. components/mascot.tsx). Обёртка сохраняет старую сигнатуру, поэтому
+ * шапка, подвал и витрина продолжают работать без правок.
+ */
+export function Owl({
+  size = 48,
+  className = "",
+  stage = 3,
+  mood = "idle",
+  item = "none",
+  animated = false,
+}: {
+  size?: number;
+  className?: string;
+  stage?: number;
+  mood?: "idle" | "happy" | "concerned" | "sleepy";
+  item?: "none" | "scarf" | "glasses" | "cap" | "graduate";
+  animated?: boolean;
+}) {
   return (
-    <svg viewBox="0 0 64 64" width={size} height={size} className={className} aria-hidden="true">
-      <path d="M32 6c11 0 20 8 20 19v13c0 11-9 20-20 20s-20-9-20-20V25C12 14 21 6 32 6Z" fill="var(--sov-cobalt)" />
-      <path d="M32 12c8 0 14 6 14 13v12c0 8-6 14-14 14s-14-6-14-14V25c0-7 6-13 14-13Z" fill="var(--sov-paper)" />
-      <circle cx="24" cy="27" r="7" fill="var(--sov-cobalt)" />
-      <circle cx="40" cy="27" r="7" fill="var(--sov-cobalt)" />
-      <circle cx="25.5" cy="26" r="2.6" fill="var(--sov-paper)" />
-      <circle cx="41.5" cy="26" r="2.6" fill="var(--sov-paper)" />
-      <path d="M32 33l3.5 5h-7L32 33Z" fill="var(--sov-ink)" />
-      <path d="M20 8l5 7-8 2 3-9Z" fill="var(--sov-cobalt)" />
-      <path d="M44 8l-5 7 8 2-3-9Z" fill="var(--sov-cobalt)" />
-    </svg>
+    <Mascot size={size} className={className} stage={stage} mood={mood} item={item} animated={animated} />
   );
 }
 
@@ -73,6 +87,35 @@ export function FormAction({ children, pending }: { children: ReactNode; pending
     <button type="submit" disabled={pending} className="sov-act-form">
       {pending ? "Секунду…" : children}
     </button>
+  );
+}
+
+/**
+ * Аватары детей. Фотографий у нас нет и не будет (о ребёнке хранятся только
+ * имя, класс и ответы), поэтому лицо профиля — зверёк: его ребёнок узнаёт
+ * раньше, чем прочитает своё имя.
+ */
+export const CHILD_AVATARS: { id: string; label: string; face: string; tint: string }[] = [
+  { id: "owl", label: "Совёнок", face: "🦉", tint: "#e8eeff" },
+  { id: "fox", label: "Лисёнок", face: "🦊", tint: "#ffe9d9" },
+  { id: "bear", label: "Медвежонок", face: "🐻", tint: "#f1e6d8" },
+  { id: "hare", label: "Зайчонок", face: "🐰", tint: "#f2e6f7" },
+  { id: "cat", label: "Котёнок", face: "🐱", tint: "#ffeef1" },
+  { id: "panda", label: "Панда", face: "🐼", tint: "#eef1f4" },
+  { id: "frog", label: "Лягушонок", face: "🐸", tint: "#e4f6e6" },
+  { id: "penguin", label: "Пингвинёнок", face: "🐧", tint: "#e3f1fb" },
+];
+
+export function ChildAvatar({ avatar, size = 56 }: { avatar: string; size?: number }) {
+  const found = CHILD_AVATARS.find((a) => a.id === avatar) ?? CHILD_AVATARS[0];
+  return (
+    <span
+      className="sov-avatar"
+      style={{ width: size, height: size, background: found.tint, fontSize: size * 0.56 }}
+      aria-hidden="true"
+    >
+      {found.face}
+    </span>
   );
 }
 

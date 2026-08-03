@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import type { TaskPayload } from "../content/seed";
+import { DEMO_TASKS, READING_TEXTS } from "../content/seed";
 import { getCookie, setCookie } from "@tanstack/react-start/server";
 import { z } from "zod";
 
@@ -10,16 +11,30 @@ import {
   diagnosticFor,
   endSession,
   ensureSeeded,
+  hasParentPin,
   hashPassword,
+  isParentUnlocked,
+  lockParent,
   nowIso,
   requireAdmin,
   requireOwnChild,
+  requireParentAccess,
   requireUser,
+  saveParentPin,
   startSession,
   track,
   uid,
+  unlockParent,
   verifyPassword,
 } from "../core.server";
+import {
+  CHANNEL_TITLES,
+  channelReady,
+  ensureChannel,
+  notifyParent,
+  type ChannelRow,
+  type NotifyChannel,
+} from "../notify.server";
 
 const CHILD_COOKIE = "sov_child";
 
@@ -61,15 +76,20 @@ type TaskRow = {
 export const me = createServerFn({ method: "GET" }).handler(async () => {
   await ensureSeeded();
   const user = await currentUser();
-  if (!user) return { user: null, children: [], activeChildId: null };
+  if (!user) {
+    return { user: null, children: [], activeChildId: null, parentPinSet: false, parentUnlocked: false };
+  }
   const children = await db()
     .prepare("SELECT * FROM children WHERE parent_id = ? ORDER BY created_at")
     .bind(user.id)
     .all<ChildRecord>();
+  const pinSet = await hasParentPin(user.id);
   return {
     user,
     children: (children.results ?? []) as ChildRecord[],
     activeChildId: getCookie(CHILD_COOKIE) ?? null,
+    parentPinSet: pinSet,
+    parentUnlocked: pinSet ? await isParentUnlocked(user.id) : true,
   };
 });
 
@@ -106,17 +126,21 @@ export const registerParent = createServerFn({ method: "POST" })
     if (existing) throw new Error("Такая почта уже зарегистрирована");
 
     const id = uid("usr");
-    const isFirst = ((await db().prepare("SELECT COUNT(*) AS n FROM users").first<{ n: number }>())?.n ?? 0) === 0;
+    // Регистрация всегда заводит родителя. Раньше первый зарегистрировавшийся
+    // получал роль admin — на открытом сайте это означало, что администратором
+    // становится тот, кто просто оказался первым. Учётная запись администратора
+    // теперь создаётся отдельно, при развёртывании (см. ensureAdmin в
+    // deploy/db-gateway/server.mjs).
     await db()
       .prepare(
         `INSERT INTO users (id, email, password_hash, name, role, subscription_status, consent_pd, consent_child_pd, consent_at, created_at)
-         VALUES (?, ?, ?, ?, ?, 'free', 1, 1, ?, ?)`,
+         VALUES (?, ?, ?, ?, 'parent', 'free', 1, 1, ?, ?)`,
       )
-      .bind(id, email, await hashPassword(data.password), data.name.trim(), isFirst ? "admin" : "parent", nowIso(), nowIso())
+      .bind(id, email, await hashPassword(data.password), data.name.trim(), nowIso(), nowIso())
       .run();
     await startSession(id);
     await track("register", { userId: id });
-    return { ok: true, isAdmin: isFirst };
+    return { ok: true };
   });
 
 export const loginParent = createServerFn({ method: "POST" })
@@ -142,6 +166,53 @@ export const logout = createServerFn({ method: "POST" }).handler(async () => {
   return { ok: true };
 });
 
+/* ------------------------------------------------- код родителя (4 цифры) */
+
+const pinSchema = z
+  .string()
+  .regex(/^\d{4}$/, "Код — это четыре цифры")
+  .refine((v) => new Set(v).size > 1, "Четыре одинаковые цифры угадываются сразу");
+
+/** Что показать на входе в кабинет: придумать код, ввести код или пустить. */
+export const parentGate = createServerFn({ method: "GET" }).handler(async () => {
+  const user = await requireUser();
+  const pinSet = await hasParentPin(user.id);
+  return { pinSet, unlocked: pinSet ? await isParentUnlocked(user.id) : true };
+});
+
+export const setParentPin = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ pin: pinSchema, currentPin: z.string().nullable() }))
+  .handler(async ({ data }) => {
+    const user = await requireUser();
+    // Смена кода возможна только из уже открытого кабинета или со старым кодом:
+    // иначе ребёнок, добравшийся до вкладки, просто переписал бы код на свой.
+    if (await hasParentPin(user.id)) {
+      const unlocked = await isParentUnlocked(user.id);
+      if (!unlocked) {
+        if (!data.currentPin || !(await unlockParent(user.id, data.currentPin))) {
+          throw new Error("Не подходит текущий код");
+        }
+      }
+    }
+    await saveParentPin(user.id, data.pin);
+    await unlockParent(user.id, data.pin);
+    await track("parent_pin_set", { userId: user.id });
+    return { ok: true };
+  });
+
+export const unlockParentCabinet = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ pin: z.string().trim().min(1) }))
+  .handler(async ({ data }) => {
+    const user = await requireUser();
+    if (!(await unlockParent(user.id, data.pin))) throw new Error("Не подходит код");
+    return { ok: true };
+  });
+
+export const lockParentCabinet = createServerFn({ method: "POST" }).handler(async () => {
+  await lockParent();
+  return { ok: true };
+});
+
 /* --------------------------------------------------------------- дети */
 
 export const addChild = createServerFn({ method: "POST" })
@@ -163,7 +234,7 @@ export const addChild = createServerFn({ method: "POST" })
       )
       .bind(id, user.id, data.name.trim(), data.avatar, data.grade, data.birthYear, nowIso())
       .run();
-    setCookie(CHILD_COOKIE, id, { path: "/", maxAge: 400 * 86400, sameSite: "lax" });
+    setCookie(CHILD_COOKIE, id, { path: "/", sameSite: "lax" });
     await track("child_created", { userId: user.id, childId: id });
     return { id };
   });
@@ -173,7 +244,10 @@ export const selectChild = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const user = await requireUser();
     await requireOwnChild(data.childId, user.id);
-    setCookie(CHILD_COOKIE, data.childId, { path: "/", maxAge: 400 * 86400, sameSite: "lax" });
+    // Кука выбранного ребёнка живёт до закрытия браузера: если детей несколько,
+    // новый сеанс должен начинаться с вопроса «кто сейчас занимается», а не
+    // с прошлого выбора недельной давности.
+    setCookie(CHILD_COOKIE, data.childId, { path: "/", sameSite: "lax" });
     return { ok: true };
   });
 
@@ -186,7 +260,7 @@ export const updateChild = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data }) => {
-    const user = await requireUser();
+    const user = await requireParentAccess();
     await requireOwnChild(data.childId, user.id);
     await db()
       .prepare("UPDATE children SET daily_limit_min = ?, sound_on = ? WHERE id = ?")
@@ -280,12 +354,15 @@ export const getSkillMap = createServerFn({ method: "GET" })
     const map = (subjects.results ?? []).map((subject) => {
       const list = (topics.results ?? []).filter((t) => t.subject_id === subject.id);
       let previousDone = true;
+      let previousName = "";
       const items = list.map((topic) => {
         const p = byTopic.get(topic.id);
         const locked = !paid && !topic.is_free;
         const available = previousDone && !locked;
-        previousDone = p?.status === "completed";
-        return {
+        // Причина закрытия важнее самого факта: «жди подписку» и «сначала
+        // пройди предыдущую тему» — это разные вещи для ребёнка и родителя.
+        const reason = locked ? "paywall" : available ? null : "sequence";
+        const item = {
           id: topic.id,
           name: topic.name,
           summary: topic.summary,
@@ -294,7 +371,12 @@ export const getSkillMap = createServerFn({ method: "GET" })
           status: p?.status ?? "locked",
           locked,
           available,
+          reason,
+          needsTopic: reason === "sequence" ? previousName : "",
         };
+        previousDone = p?.status === "completed";
+        previousName = topic.name;
+        return item;
       });
       return { id: subject.id, name: subject.name, topics: items };
     });
@@ -374,6 +456,20 @@ export const answerTask = createServerFn({ method: "POST" })
       .bind(uid("att"), data.childId, data.taskId, task.topic_id, correct ? 1 : 0, data.seconds, nowIso())
       .run();
 
+    // Тема помечается начатой уже на первом ответе. Раньше строка в progress
+    // появлялась только на экране «Завершить», и ребёнок, закрывший вкладку
+    // посередине, возвращался к карте, где ничего не изменилось — это и
+    // читалось как «прогресс не сохраняется». Статус completed здесь не
+    // трогается: его ставит только проверочная работа.
+    await db()
+      .prepare(
+        `INSERT INTO progress (child_id, topic_id, status, stars, best_percent, updated_at)
+         VALUES (?, ?, 'in_progress', 0, 0, ?)
+         ON CONFLICT(child_id, topic_id) DO UPDATE SET updated_at = ?`,
+      )
+      .bind(data.childId, task.topic_id, nowIso(), nowIso())
+      .run();
+
     return { correct, explanation: correct ? null : task.explanation, answer: correct ? null : task.answer };
   });
 
@@ -391,12 +487,22 @@ export const finishTopic = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const user = await requireUser();
-    await requireOwnChild(data.childId, user.id);
-    const percent = Math.round((data.correct / data.total) * 100);
+    const child = (await requireOwnChild(data.childId, user.id)) as unknown as ChildRecord;
+
+    // Число заданий берётся из базы, а не из тела запроса: в проверочной темы
+    // «Считаем до 10» их пять, и результат вроде 92% означал бы, что клиент
+    // прислал свой знаменатель. Такие проценты уже встречались в базе.
+    const counted = await db()
+      .prepare("SELECT COUNT(*) AS n FROM tasks WHERE topic_id = ? AND is_check = ?")
+      .bind(data.topicId, data.mode === "check" ? 1 : 0)
+      .first<{ n: number }>();
+    const total = counted?.n && counted.n > 0 ? counted.n : data.total;
+    const correct = Math.min(data.correct, total);
+    const percent = Math.round((correct / total) * 100);
 
     await db()
       .prepare("UPDATE lessons SET seconds = ?, correct = ?, total = ? WHERE id = ? AND child_id = ?")
-      .bind(data.seconds, data.correct, data.total, data.lessonId, data.childId)
+      .bind(data.seconds, correct, total, data.lessonId, data.childId)
       .run();
 
     const existing = await db()
@@ -428,7 +534,38 @@ export const finishTopic = createServerFn({ method: "POST" })
       props: { topicId: data.topicId, mode: data.mode, percent },
     });
 
-    return { percent, passed, stars: bestStars, mode: data.mode };
+    // «Следующий уровень не открылся» чаще всего означало не потерянный
+    // прогресс, а закрытую подписку: тема пройдена, а следующая платная.
+    // Теперь причина возвращается вместе с результатом и видна ребёнку.
+    const topic = await db()
+      .prepare("SELECT * FROM topics WHERE id = ?")
+      .bind(data.topicId)
+      .first<TopicRow>();
+    let next: { name: string; locked: boolean } | null = null;
+    if (topic && status === "completed") {
+      const row = await db()
+        .prepare(
+          `SELECT name, is_free FROM topics
+            WHERE subject_id = ? AND grade = ? AND sort_order > ?
+            ORDER BY sort_order LIMIT 1`,
+        )
+        .bind(topic.subject_id, topic.grade, topic.sort_order)
+        .first<{ name: string; is_free: number }>();
+      if (row) next = { name: row.name, locked: !row.is_free && user.subscriptionStatus !== "active" };
+    }
+
+    // Род ребёнка приложение не спрашивает, поэтому в сообщении нет глаголов
+    // прошедшего времени: «занятие окончено», а не «позанимался/позанималась».
+    if (data.mode === "check") {
+      await notifyParent(
+        user.id,
+        `Совёнок: у ${child.name} окончена проверочная по теме «${topic?.name ?? "занятие"}».\n` +
+          `Верных ответов: ${percent}%. Время: ${Math.max(1, Math.round(data.seconds / 60))} мин.\n` +
+          (passed ? "Тема зачтена." : "Для зачёта нужно 70% — тему можно пройти ещё раз."),
+      );
+    }
+
+    return { percent, passed, stars: bestStars, mode: data.mode, next };
   });
 
 /* -------------------------------------------------- родительский отчёт */
@@ -437,7 +574,7 @@ export const parentReport = createServerFn({ method: "GET" })
   .inputValidator(z.object({ childId: z.string() }))
   .handler(async ({ data }) => {
     await ensureSeeded();
-    const user = await requireUser();
+    const user = await requireParentAccess();
     const child = (await requireOwnChild(data.childId, user.id)) as unknown as ChildRecord;
     const weekAgo = new Date(Date.now() - 7 * 864e5).toISOString();
 
@@ -462,6 +599,10 @@ export const parentReport = createServerFn({ method: "GET" })
       .bind(data.childId)
       .first<{ n: number; stars: number }>();
 
+    // Во всех GROUP BY ниже неагрегированные колонки (t.name, s.name)
+    // перечислены явно: SQLite разрешает выбирать их «мимо» GROUP BY,
+    // PostgreSQL это запрещает. Имена однозначны для topic_id, поэтому
+    // выборка не меняется, и запрос остаётся верным для обоих движков.
     const risk = await db()
       .prepare(
         `SELECT t.name AS topic, s.name AS subject,
@@ -470,7 +611,7 @@ export const parentReport = createServerFn({ method: "GET" })
            JOIN topics t ON t.id = a.topic_id
            JOIN subjects s ON s.id = t.subject_id
           WHERE a.child_id = ?
-          GROUP BY a.topic_id
+          GROUP BY a.topic_id, t.name, s.name
          HAVING COUNT(*) >= 4 AND (CAST(SUM(a.is_correct) AS REAL) / COUNT(*)) < 0.7
           ORDER BY (CAST(SUM(a.is_correct) AS REAL) / COUNT(*)) ASC
           LIMIT 5`,
@@ -490,6 +631,17 @@ export const parentReport = createServerFn({ method: "GET" })
       .bind(data.childId)
       .all<{ started_at: string; seconds: number; correct: number; total: number; topic: string; subject: string }>();
 
+    // Тренажёры живут отдельно от тем, но родителю важно видеть и их:
+    // «занимался ли ребёнок» — это не только пройденные темы.
+    const drills = await db()
+      .prepare(
+        `SELECT kind, COUNT(*) AS runs, COALESCE(SUM(correct), 0) AS correct,
+                COALESCE(SUM(total), 0) AS total, MAX(created_at) AS last_at
+           FROM drills WHERE child_id = ? GROUP BY kind`,
+      )
+      .bind(data.childId)
+      .all<{ kind: string; runs: number; correct: number; total: number; last_at: string }>();
+
     await track("parent_dashboard_opened", { userId: user.id, childId: data.childId });
 
     const attempts = totals?.attempts ?? 0;
@@ -507,6 +659,7 @@ export const parentReport = createServerFn({ method: "GET" })
         percent: Math.round((r.correct / r.total) * 100),
       })),
       history: history.results ?? [],
+      drills: drills.results ?? [],
       subscription: user.subscriptionStatus,
     };
   });
@@ -514,7 +667,7 @@ export const parentReport = createServerFn({ method: "GET" })
 export const redeemPromo = createServerFn({ method: "POST" })
   .inputValidator(z.object({ code: z.string().trim().min(3) }))
   .handler(async ({ data }) => {
-    const user = await requireUser();
+    const user = await requireParentAccess();
     const code = data.code.trim().toUpperCase();
     const promo = await db()
       .prepare("SELECT code, months, used_by FROM promo_codes WHERE code = ?")
@@ -536,13 +689,247 @@ export const redeemPromo = createServerFn({ method: "POST" })
   });
 
 export const cancelSubscription = createServerFn({ method: "POST" }).handler(async () => {
-  const user = await requireUser();
+  const user = await requireParentAccess();
   await db().batch([
     db().prepare("UPDATE users SET subscription_status = 'free' WHERE id = ?").bind(user.id),
     db().prepare("UPDATE subscriptions SET status = 'cancelled' WHERE user_id = ? AND status = 'active'").bind(user.id),
   ]);
   return { ok: true };
 });
+
+/* ------------------------------------------ нулевой урок без регистрации */
+
+/**
+ * Демо-бандл: семь заданий, доступных до всякой регистрации. Ответы наружу не
+ * уходят — проверка всё равно на сервере, чтобы механика была ровно та же, что
+ * и в настоящем занятии.
+ */
+export const demoLesson = createServerFn({ method: "GET" }).handler(async () => {
+  await track("demo_started");
+  return {
+    tasks: DEMO_TASKS.map((task, i) => ({
+      id: `demo-${i}`,
+      kind: task.kind,
+      prompt: task.prompt,
+      payload: task.payload as TaskPayload,
+    })),
+  };
+});
+
+export const demoAnswer = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ taskId: z.string(), value: z.string() }))
+  .handler(async ({ data }) => {
+    const index = Number(data.taskId.replace(/^demo-/, ""));
+    const task = DEMO_TASKS[index];
+    if (!task) throw new Error("Задание не найдено");
+    const correct = answersMatch(data.value, task.answer);
+    return { correct, explanation: correct ? null : task.explanation, answer: correct ? null : task.answer };
+  });
+
+export const demoFinished = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ correct: z.number().int().min(0), total: z.number().int().min(1) }))
+  .handler(async ({ data }) => {
+    await track("demo_finished", { props: data });
+    return { ok: true };
+  });
+
+/* ----------------------------------------------------------- тренажёры */
+
+/**
+ * Скорочтение. Без аккаунта открыт только первый уровень: тренажёр должно быть
+ * видно до регистрации, но не целиком. Правильные ответы уходят только вместе
+ * с результатом (readingResult), в списке текстов их нет.
+ */
+export const readingTexts = createServerFn({ method: "GET" }).handler(async () => {
+  const user = await currentUser();
+  const texts = READING_TEXTS.filter((t) => (user ? true : t.level === 1));
+  return {
+    signedIn: !!user,
+    lockedLevels: user ? 0 : READING_TEXTS.filter((t) => t.level > 1).length,
+    texts: texts.map((t) => ({
+      id: t.id,
+      level: t.level,
+      title: t.title,
+      body: t.body,
+      words: t.body.trim().split(/\s+/).length,
+      questions: t.questions.map((q, i) => ({ index: i, prompt: q.prompt, options: q.options })),
+    })),
+  };
+});
+
+export const readingResult = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      textId: z.string(),
+      answers: z.array(z.object({ index: z.number().int().min(0), value: z.string() })),
+      seconds: z.number().int().min(0).max(3600),
+      wpm: z.number().int().min(0).max(3000),
+      childId: z.string().nullable(),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const text = READING_TEXTS.find((t) => t.id === data.textId);
+    if (!text) throw new Error("Текст не найден");
+
+    const details = text.questions.map((q, i) => {
+      const given = data.answers.find((a) => a.index === i)?.value ?? "";
+      return { prompt: q.prompt, answer: q.answer, correct: answersMatch(given, q.answer) };
+    });
+    const correct = details.filter((d) => d.correct).length;
+
+    const saved = await saveDrillRow({
+      childId: data.childId,
+      kind: "reading",
+      settings: { textId: text.id, level: text.level },
+      correct,
+      total: details.length,
+      seconds: data.seconds,
+      score: data.wpm,
+    });
+
+    return { correct, total: details.length, details, saved };
+  });
+
+/**
+ * Общая запись результата тренажёра. Без аккаунта или без выбранного ребёнка
+ * возвращает false — интерфейс на это показывает предложение зарегистрироваться.
+ */
+async function saveDrillRow(opts: {
+  childId: string | null;
+  kind: "mental" | "reading";
+  settings: unknown;
+  correct: number;
+  total: number;
+  seconds: number;
+  score: number;
+}): Promise<boolean> {
+  if (!opts.childId) return false;
+  const user = await currentUser();
+  if (!user) return false;
+  try {
+    await requireOwnChild(opts.childId, user.id);
+  } catch {
+    return false;
+  }
+  await db()
+    .prepare(
+      `INSERT INTO drills (id, child_id, kind, settings, correct, total, seconds, score, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .bind(
+      uid("drl"),
+      opts.childId,
+      opts.kind,
+      JSON.stringify(opts.settings),
+      opts.correct,
+      opts.total,
+      opts.seconds,
+      opts.score,
+      nowIso(),
+    )
+    .run();
+  await track(`drill_${opts.kind}`, {
+    userId: user.id,
+    childId: opts.childId,
+    props: { correct: opts.correct, total: opts.total, score: opts.score },
+  });
+  return true;
+}
+
+/** Итог тренажёра устного счёта: задания генерирует клиент, счёт хранится здесь. */
+export const saveMentalDrill = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      childId: z.string().nullable(),
+      correct: z.number().int().min(0),
+      total: z.number().int().min(1),
+      seconds: z.number().int().min(0).max(7200),
+      digits: z.number().int().min(1).max(3),
+      operations: z.array(z.enum(["add", "sub", "mul", "div"])).min(1),
+      limitSec: z.number().int().min(0).max(120),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const saved = await saveDrillRow({
+      childId: data.childId,
+      kind: "mental",
+      settings: { digits: data.digits, operations: data.operations, limitSec: data.limitSec },
+      correct: data.correct,
+      total: data.total,
+      seconds: data.seconds,
+      score: Math.round((data.correct / data.total) * 100),
+    });
+
+    if (saved && data.childId) {
+      const user = await currentUser();
+      const child = await db()
+        .prepare("SELECT name FROM children WHERE id = ?")
+        .bind(data.childId)
+        .first<{ name: string }>();
+      if (user && child) {
+        await notifyParent(
+          user.id,
+          `Совёнок: у ${child.name} окончен устный счёт.\n` +
+            `Верных ответов: ${data.correct} из ${data.total}. Время: ${Math.max(1, Math.round(data.seconds / 60))} мин.`,
+        );
+      }
+    }
+    return { saved };
+  });
+
+/* --------------------------------------------- напоминания в мессенджер */
+
+export const notifySettings = createServerFn({ method: "GET" }).handler(async () => {
+  const user = await requireParentAccess();
+  const rows = await db()
+    .prepare("SELECT * FROM notify_channels WHERE user_id = ?")
+    .bind(user.id)
+    .all<ChannelRow>();
+  const byChannel = new Map((rows.results ?? []).map((r) => [r.channel, r]));
+  return {
+    channels: (["tg", "max"] as NotifyChannel[]).map((channel) => {
+      const row = byChannel.get(channel);
+      return {
+        channel,
+        title: CHANNEL_TITLES[channel],
+        ready: channelReady(channel),
+        connected: !!row?.chat_id,
+        enabled: row ? !!row.enabled : true,
+        code: row?.chat_id ? null : (row?.link_code ?? null),
+      };
+    }),
+  };
+});
+
+export const notifyConnect = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ channel: z.enum(["tg", "max"]) }))
+  .handler(async ({ data }) => {
+    const user = await requireParentAccess();
+    const row = await ensureChannel(user.id, data.channel);
+    return { code: row.chat_id ? null : row.link_code };
+  });
+
+export const notifyToggle = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ channel: z.enum(["tg", "max"]), enabled: z.boolean() }))
+  .handler(async ({ data }) => {
+    const user = await requireParentAccess();
+    await db()
+      .prepare("UPDATE notify_channels SET enabled = ? WHERE user_id = ? AND channel = ?")
+      .bind(data.enabled ? 1 : 0, user.id, data.channel)
+      .run();
+    return { ok: true };
+  });
+
+export const notifyDisconnect = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ channel: z.enum(["tg", "max"]) }))
+  .handler(async ({ data }) => {
+    const user = await requireParentAccess();
+    await db()
+      .prepare("DELETE FROM notify_channels WHERE user_id = ? AND channel = ?")
+      .bind(user.id, data.channel)
+      .run();
+    return { ok: true };
+  });
 
 /* ------------------------------------------------------------ админка */
 
@@ -563,7 +950,7 @@ export const adminOverview = createServerFn({ method: "GET" }).handler(async () 
     .prepare(
       `SELECT t.name AS topic, COUNT(*) AS total, SUM(a.is_correct) AS correct
          FROM attempts a JOIN topics t ON t.id = a.topic_id
-        GROUP BY a.topic_id HAVING COUNT(*) >= 5
+        GROUP BY a.topic_id, t.name HAVING COUNT(*) >= 5
         ORDER BY (CAST(SUM(a.is_correct) AS REAL) / COUNT(*)) ASC LIMIT 6`,
     )
     .all<{ topic: string; total: number; correct: number }>();
@@ -571,7 +958,7 @@ export const adminOverview = createServerFn({ method: "GET" }).handler(async () 
   const popular = await db()
     .prepare(
       `SELECT t.name AS topic, COUNT(*) AS lessons FROM lessons l
-         JOIN topics t ON t.id = l.topic_id GROUP BY l.topic_id ORDER BY lessons DESC LIMIT 6`,
+         JOIN topics t ON t.id = l.topic_id GROUP BY l.topic_id, t.name ORDER BY lessons DESC LIMIT 6`,
     )
     .all<{ topic: string; lessons: number }>();
 

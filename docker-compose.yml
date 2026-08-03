@@ -1,0 +1,94 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sovenok
+      POSTGRES_USER: sovenok
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?нужен POSTGRES_PASSWORD в .env на сервере}
+      # Русские имена и сортировка в темах и заданиях.
+      LANG: ru_RU.UTF-8
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    # Порт наружу не публикуется: база доступна только по внутренней сети.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sovenok -d sovenok"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  db-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: db-gateway
+    image: ghcr.io/crazyrinchik/sovenok-db-gateway:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://sovenok:${POSTGRES_PASSWORD}@postgres:5432/sovenok
+      GATEWAY_TOKEN: ${GATEWAY_TOKEN:?нужен GATEWAY_TOKEN в .env на сервере}
+      # Служебные учётные записи: админ (админка не достаётся первому
+      # зарегистрировавшемуся) и обычный родитель для проверки выкладок руками.
+      # Пароли перезаписываются при каждом перезапуске шлюза.
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      TEST_EMAIL: ${TEST_EMAIL:-}
+      TEST_PASSWORD: ${TEST_PASSWORD:-}
+    # Тоже без ports: сервис исполняет произвольный SQL и снаружи недоступен.
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: app
+    # Тег приходит из .env, который выкладка пишет на сервер (IMAGE_TAG=<sha>).
+    # Откат — поменять IMAGE_TAG на прошлый sha и сделать `docker compose up -d`.
+    image: ghcr.io/crazyrinchik/sovenok-app:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      PORT: "8080"
+      HF_ENV: production
+      APP_SLUG: sovenok
+      # Заданы обе — db() идёт в PostgreSQL; убрать их значит вернуться на D1.
+      DB_GATEWAY_URL: http://db-gateway:8787
+      DB_GATEWAY_TOKEN: ${GATEWAY_TOKEN}
+      # Напоминания родителю. Пустой токен просто прячет канал в кабинете,
+      # остальное приложение работает как раньше.
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      MAX_BOT_TOKEN: ${MAX_BOT_TOKEN:-}
+      NOTIFY_WEBHOOK_SECRET: ${NOTIFY_WEBHOOK_SECRET:-}
+    volumes:
+      # Старая база D1 (SQLite). Больше не используется, но том оставлен:
+      # это путь отката, если с PostgreSQL что-то пойдёт не так.
+      - d1-data:/data/d1
+    expose:
+      - "8080"
+    depends_on:
+      - db-gateway
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: web
+    image: ghcr.io/crazyrinchik/sovenok-web:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # HTTP/3
+    volumes:
+      # Сертификаты Let's Encrypt должны пережить пересборку образа.
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - app
+
+volumes:
+  pg-data:
+  d1-data:
+  caddy-data:
+  caddy-config:

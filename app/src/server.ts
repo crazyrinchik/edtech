@@ -2,6 +2,7 @@ import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
+import { handleNotifyWebhook, NOTIFY_WEBHOOK_PREFIX } from "./lib/notify-webhook.server";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -40,6 +41,11 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
+      // Вебхуки ботов перехватываются до роутера: это не страница и не
+      // серверная функция, а внешний POST от мессенджера.
+      if (new URL(request.url).pathname.startsWith(NOTIFY_WEBHOOK_PREFIX)) {
+        return await handleNotifyWebhook(request);
+      }
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
       return await normalizeCatastrophicSsrResponse(response);

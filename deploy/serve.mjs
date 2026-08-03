@@ -1,0 +1,84 @@
+// Запуск SSR-бандла Cloudflare Worker на собственном сервере.
+//
+// miniflare поднимает тот же самый workerd, что стоит за Cloudflare Workers,
+// и подсовывает воркеру биндинг DB — локальный D1 поверх SQLite-файла в
+// /data/d1. Поэтому код приложения (src/lib/core.server.ts, `cloudflare:workers`,
+// crypto.subtle, prepare().bind().run(), batch()) работает без единой правки.
+
+import { Miniflare } from "miniflare";
+import { mkdir, readdir, readFile } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const ROOT = path.dirname(fileURLToPath(import.meta.url));
+const PORT = Number(process.env.PORT ?? 8080);
+const D1_PERSIST = process.env.D1_PERSIST ?? "/data/d1";
+const SERVER_DIR = path.join(ROOT, "dist", "server");
+const MIGRATIONS_DIR = path.join(ROOT, "migrations");
+
+await mkdir(D1_PERSIST, { recursive: true });
+
+const mf = new Miniflare({
+  scriptPath: path.join(SERVER_DIR, "server.js"),
+  modules: true,
+  modulesRoot: SERVER_DIR,
+  // Vite бьёт SSR-бандл на чанки — workerd должен принять их все как ES-модули.
+  modulesRules: [
+    { type: "ESModule", include: ["**/*.js", "**/*.mjs"] },
+    { type: "CompiledWasm", include: ["**/*.wasm"] },
+    { type: "Text", include: ["**/*.txt", "**/*.html", "**/*.css"] },
+    { type: "Data", include: ["**/*.bin"] },
+  ],
+  compatibilityDate: "2025-05-01",
+  compatibilityFlags: ["nodejs_compat"],
+  d1Databases: { DB: "sovenok" },
+  d1Persist: D1_PERSIST,
+  bindings: {
+    HF_ENV: process.env.HF_ENV ?? "production",
+    APP_SLUG: process.env.APP_SLUG ?? "sovenok",
+    // Если заданы обе — db() в приложении идёт в PostgreSQL через шлюз,
+    // а не в биндинг DB. Биндинг D1 при этом остаётся: он путь отката.
+    DB_GATEWAY_URL: process.env.DB_GATEWAY_URL ?? "",
+    DB_GATEWAY_TOKEN: process.env.DB_GATEWAY_TOKEN ?? "",
+  },
+  host: "0.0.0.0",
+  port: PORT,
+});
+
+// Миграции идемпотентны (CREATE TABLE/INDEX IF NOT EXISTS), поэтому
+// прогоняются на каждом старте — отдельная таблица версий не нужна.
+async function applyMigrations() {
+  const db = await mf.getD1Database("DB");
+  const files = (await readdir(MIGRATIONS_DIR)).filter((f) => f.endsWith(".sql")).sort();
+  for (const file of files) {
+    const sql = await readFile(path.join(MIGRATIONS_DIR, file), "utf8");
+    const statements = sql
+      .replace(/^\s*--.*$/gm, "")
+      .split(";")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    for (const statement of statements) {
+      await db.prepare(statement).run();
+    }
+    console.log(`[migrations] ${file}: ${statements.length} statement(s)`);
+  }
+}
+
+// С PostgreSQL схему накатывает db-gateway, здесь это было бы лишней работой
+// над базой, в которую приложение всё равно не ходит.
+const usePostgres = Boolean(process.env.DB_GATEWAY_URL && process.env.DB_GATEWAY_TOKEN);
+if (usePostgres) {
+  console.log("[sovenok] база: PostgreSQL через db-gateway");
+} else {
+  await applyMigrations();
+  console.log(`[sovenok] база: D1/SQLite → ${D1_PERSIST}`);
+}
+
+const url = await mf.ready;
+console.log(`[sovenok] SSR worker слушает ${url.origin}`);
+
+for (const signal of ["SIGTERM", "SIGINT"]) {
+  process.on(signal, () => {
+    mf.dispose().finally(() => process.exit(0));
+  });
+}

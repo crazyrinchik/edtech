@@ -1,0 +1,38 @@
+# Caddy сам получает и продлевает сертификат Let's Encrypt (HTTP-01 на :80)
+# и редиректит http → https. Состояние (ключи, сертификаты) лежит в /data,
+# он смонтирован волюмом — иначе при каждой пересборке выпускался бы новый
+# сертификат, а у Let's Encrypt на это лимиты.
+{
+	email ekaterinazyub@gmail.com
+}
+
+# www уводится на голый домен одним каноническим адресом. Держать оба
+# рабочими нельзя: сессионная кука ставится на конкретный хост, и человек,
+# вошедший на www, на апексе выглядел бы разлогиненным.
+www.sovenok.space {
+	redir https://sovenok.space{uri} permanent
+}
+
+sovenok.space {
+	encode zstd gzip
+	root * /srv/www
+
+	# Хешированные бандлы и картинки кешируем надолго — но только если файл
+	# реально существует, иначе 404 от приложения залёг бы в кеш на месяц.
+	@cacheable {
+		path /assets/*
+		file
+	}
+	header @cacheable Cache-Control "public, max-age=2592000"
+
+	# Asset-first, как в wrangler.jsonc: есть файл в dist/client — отдаём его,
+	# нет — запрос уходит в SSR-worker (index.html не собирается, "/" всегда SSR).
+	route {
+		file_server {
+			pass_thru
+		}
+		# X-Forwarded-Proto Caddy проставляет сам — по нему приложение
+		# понимает, что снаружи HTTPS, и ставит на сессионную куку Secure.
+		reverse_proxy app:8080
+	}
+}

@@ -1,11 +1,17 @@
-import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 
 import { ChildAction, Owl, Stars } from "../components/brand";
+import { AutoSpeakToggle, SpeakButton, useAutoSpeak } from "../components/speak";
 import { answerTask, finishTopic, me, startTopic } from "../lib/api/app.functions";
 
 export const Route = createFileRoute("/urok/$topicId")({
   head: () => ({ meta: [{ title: "Занятие, Совёнок" }] }),
+  // Режим приходит из адреса: с карты можно зайти и сразу в проверочную,
+  // не проходя тренировку заново.
+  validateSearch: (search: Record<string, unknown>): { mode: "practice" | "check" } => ({
+    mode: search.mode === "check" ? "check" : "practice",
+  }),
   component: LessonPage,
 });
 
@@ -15,18 +21,22 @@ type Session = {
   mode: "practice" | "check";
   tasks: { id: string; kind: string; prompt: string; payload: Record<string, unknown> }[];
 };
-type Finish = { percent: number; passed: boolean; stars: number; mode: "practice" | "check" };
+type Finish = {
+  percent: number; passed: boolean; stars: number; mode: "practice" | "check";
+  next: { name: string; locked: boolean } | null;
+};
 type Verdict = { correct: boolean; explanation: string | null; answer: string | null } | null;
 
 const SOFT_LIMIT_SEC = 20 * 60;
 
 function LessonPage() {
   const { topicId } = useParams({ from: "/urok/$topicId" });
+  const search = useSearch({ from: "/urok/$topicId" });
   const navigate = useNavigate();
 
   const [childId, setChildId] = useState<string | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [mode, setMode] = useState<"practice" | "check">("practice");
+  const [mode, setMode] = useState<"practice" | "check">(search.mode);
   const [index, setIndex] = useState(0);
   const [value, setValue] = useState("");
   const [verdict, setVerdict] = useState<Verdict>(null);
@@ -54,10 +64,11 @@ function LessonPage() {
           await navigate({ to: "/roditel" });
           return;
         }
-        const data = await startTopic({ data: { childId: id, topicId, mode: "practice" } });
+        const data = await startTopic({ data: { childId: id, topicId, mode: search.mode } });
         if (!alive) return;
         setChildId(id);
         setSession(data);
+        setMode(search.mode);
         questionAt.current = Date.now();
       } catch (e) {
         if (alive) setError(e instanceof Error ? e.message : "Не удалось открыть тему");
@@ -66,7 +77,7 @@ function LessonPage() {
     return () => {
       alive = false;
     };
-  }, [topicId, navigate]);
+  }, [topicId, navigate, search.mode]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -74,6 +85,11 @@ function LessonPage() {
     }, 1000);
     return () => window.clearInterval(timer);
   }, []);
+
+  // Вопрос читается вслух сам, если включён режим «читать вслух». Хук стоит
+  // до всех ранних возвратов: порядок хуков в React менять нельзя.
+  const currentPrompt = !done && session && !verdict ? (session.tasks[index]?.prompt ?? null) : null;
+  useAutoSpeak(currentPrompt, [index, mode]);
 
   if (error) {
     return (
@@ -126,6 +142,22 @@ function LessonPage() {
                 <Stars value={done.stars} />
               </div>
             ) : null}
+            {/* Раньше после зачёта экран молчал о том, что дальше, и закрытая
+                по подписке тема читалась как «прогресс не сохранился». */}
+            {done.next ? (
+              <div className="sov-save-hint" data-tone={done.next.locked ? "warn" : "ok"}>
+                <strong>
+                  {done.next.locked
+                    ? `Следующая тема «${done.next.name}» открывается с подпиской`
+                    : `Открылась следующая тема: «${done.next.name}»`}
+                </strong>
+                <span>
+                  {done.next.locked
+                    ? "Покажи этот экран взрослому: подписка включается в кабинете родителя."
+                    : "Она уже ждёт на карте занятий."}
+                </span>
+              </div>
+            ) : null}
             <div style={{ marginTop: 28, display: "flex", gap: 12, flexWrap: "wrap" }}>
               {done.mode === "practice" ? (
                 <ChildAction onClick={() => restart("check")}>Пройти проверочную</ChildAction>
@@ -147,6 +179,8 @@ function LessonPage() {
   const task = session.tasks[index];
   const options = ((task.payload as { options?: string[] }).options ?? []) as string[];
   const overtime = elapsed > SOFT_LIMIT_SEC;
+  // Совёнок реагирует на ответ: радуется верному и сочувствует неверному.
+  const owlMood = verdict ? (verdict.correct ? "happy" : "concerned") : "idle";
 
   async function restart(nextMode: "practice" | "check") {
     if (!childId) return;
@@ -207,21 +241,43 @@ function LessonPage() {
   return (
     <div className="sov sov-kid">
       <div className="sov-play">
-        <div className="sov-play__bar">
-          <Owl size={40} />
-          <div className="sov-play__track">
-            <div className="sov-play__fill" style={{ width: `${((index + (verdict ? 1 : 0)) / session.tasks.length) * 100}%` }} />
+        {/* Тропа занятия: совёнок идёт от камня к камню, в конце — банка мёда,
+            которая наполняется по числу верных ответов. */}
+        <div className="sov-track">
+          <div className="sov-track__line" aria-hidden="true" />
+          <div className="sov-track__stones" aria-hidden="true">
+            {session.tasks.map((t, i) => (
+              <span
+                key={t.id}
+                className="sov-track__stone"
+                data-state={i < index ? "past" : i === index ? "now" : "next"}
+              />
+            ))}
           </div>
-          <span className="sov-mono">
-            {index + 1} из {session.tasks.length}
-          </span>
+          <div
+            className="sov-track__walker"
+            style={{ left: `${(index / Math.max(1, session.tasks.length - 1)) * 100}%` }}
+          >
+            <Owl size={54} stage={4} mood={owlMood} animated={!verdict} />
+          </div>
+          <div className="sov-track__jar" title={`${correctCount} верных`}>
+            <span className="sov-track__jar-fill" style={{ height: `${(correctCount / session.tasks.length) * 100}%` }} />
+            <span className="sov-track__jar-count">{correctCount}</span>
+          </div>
         </div>
 
         <div className="sov-card">
-          <p className="sov-mono" style={{ color: "var(--sov-ink-soft)" }}>
-            {session.topic.name} · {mode === "check" ? "проверочная работа" : "тренировка"}
-          </p>
-          <h2 style={{ marginTop: 12 }}>{task.prompt}</h2>
+          <div className="sov-card__head">
+            <p className="sov-mono" style={{ color: "var(--sov-ink-soft)" }}>
+              {session.topic.name} · {mode === "check" ? "проверочная работа" : "тренировка"} ·{" "}
+              {index + 1} из {session.tasks.length}
+            </p>
+            <AutoSpeakToggle />
+          </div>
+          <div className="sov-ask">
+            <h2>{task.prompt}</h2>
+            <SpeakButton text={task.prompt} />
+          </div>
 
           {task.kind === "choice" ? (
             <div className="sov-options">
@@ -271,14 +327,23 @@ function LessonPage() {
           {verdict ? (
             <>
               <div className="sov-feedback" data-kind={verdict.correct ? "right" : "wrong"}>
-                <strong>{verdict.correct ? "Верно" : "Пока не так"}</strong>
-                {verdict.correct ? (
-                  <span>Идём дальше.</span>
-                ) : (
-                  <span>
-                    Правильный ответ: {verdict.answer}. {verdict.explanation}
-                  </span>
-                )}
+                <div>
+                  <strong>{verdict.correct ? "Верно" : "Пока не так"}</strong>
+                  {verdict.correct ? (
+                    <span>Идём дальше.</span>
+                  ) : (
+                    <span>
+                      Правильный ответ: {verdict.answer}. {verdict.explanation}
+                    </span>
+                  )}
+                </div>
+                {!verdict.correct ? (
+                  <SpeakButton
+                    compact
+                    label="Прочитать разбор"
+                    text={`Правильный ответ: ${verdict.answer}. ${verdict.explanation ?? ""}`}
+                  />
+                ) : null}
               </div>
               <div style={{ marginTop: 22, display: "flex", gap: 12, flexWrap: "wrap" }}>
                 <ChildAction onClick={next} disabled={pending}>

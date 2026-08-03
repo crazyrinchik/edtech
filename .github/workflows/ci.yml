@@ -1,22 +1,26 @@
-name: Template CI
+name: CI
 
+# Проверки для веток и пул-реквестов. Пуш в main проверяется не здесь,
+# а первым джобом deploy.yml — чтобы одна и та же сборка не гонялась дважды.
 on:
+  pull_request:
   push:
-    branches:
-      - main
+    branches-ignore: [main]
   workflow_dispatch:
 
 jobs:
   validate:
-    runs-on: arc-runners-frontend
-    name: Validate template
+    # Было arc-runners-frontend — раннер из инфраструктуры Higgsfield.
+    # В этом репозитории такого ярлыка нет, задача висела бы в очереди вечно.
+    runs-on: ubuntu-latest
+    name: Проверка сборки
     # The app project lives in app/ (ci/ holds the deploy config, AGENTS.md +
     # skills/ stay at root). Every build step runs there.
     defaults:
       run:
         working-directory: app
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: oven-sh/setup-bun@v2
 
@@ -34,5 +38,12 @@ jobs:
           HF_DESIGN_INSPECTOR: "1"
         run: bun run build
 
-      - name: Package tests
-        run: bun run test:packages
+      # Вместо `bun run test:packages`: quanta импортирует приватный
+      # @higgsfield-ai/icons, вне Nexus её 13 файлов не грузятся. См. deploy.yml.
+      - name: Package tests (fnf)
+        working-directory: app/packages/fnf
+        run: bun run test
+
+      - name: Package tests (fnf-react)
+        working-directory: app/packages/fnf-react
+        run: bun run test

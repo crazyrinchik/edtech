@@ -22,11 +22,25 @@ type Content = { topics: TopicRow[]; tasks: TaskRow[] };
 type TopicRow = { id: string; name: string; grade: number; subject_id: string; subject_name: string; summary: string | null; is_free: number; task_count: number };
 type TaskRow = { id: string; kind: string; prompt: string; payload: string; answer: string; explanation: string; is_check: number };
 
+/** Варианты для формы: в базе они лежат в payload, а правятся строкой «а|б|в». */
+function optionsOf(task: TaskRow): string {
+  try {
+    const payload = JSON.parse(task.payload || "{}") as { options?: string[]; left?: string[] };
+    if (task.kind === "choice") return (payload.options ?? []).join("|");
+    if (task.kind === "match") return (payload.left ?? []).join("|");
+  } catch {
+    // битый payload правится руками — не роняем всю страницу
+  }
+  return "";
+}
+
 function AdminPage() {
   const [tab, setTab] = useState<"stats" | "content" | "users">("stats");
   const [overview, setOverview] = useState<Overview | null>(null);
   const [content, setContent] = useState<Content | null>(null);
   const [topicId, setTopicId] = useState<string | null>(null);
+  const [editingTask, setEditingTask] = useState<TaskRow | null>(null);
+  const [editingTopic, setEditingTopic] = useState<TopicRow | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -115,46 +129,44 @@ function AdminPage() {
               <div>
                 <h2 style={{ fontSize: "1.2rem", fontWeight: 600 }}>Темы</h2>
                 <table className="sov-table">
-                  <thead><tr><th>Название</th><th>Класс</th><th>Заданий</th></tr></thead>
+                  <thead><tr><th>Название</th><th>Класс</th><th>Заданий</th><th></th></tr></thead>
                   <tbody>
                     {topics.map((t) => (
-                      <tr key={t.id} style={{ cursor: "pointer", background: topicId === t.id ? "var(--sov-cobalt-soft)" : undefined }} onClick={() => { setTopicId(t.id); void loadContent(t.id); }}>
+                      <tr key={t.id} style={{ cursor: "pointer", background: topicId === t.id ? "var(--sov-cobalt-soft)" : undefined }} onClick={() => { setTopicId(t.id); setEditingTask(null); void loadContent(t.id); }}>
                         <td>{t.name} <span className="sov-mono" style={{ color: "var(--sov-ink-soft)" }}>{t.subject_name}</span></td>
                         <td>{t.grade}</td>
                         <td>{t.task_count}</td>
+                        <td>
+                          <button
+                            className="sov-act-ghost"
+                            onClick={(e) => { e.stopPropagation(); setEditingTopic(t); }}
+                          >
+                            Изменить
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
 
-                <h3 style={{ fontSize: "1.05rem", fontWeight: 600, marginTop: 32 }}>Новая тема</h3>
-                <form className="sov-form" style={{ marginTop: 14 }} onSubmit={async (e) => {
-                  e.preventDefault();
-                  const f = new FormData(e.currentTarget);
-                  setPending(true);
-                  await adminSaveTopic({ data: {
-                    id: null,
-                    subjectId: String(f.get("subject")),
-                    grade: Number(f.get("grade")),
-                    name: String(f.get("name")),
-                    summary: String(f.get("summary") ?? ""),
-                    isFree: f.get("free") === "on",
-                  }});
-                  (e.target as HTMLFormElement).reset();
-                  setPending(false);
-                  await loadContent(topicId);
-                }}>
-                  <div className="sov-field"><label htmlFor="tname">Название</label><input id="tname" name="name" required /></div>
-                  <div className="sov-field"><label htmlFor="tsubject">Предмет</label>
-                    <select id="tsubject" name="subject"><option value="math">Математика</option><option value="rus">Русский язык</option></select>
-                  </div>
-                  <div className="sov-field"><label htmlFor="tgrade">Класс</label>
-                    <select id="tgrade" name="grade"><option value="1">1</option><option value="2">2</option></select>
-                  </div>
-                  <div className="sov-field"><label htmlFor="tsum">Описание</label><input id="tsum" name="summary" /></div>
-                  <label className="sov-check"><input type="checkbox" name="free" /><span>Доступна бесплатно</span></label>
-                  <FormAction pending={pending}>Создать тему</FormAction>
-                </form>
+                {/* Правка существующей темы и создание новой — одна форма:
+                    поля совпадают, а раздвоение кода расходится по мелочам. */}
+                <h3 style={{ fontSize: "1.05rem", fontWeight: 600, marginTop: 32 }}>
+                  {editingTopic ? `Тема: ${editingTopic.name}` : "Новая тема"}
+                </h3>
+                <TopicForm
+                  key={editingTopic?.id ?? "new-topic"}
+                  topic={editingTopic}
+                  pending={pending}
+                  onCancel={() => setEditingTopic(null)}
+                  onSubmit={async (values) => {
+                    setPending(true);
+                    await adminSaveTopic({ data: { ...values, id: editingTopic?.id ?? null } });
+                    setPending(false);
+                    setEditingTopic(null);
+                    await loadContent(topicId);
+                  }}
+                />
               </div>
 
               <div>
@@ -167,11 +179,18 @@ function AdminPage() {
                       <thead><tr><th>Вопрос</th><th>Тип</th><th></th></tr></thead>
                       <tbody>
                         {tasks.map((t) => (
-                          <tr key={t.id}>
+                          <tr key={t.id} style={{ background: editingTask?.id === t.id ? "var(--sov-cobalt-soft)" : undefined }}>
                             <td>{t.prompt}{t.is_check ? " ·  проверочная" : ""}</td>
                             <td>{t.kind}</td>
-                            <td>
-                              <button className="sov-act-ghost" onClick={async () => { await adminDeleteTask({ data: { id: t.id } }); await loadContent(topicId); }}>
+                            <td style={{ display: "flex", gap: 8 }}>
+                              <button className="sov-act-ghost" onClick={() => setEditingTask(t)}>
+                                Изменить
+                              </button>
+                              <button className="sov-act-ghost" onClick={async () => {
+                                await adminDeleteTask({ data: { id: t.id } });
+                                if (editingTask?.id === t.id) setEditingTask(null);
+                                await loadContent(topicId);
+                              }}>
                                 Удалить
                               </button>
                             </td>
@@ -180,41 +199,24 @@ function AdminPage() {
                       </tbody>
                     </table>
 
-                    <h3 style={{ fontSize: "1.05rem", fontWeight: 600, marginTop: 32 }}>Новое задание</h3>
-                    <form className="sov-form" style={{ marginTop: 14 }} onSubmit={async (e) => {
-                      e.preventDefault();
-                      const f = new FormData(e.currentTarget);
-                      setPending(true);
-                      await adminSaveTask({ data: {
-                        id: null,
-                        topicId,
-                        kind: String(f.get("kind")) as "choice" | "input" | "match",
-                        prompt: String(f.get("prompt")),
-                        options: String(f.get("options") ?? ""),
-                        answer: String(f.get("answer")),
-                        explanation: String(f.get("explanation")),
-                        isCheck: f.get("check") === "on",
-                      }});
-                      (e.target as HTMLFormElement).reset();
-                      setPending(false);
-                      await loadContent(topicId);
-                    }}>
-                      <div className="sov-field"><label htmlFor="kind">Тип</label>
-                        <select id="kind" name="kind">
-                          <option value="input">Ввод ответа</option>
-                          <option value="choice">Выбор варианта</option>
-                          <option value="match">Сопоставление</option>
-                        </select>
-                      </div>
-                      <div className="sov-field"><label htmlFor="prompt">Вопрос</label><input id="prompt" name="prompt" required /></div>
-                      <div className="sov-field"><label htmlFor="options">Варианты через вертикальную черту</label><input id="options" name="options" placeholder="5|7|9" />
-                        <span className="sov-field__hint">Заполняется для выбора и сопоставления.</span>
-                      </div>
-                      <div className="sov-field"><label htmlFor="answer">Правильный ответ</label><input id="answer" name="answer" required /></div>
-                      <div className="sov-field"><label htmlFor="explanation">Объяснение при ошибке</label><textarea id="explanation" name="explanation" rows={3} required /></div>
-                      <label className="sov-check"><input type="checkbox" name="check" /><span>Входит в проверочную работу</span></label>
-                      <FormAction pending={pending}>Добавить задание</FormAction>
-                    </form>
+                    {/* Раньше задание можно было только создать и удалить:
+                        опечатку в объяснении приходилось «править» удалением. */}
+                    <h3 style={{ fontSize: "1.05rem", fontWeight: 600, marginTop: 32 }}>
+                      {editingTask ? "Правка задания" : "Новое задание"}
+                    </h3>
+                    <TaskForm
+                      key={editingTask?.id ?? "new-task"}
+                      task={editingTask}
+                      pending={pending}
+                      onCancel={() => setEditingTask(null)}
+                      onSubmit={async (values) => {
+                        setPending(true);
+                        await adminSaveTask({ data: { ...values, id: editingTask?.id ?? null, topicId } });
+                        setPending(false);
+                        setEditingTask(null);
+                        await loadContent(topicId);
+                      }}
+                    />
                   </>
                 ) : null}
               </div>
@@ -251,5 +253,150 @@ function AdminPage() {
         ) : null}
       </main>
     </div>
+  );
+}
+
+type TopicValues = { subjectId: string; grade: number; name: string; summary: string; isFree: boolean };
+
+function TopicForm({
+  topic,
+  pending,
+  onSubmit,
+  onCancel,
+}: {
+  topic: TopicRow | null;
+  pending: boolean;
+  onSubmit: (values: TopicValues) => Promise<void>;
+  onCancel: () => void;
+}) {
+  return (
+    <form
+      className="sov-form"
+      style={{ marginTop: 14 }}
+      onSubmit={async (e) => {
+        e.preventDefault();
+        const f = new FormData(e.currentTarget);
+        await onSubmit({
+          subjectId: String(f.get("subject")),
+          grade: Number(f.get("grade")),
+          name: String(f.get("name")),
+          summary: String(f.get("summary") ?? ""),
+          isFree: f.get("free") === "on",
+        });
+      }}
+    >
+      <div className="sov-field">
+        <label htmlFor="tname">Название</label>
+        <input id="tname" name="name" defaultValue={topic?.name ?? ""} required />
+      </div>
+      <div className="sov-field">
+        <label htmlFor="tsubject">Предмет</label>
+        <select id="tsubject" name="subject" defaultValue={topic?.subject_id ?? "math"}>
+          <option value="math">Математика</option>
+          <option value="rus">Русский язык</option>
+        </select>
+      </div>
+      <div className="sov-field">
+        <label htmlFor="tgrade">Класс</label>
+        <select id="tgrade" name="grade" defaultValue={String(topic?.grade ?? 1)}>
+          <option value="1">1</option>
+          <option value="2">2</option>
+        </select>
+      </div>
+      <div className="sov-field">
+        <label htmlFor="tsum">Описание</label>
+        <input id="tsum" name="summary" defaultValue={topic?.summary ?? ""} />
+      </div>
+      <label className="sov-check">
+        <input type="checkbox" name="free" defaultChecked={!!topic?.is_free} />
+        <span>Доступна бесплатно</span>
+      </label>
+      <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+        <FormAction pending={pending}>{topic ? "Сохранить тему" : "Создать тему"}</FormAction>
+        {topic ? (
+          <button type="button" className="sov-act-ghost" onClick={onCancel}>
+            Отменить правку
+          </button>
+        ) : null}
+      </div>
+    </form>
+  );
+}
+
+type TaskValues = {
+  kind: "choice" | "input" | "match";
+  prompt: string;
+  options: string;
+  answer: string;
+  explanation: string;
+  isCheck: boolean;
+};
+
+function TaskForm({
+  task,
+  pending,
+  onSubmit,
+  onCancel,
+}: {
+  task: TaskRow | null;
+  pending: boolean;
+  onSubmit: (values: TaskValues) => Promise<void>;
+  onCancel: () => void;
+}) {
+  return (
+    <form
+      className="sov-form"
+      style={{ marginTop: 14 }}
+      onSubmit={async (e) => {
+        e.preventDefault();
+        const f = new FormData(e.currentTarget);
+        await onSubmit({
+          kind: String(f.get("kind")) as TaskValues["kind"],
+          prompt: String(f.get("prompt")),
+          options: String(f.get("options") ?? ""),
+          answer: String(f.get("answer")),
+          explanation: String(f.get("explanation")),
+          isCheck: f.get("check") === "on",
+        });
+      }}
+    >
+      <div className="sov-field">
+        <label htmlFor="kind">Тип</label>
+        <select id="kind" name="kind" defaultValue={task?.kind ?? "input"}>
+          <option value="input">Ввод ответа</option>
+          <option value="choice">Выбор варианта</option>
+          <option value="match">Сопоставление</option>
+        </select>
+      </div>
+      <div className="sov-field">
+        <label htmlFor="prompt">Вопрос</label>
+        <input id="prompt" name="prompt" defaultValue={task?.prompt ?? ""} required />
+      </div>
+      <div className="sov-field">
+        <label htmlFor="options">Варианты через вертикальную черту</label>
+        <input id="options" name="options" placeholder="5|7|9" defaultValue={task ? optionsOf(task) : ""} />
+        <span className="sov-field__hint">Заполняется для выбора и сопоставления.</span>
+      </div>
+      <div className="sov-field">
+        <label htmlFor="answer">Правильный ответ</label>
+        <input id="answer" name="answer" defaultValue={task?.answer ?? ""} required />
+      </div>
+      <div className="sov-field">
+        <label htmlFor="explanation">Объяснение при ошибке</label>
+        <textarea id="explanation" name="explanation" rows={3} defaultValue={task?.explanation ?? ""} required />
+      </div>
+      <label className="sov-check">
+        <input type="checkbox" name="check" defaultChecked={!!task?.is_check} />
+        <span>Входит в проверочную работу</span>
+      </label>
+      <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+        <FormAction pending={pending}>{task ? "Сохранить задание" : "Добавить задание"}</FormAction>
+        {task ? (
+          <button type="button" className="sov-act-ghost" onClick={onCancel}>
+            Отменить правку
+          </button>
+        ) : null}
+      </div>
+    </form>
   );
 }

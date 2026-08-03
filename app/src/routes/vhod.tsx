@@ -53,6 +53,10 @@ function LoginPage() {
           </div>
           <FormAction pending={pending}>Войти</FormAction>
         </form>
+        <p style={{ marginTop: 26, color: "var(--sov-ink-soft)", fontSize: ".95rem" }}>
+          Вход один на семью. Кабинет родителя внутри закрыт отдельным кодом из четырёх цифр —
+          занятия ребёнок открывает сам, а отчёты и подписка остаются взрослому.
+        </p>
       </main>
     </div>
   );
