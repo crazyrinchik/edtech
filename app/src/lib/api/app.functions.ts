@@ -29,6 +29,7 @@ import {
   unlockParent,
   verifyPassword,
 } from "../core.server";
+import { buyOwlItemFor, equipOwlItemFor, owlState, syncCoins } from "../rewards.server";
 import {
   CHANNEL_TITLES,
   channelReady,
@@ -369,6 +370,9 @@ export const getSkillMap = createServerFn({ method: "GET" })
     await ensureSeeded();
     const user = await requireUser();
     const child = (await requireChildAccess(data.childId, user.id)) as unknown as ChildRecord;
+    // Пёрышки досчитываются лениво: «момента выполнения» у пункта домашки
+    // нет, он выводится из занятий. Начисления идемпотентны.
+    await syncCoins(data.childId);
     const paid = await childHasPaidAccess(data.childId);
 
     const subjects = await db()
@@ -422,6 +426,7 @@ export const getSkillMap = createServerFn({ method: "GET" })
       totalStars,
       level: Math.floor(totalStars / 5) + 1,
       paid,
+      ...(await owlState(data.childId)),
       // Есть ли у ученика педагог: от этого зависит, показывать ли карту
       // тем. У ученика репетитора программу выбирает педагог, у семейного —
       // сам ребёнок.
@@ -1138,5 +1143,31 @@ export const adminUpdateUser = createServerFn({ method: "POST" })
     if (data.subscription !== null) {
       await db().prepare("UPDATE users SET subscription_status = ? WHERE id = ?").bind(data.subscription, data.userId).run();
     }
+    return { ok: true };
+  });
+
+/* ------------------------------------------------------- лавка совёнка */
+
+export const buyOwlItem = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ childId: z.string(), item: z.string().min(1) }))
+  .handler(async ({ data }) => {
+    const user = await requireUser();
+    await requireChildAccess(data.childId, user.id);
+    const stars = await db()
+      .prepare("SELECT COALESCE(SUM(stars), 0) AS n FROM progress WHERE child_id = ?")
+      .bind(data.childId)
+      .first<{ n: number }>();
+    const level = Math.floor(Number(stars?.n ?? 0) / 5) + 1;
+    await buyOwlItemFor(data.childId, data.item, level);
+    await track("owl_item_bought", { childId: data.childId, props: { item: data.item } });
+    return { ok: true };
+  });
+
+export const equipOwlItem = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ childId: z.string(), item: z.string() }))
+  .handler(async ({ data }) => {
+    const user = await requireUser();
+    await requireChildAccess(data.childId, user.id);
+    await equipOwlItemFor(data.childId, data.item);
     return { ok: true };
   });

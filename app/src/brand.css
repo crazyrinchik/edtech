@@ -979,3 +979,23 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
   .sov-homework__row { flex-direction: column; }
   .sov-homework__check { padding: 10px 16px; }
 }
+
+/* ── лавка совёнка ──────────────────────────────────────────────────
+   Рост совёнка идёт от уровня и достаётся сам, а вещи покупаются за
+   пёрышки: они и связывают награду с домашкой, ради которой ребёнок
+   открывает приложение. */
+
+.sov-coins {
+  font-family: var(--sov-mono); font-size: .78rem; letter-spacing: .02em;
+  color: var(--sov-ink-soft); font-weight: 500;
+}
+.sov-shop__hint {
+  margin-top: 10px; font-size: .92rem; font-weight: 500; color: var(--sov-ink-soft);
+}
+.sov-shelf__item button { margin-top: 8px; }
+.sov-shelf__item button:disabled { opacity: .5; cursor: default; }
+
+/* Домашка сделана: та же плашка, но зелёная — цвет здесь несёт смысл
+   «верно», тот же, что в разборе ответа. */
+.sov-homework[data-status="done"] { background: var(--sov-ok); box-shadow: 0 4px 0 var(--sov-ok-deep); }
+.sov-homework[data-status="done"] .sov-homework__item { border-bottom-color: rgba(0,0,0,.1); }

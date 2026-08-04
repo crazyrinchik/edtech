@@ -589,8 +589,11 @@ export const childAssignments = createServerFn({ method: "GET" })
   .handler(async ({ data }) => {
     const user = await requireUser();
     await requireChildAccess(data.childId, user.id);
+    // Выполненное задание не прячем. Раньше оно исчезало с экрана в тот
+    // момент, когда ребёнок его дорешал, — то есть ровно тогда, когда он
+    // должен был увидеть, что справился.
     const all = await buildAssignments(data.childId, await activeAssignments(data.childId));
-    return { assignments: all.filter((a) => a.status !== "done").slice(0, 3) };
+    return { assignments: all.slice(0, 3) };
   });
 
 /* ------------------------------------------------------- обзор программы

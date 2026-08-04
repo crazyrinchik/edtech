@@ -4,15 +4,15 @@ import { useEffect, useState } from "react";
 import {
   ChildAction,
   ChildAvatar,
-  currentOwlItem,
   Owl,
-  OWL_UNLOCKS,
   owlStage,
   Stars,
   Wordmark,
 } from "../components/brand";
+import { coinsLabel, SHOP } from "../lib/shop";
 import { AutoSpeakToggle, SpeakButton } from "../components/speak";
 import { getDiagnostic, getSkillMap, me, submitDiagnostic } from "../lib/api/app.functions";
+import { buyOwlItem, equipOwlItem } from "../lib/api/app.functions";
 import { childAssignments } from "../lib/api/tutor.functions";
 
 /** Уровень считается на сервере как звёзды/5 + 1 — держим шаг тем же. */
@@ -49,6 +49,7 @@ type MapData = {
   child: { id: string; name: string; avatar: string; grade: number; soundOn: boolean; dailyLimitMin: number; diagnosticsDone: boolean };
   subjects: { id: string; name: string; topics: TopicItem[] }[];
   totalStars: number; level: number; paid: boolean; hasTutor: boolean;
+  coins: number; earned: number; owned: string[]; equipped: string;
 };
 type DiagData = {
   childName: string; grade: number;
@@ -65,6 +66,7 @@ function PupilPage() {
   const [manyChildren, setManyChildren] = useState(false);
   const [adultRole, setAdultRole] = useState<string>("parent");
   const [homework, setHomework] = useState<Homework>([]);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -146,7 +148,8 @@ function PupilPage() {
   );
 
   const stage = owlStage(data.level);
-  const item = currentOwlItem(data.level);
+  // Рост идёт от уровня сам, а вещь — только та, что ребёнок купил и надел.
+  const item = data.equipped as "none" | "scarf" | "glasses" | "cap" | "graduate";
   const starsInLevel = data.totalStars % STARS_PER_LEVEL;
   const toNextLevel = stage >= 5 ? 0 : STARS_PER_LEVEL - starsInLevel;
 
@@ -195,6 +198,7 @@ function PupilPage() {
             <div className="sov-xp">
               <div className="sov-xp__row">
                 <span>Уровень {data.level}</span>
+                <span className="sov-coins">{coinsLabel(data.coins)}</span>
                 {/* Эмодзи-звезда была здесь единственным жёлтым пятном в
                     интерфейсе — счёт словом держит экран одноцветным. */}
                 <span className="sov-mono">
@@ -224,11 +228,15 @@ function PupilPage() {
         ) : null}
 
         {homework.map((hw) => (
-          <section key={hw.id} className="sov-homework">
+          <section key={hw.id} className="sov-homework" data-status={hw.status}>
             <div className="sov-homework__head">
-              <strong>{hw.title}</strong>
+              <strong>{hw.status === "done" ? `${hw.title} — сделано!` : hw.title}</strong>
               <span className="sov-homework__due">
-                {hw.dueAt ? dueLabel(hw.dueAt) : "без срока"}
+                {hw.status === "done"
+                  ? "молодец"
+                  : hw.dueAt
+                    ? dueLabel(hw.dueAt)
+                    : "без срока"}
               </span>
             </div>
             {/* Счёт сделанного словами: «1 из 3» ребёнок читает быстрее,
@@ -390,26 +398,86 @@ function PupilPage() {
             );
           })}
 
-        {/* Полка наград уехала под темы. Пять сов занимали первый экран
-            целиком, хотя отвечают на вопрос «что будет потом», а не «что
-            делать сейчас». */}
+        {/* Лавка вместо полки наград. Раньше вещь выдавалась вместе с ростом
+            на том же уровне — выбора не было ни в чём. Теперь совёнок растёт
+            сам, а вещи ребёнок покупает за пёрышки, которые приносит в том
+            числе домашняя работа. */}
         <section className="sov-quest">
           <header className="sov-quest__head">
-            <h2>Награды</h2>
-            <span className="sov-quest__count">уровень {data.level}</span>
+            <h2>Лавка совёнка</h2>
+            <span className="sov-quest__count">{coinsLabel(data.coins)}</span>
           </header>
+          <p className="sov-shop__hint">
+            Пёрышки капают за сделанную домашку и за пройденные темы. Совёнок растёт сам —
+            в лавке только наряды.
+          </p>
           <div className="sov-shelf">
-            {OWL_UNLOCKS.map((u) => {
-              const open = data.level >= u.level;
+            {SHOP.map((goods) => {
+              const owned = data.owned.includes(goods.id);
+              const worn = data.equipped === goods.id;
+              const levelOk = data.level >= goods.minLevel;
+              const enough = data.coins >= goods.cost;
               return (
-                <div key={u.level} className="sov-shelf__item" data-open={open}>
-                  <Owl size={44} stage={u.level} item={u.item} mood={open ? "happy" : "sleepy"} />
-                  <strong>{u.title}</strong>
-                  <span>{open ? u.note : `Уровень ${u.level}`}</span>
+                <div
+                  key={goods.id}
+                  className="sov-shelf__item"
+                  data-open={owned || (levelOk && enough)}
+                >
+                  <Owl size={44} stage={stage} item={goods.id} mood={owned ? "happy" : "sleepy"} />
+                  <strong>{goods.title}</strong>
+                  <span>{!levelOk ? `Откроется на уровне ${goods.minLevel}` : goods.note}</span>
+                  {owned ? (
+                    <button
+                      type="button"
+                      className="sov-act-ghost"
+                      disabled={worn || busy}
+                      onClick={async () => {
+                        setBusy(true);
+                        await equipOwlItem({ data: { childId, item: worn ? "none" : goods.id } });
+                        location.reload();
+                      }}
+                    >
+                      {worn ? "Надето" : "Надеть"}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="sov-act-ghost"
+                      disabled={!levelOk || !enough || busy}
+                      onClick={async () => {
+                        setBusy(true);
+                        try {
+                          await buyOwlItem({ data: { childId, item: goods.id } });
+                          location.reload();
+                        } catch (e) {
+                          setError(e instanceof Error ? e.message : "Не получилось купить");
+                          setBusy(false);
+                        }
+                      }}
+                    >
+                      {goods.cost} пёрышек
+                    </button>
+                  )}
                 </div>
               );
             })}
           </div>
+          {data.equipped !== "none" ? (
+            <p className="sov-shop__hint">
+              <button
+                type="button"
+                className="sov-act-ghost"
+                disabled={busy}
+                onClick={async () => {
+                  setBusy(true);
+                  await equipOwlItem({ data: { childId, item: "none" } });
+                  location.reload();
+                }}
+              >
+                Снять всё
+              </button>
+            </p>
+          ) : null}
         </section>
 
         {!data.paid && !data.hasTutor ? (
