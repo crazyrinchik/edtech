@@ -394,21 +394,6 @@ const GUARDS = [
   },
 ];
 
-/**
- * Строки сравнения тарифов. Подписка даёт всё, поэтому в разметке правая
- * колонка всегда «да» — здесь хранится только доступность на бесплатном.
- */
-const COMPARE: { feature: string; free: boolean }[] = [
-  { feature: "Нулевой урок и оба тренажёра без регистрации", free: true },
-  { feature: "Входная диагностика", free: true },
-  { feature: "Кабинет родителя целиком", free: true },
-  { feature: "Несколько детей в одном аккаунте", free: true },
-  { feature: "Первая тема по каждому предмету", free: true },
-  { feature: "Все темы 1 и 2 класса", free: false },
-  { feature: "Проверочные работы и звёзды", free: false },
-  { feature: "Зоны риска по каждой теме", free: false },
-];
-
 function Safety() {
   return (
     <section className="sov-section sov-shell">
@@ -461,41 +446,38 @@ function Plans() {
         Первая тема каждого предмета открыта всегда. Подписка снимает ограничение и открывает
         остальные темы обоих предметов.
       </p>
-      {/* Таблицей, а не двумя списками: так сразу видно, что бесплатно
-          доступно пять строк из восьми, и не нужно сличать пункты глазами. */}
-      <div className="sov-compare">
-        <div className="sov-compare__row sov-compare__row--head">
-          <span>Возможность</span>
-          <span>Бесплатно</span>
-          <span>Подписка</span>
-        </div>
-        {COMPARE.map((row) => (
-          <div key={row.feature} className="sov-compare__row">
-            <span>{row.feature}</span>
-            <span className={row.free ? "sov-compare__yes" : "sov-compare__no"}>
-              {row.free ? "✓" : "—"}
-            </span>
-            <span className="sov-compare__yes">✓</span>
+      <div className="sov-plans">
+        <div className="sov-plan">
+          <h3>Бесплатно</h3>
+          <div className="sov-plan__price">0 ₽</div>
+          <ul>
+            <li>Нулевой урок и оба тренажёра без регистрации</li>
+            <li>Входная диагностика</li>
+            <li>По одной теме в математике и русском</li>
+            <li>Кабинет родителя целиком</li>
+            <li>Несколько детей в одном аккаунте</li>
+          </ul>
+          <div style={{ marginTop: 26 }}>
+            <StartAction to="/registraciya">Завести аккаунт</StartAction>
           </div>
-        ))}
-        <div className="sov-compare__price">
-          <span style={{ fontWeight: 700 }}>Цена</span>
-          <span>
-            <b>0 ₽</b>
-            <small>всегда</small>
-          </span>
-          <span>
-            <b>490 ₽</b>
-            <small>в месяц, отмена в один клик</small>
-          </span>
         </div>
-      </div>
 
-      <div className="sov-compare__cta">
-        <StartAction to="/registraciya">Завести аккаунт</StartAction>
-        <span className="sov-mono" style={{ color: "var(--sov-ink-soft)" }}>
-          На пилоте оплата подключается промокодом: введите SOVENOK в кабинете.
-        </span>
+        <div className="sov-plan sov-plan--paid">
+          <span className="sov-plan__tag">Открывает всё</span>
+          <h3>Подписка</h3>
+          <div className="sov-plan__price">
+            490 ₽ <small>в месяц</small>
+          </div>
+          <ul>
+            <li>Все темы 1 и 2 класса</li>
+            <li>Проверочные работы и звёзды</li>
+            <li>Зоны риска по каждой теме</li>
+            <li>Отмена в один клик</li>
+          </ul>
+          <p className="sov-mono" style={{ marginTop: 20, color: "var(--sov-ink-soft)" }}>
+            На пилоте оплата подключается промокодом: введите SOVENOK в кабинете.
+          </p>
+        </div>
       </div>
     </section>
   );
