@@ -5,7 +5,6 @@ import {
   ChildAction,
   ChildAvatar,
   currentOwlItem,
-  ForestScene,
   Owl,
   OWL_UNLOCKS,
   owlStage,
@@ -141,12 +140,11 @@ function PupilPage() {
           </div>
         </div>
 
-        {/* Дупло: совёнок, уровень и полоса до следующего уровня.
+        {/* Шапка занятий: совёнок, уровень и полоса до следующего уровня.
             Уровень = звёзды/5 + 1, поэтому «до следующего» — это 5 звёзд. */}
         <div className="sov-hollow">
           <div className="sov-hollow__owl">
-            <div className="sov-hollow__ring" aria-hidden="true" />
-            <Owl size={116} stage={stage} item={item} mood="happy" animated />
+            <Owl size={88} stage={stage} item={item} mood="happy" animated />
             <span className="sov-hollow__badge">{data.level}</span>
           </div>
 
@@ -157,8 +155,10 @@ function PupilPage() {
             <div className="sov-xp">
               <div className="sov-xp__row">
                 <span>Уровень {data.level}</span>
+                {/* Эмодзи-звезда была здесь единственным жёлтым пятном в
+                    интерфейсе — счёт словом держит экран одноцветным. */}
                 <span className="sov-mono">
-                  {starsInLevel} / {STARS_PER_LEVEL} ⭐
+                  {starsInLevel} / {STARS_PER_LEVEL} звёзд
                 </span>
               </div>
               <div className="sov-xp__track">
@@ -297,11 +297,6 @@ function PupilPage() {
           </div>
         ) : null}
       </div>
-
-      {/* Лес закрывает низ страницы: карта уровней заканчивается опушкой. */}
-      <div className="sov-kid__forest">
-        <ForestScene />
-      </div>
     </div>
   );
 }
@@ -338,7 +333,7 @@ function Diagnostic({ childId, onDone }: { childId: string; onDone: () => void }
             </p>
             <div style={{ marginTop: 22, display: "grid", gap: 12 }}>
               {result.map((r) => (
-                <div key={r.subjectId} className="sov-risk" style={{ borderLeftColor: "var(--sov-cobalt)" }}>
+                <div key={r.subjectId} className="sov-save-hint">
                   <strong>{r.subjectName}</strong>
                   <div className="sov-mono" style={{ marginTop: 4 }}>
                     {r.correct} из {r.total} верно, уровень {r.level}
@@ -375,11 +370,11 @@ function Diagnostic({ childId, onDone }: { childId: string; onDone: () => void }
           </p>
           {diag.blocks.map((block) => (
             <div key={block.subjectId} style={{ marginTop: 30 }}>
-              <h3 style={{ fontWeight: 700, fontSize: "1.2rem" }}>{block.subjectName}</h3>
+              <h3 style={{ fontSize: "1.2rem" }}>{block.subjectName}</h3>
               {block.tasks.map((task) => (
                 <div key={task.id} style={{ marginTop: 18 }}>
                   <div className="sov-ask">
-                    <p style={{ fontWeight: 500 }}>{task.prompt}</p>
+                    <p style={{ fontWeight: 700 }}>{task.prompt}</p>
                     <SpeakButton compact text={task.prompt} />
                   </div>
                   {task.kind === "choice" ? (
@@ -399,7 +394,7 @@ function Diagnostic({ childId, onDone }: { childId: string; onDone: () => void }
                   ) : (
                     <input
                       className="sov-field__input"
-                      style={{ marginTop: 8, padding: "10px 14px", border: "1px solid var(--sov-line)", borderRadius: 10, fontSize: "1rem", fontFamily: "var(--sov-font)" }}
+                      style={{ marginTop: 8, padding: "12px 15px", border: "2px solid var(--sov-line)", borderRadius: 12, fontSize: "1rem", fontWeight: 600, fontFamily: "var(--sov-font)" }}
                       value={answers[task.id] ?? ""}
                       onChange={(e) => setAnswers((prev) => ({ ...prev, [task.id]: e.target.value }))}
                       inputMode="text"

@@ -1,8 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode } from "react";
 
 import {
-  NightSky,
   QuietAction,
   SiteFooter,
   SiteHeader,
@@ -90,8 +89,9 @@ function Hero() {
                 короткий путь понять, подходит ли тренажёр ребёнку. */}
             <StartAction to="/demo">Попробовать без регистрации</StartAction>
             <QuietAction to="/registraciya">Завести аккаунт</QuietAction>
-            <QuietAction to="/vhod">У меня уже есть аккаунт</QuietAction>
           </div>
+          {/* Третьей кнопкой здесь стоял вход: он уже есть в шапке, а три
+              равновеликих действия подряд не оставляли главного. */}
           <p className="sov-mono" style={{ marginTop: 18, color: "var(--sov-ink-soft)" }}>
             Нулевой урок — 7 заданий, без почты и пароля. Там же кнопка-ушко: задание можно
             послушать, если ребёнок ещё не читает.
@@ -110,107 +110,42 @@ function Hero() {
   );
 }
 
-/** Путешествие: положение скролла управляет кадром. Пассивного зацикленного видео нет. */
+/**
+ * Путь ребёнка — четыре обычные секции: заголовок, абзац, факты, картинка.
+ *
+ * Раньше здесь стояло скролл-путешествие: липкая сцена на весь экран,
+ * четыре слоя, которые наезжали друг на друга по положению скролла, и
+ * рельс точек справа. Оно требовало четыре высоты экрана только на
+ * перелистывание, отнимало скролл у читателя и на телефоне сводилось к
+ * одному кадру. Стопка секций рассказывает то же самое, читается с
+ * любого места и не зависит от того, докрутил человек до нужной точки.
+ */
 function Journey() {
-  const wrapRef = useRef<HTMLDivElement | null>(null);
-  const layerRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const [active, setActive] = useState(0);
-
-  useEffect(() => {
-    const wrap = wrapRef.current;
-    if (!wrap) return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-
-    let frame = 0;
-    const render = () => {
-      frame = 0;
-      const rect = wrap.getBoundingClientRect();
-      const span = wrap.offsetHeight - window.innerHeight;
-      const raw = span > 0 ? (-rect.top) / span : 0;
-      const t = Math.min(1, Math.max(0, raw)) * (SCENES.length - 1);
-
-      layerRefs.current.forEach((layer, i) => {
-        if (!layer) return;
-        // Каждая следующая сцена наезжает поверх предыдущей: только clip и scale.
-        const local = Math.min(1, Math.max(0, t - (i - 1)));
-        const cover = i === 0 ? 1 : local;
-        const push = 1.1 - 0.1 * Math.min(1, Math.max(0, t - i + 1));
-        layer.style.clipPath = `inset(${(1 - cover) * 100}% 0% 0% 0%)`;
-        layer.style.transform = `scale(${push.toFixed(4)})`;
-      });
-
-      setActive(Math.round(t));
-    };
-
-    const onScroll = () => {
-      if (!frame) frame = window.requestAnimationFrame(render);
-    };
-
-    render();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll);
-    return () => {
-      if (frame) window.cancelAnimationFrame(frame);
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
-    };
-  }, []);
-
-  const goTo = (index: number) => {
-    const wrap = wrapRef.current;
-    if (!wrap) return;
-    const span = wrap.offsetHeight - window.innerHeight;
-    window.scrollTo({
-      top: wrap.offsetTop + (span * index) / (SCENES.length - 1),
-      behavior: "smooth",
-    });
-  };
-
   return (
-    <section ref={wrapRef} className="sov-journey" aria-label="Как устроен путь ребёнка">
-      <div className="sov-journey__stage">
-        {SCENES.map((scene, i) => (
-          <div
-            key={scene.id}
-            ref={(el) => {
-              layerRefs.current[i] = el;
-            }}
-            className="sov-journey__layer"
-            style={{ zIndex: i }}
-          >
-            <img src={scene.image} alt="" width={1600} height={900} loading={i === 0 ? "eager" : "lazy"} />
-            <div className="sov-journey__scrim" />
-          </div>
-        ))}
-
-        <div className="sov-journey__caption" style={{ zIndex: SCENES.length + 1 }}>
-          <h2>{SCENES[Math.min(active, SCENES.length - 1)].title}</h2>
-          <p>{SCENES[Math.min(active, SCENES.length - 1)].text}</p>
-          <div className="sov-journey__tags">
-            {SCENES[Math.min(active, SCENES.length - 1)].tags.map((tag) => (
-              <span key={tag}>{tag}</span>
-            ))}
+    <section aria-label="Как устроен путь ребёнка">
+      {SCENES.map((scene, i) => (
+        <div key={scene.id} className="sov-section sov-shell">
+          <div className={`sov-split${i % 2 ? " sov-split--flip" : ""}`}>
+            <div>
+              <h2>{scene.title}</h2>
+              <p className="sov-section__lead">{scene.text}</p>
+              <div className="sov-journey__tags">
+                {scene.tags.map((tag) => (
+                  <span key={tag}>{tag}</span>
+                ))}
+              </div>
+            </div>
+            <div className="sov-hero__art">
+              <img
+                src={scene.image}
+                alt=""
+                width={1600}
+                height={900}
+                loading={i === 0 ? "eager" : "lazy"}
+              />
+            </div>
           </div>
         </div>
-
-        <div className="sov-journey__rail">
-          {SCENES.map((scene, i) => (
-            <button
-              key={scene.id}
-              type="button"
-              data-active={i === active}
-              onClick={() => goTo(i)}
-              aria-label={scene.title}
-            />
-          ))}
-        </div>
-      </div>
-
-      {SCENES.map((scene) => (
-        <article key={scene.id} className="sov-journey__chapter">
-          <h3 className="sr-only">{scene.title}</h3>
-          <p className="sr-only">{scene.text}</p>
-        </article>
       ))}
     </section>
   );
@@ -253,11 +188,10 @@ function Trainers() {
 
 function HowItWorks() {
   return (
-    /* Ночь над лесом: совёнок ночная птица, а карта уровней у ребёнка
-       упирается в опушку. Тёмная полоса разрывает бежевую монотонность
-       сильнее любого оттенка и при этом остаётся в языке продукта. */
+    /* Полоса главного цвета во всю ширину: она разрывает бежевую
+       монотонность и повторяет ту же синюю плашку, которую ребёнок видит
+       над тропой тем. */
     <section className="sov-night">
-      <NightSky />
       <div className="sov-shell">
         <h2>Что происходит внутри занятия</h2>
         <p className="sov-section__lead">

@@ -126,8 +126,8 @@ export function Stars({ value, max = 3 }: { value: number; max?: number }) {
         <svg key={i} viewBox="0 0 20 20" width="15" height="15" aria-hidden="true">
           <path
             d="M10 2.5l2.3 4.9 5.2.7-3.8 3.7.9 5.2-4.6-2.5-4.6 2.5.9-5.2L2.5 8.1l5.2-.7L10 2.5Z"
-            fill={i < value ? "var(--sov-cobalt)" : "transparent"}
-            stroke="var(--sov-cobalt)"
+            fill={i < value ? "var(--sov-star, var(--sov-cobalt))" : "transparent"}
+            stroke="var(--sov-star, var(--sov-cobalt))"
             strokeWidth="1.4"
             strokeLinejoin="round"
           />
