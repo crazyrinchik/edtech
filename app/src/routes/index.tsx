@@ -327,7 +327,7 @@ function ForParents() {
           <div className="sov-cab__risk">
             <em>Зона риска</em>
             <strong>Вычитание до 20</strong>
-            <div className="sov-mono" style={{ marginTop: 3 }}>верных 52 процента</div>
+            <div className="sov-mono" style={{ marginTop: 3 }}>52% верных ответов</div>
           </div>
           <p className="sov-cab__note">
             Пример оформления. Реальные цифры появятся после первых занятий.

@@ -171,7 +171,7 @@ function ParentPage() {
                     report.risk.map((r) => (
                       <div key={r.topic} className="sov-risk">
                         <strong>{r.topic}</strong>
-                        <div className="sov-mono" style={{ marginTop: 4 }}>{r.subject} · верных {r.percent} процентов</div>
+                        <div className="sov-mono" style={{ marginTop: 4 }}>{r.subject} · {r.percent}% верных ответов</div>
                       </div>
                     ))
                   )}
