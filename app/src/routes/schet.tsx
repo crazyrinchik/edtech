@@ -111,6 +111,16 @@ function MentalPage() {
   const [left, setLeft] = useState(0);
 
   const startedAt = useRef(Date.now());
+  const answerRef = useRef<HTMLInputElement | null>(null);
+
+  // Курсор сам встаёт в поле на каждом примере: autoFocus срабатывает только
+  // при первом появлении поля, а дальше React переиспользует тот же элемент —
+  // и после каждого ответа приходилось тыкать в него мышкой. В тренажёре на
+  // время это особенно мешало: секунды шли, а набирать было некуда.
+  useEffect(() => {
+    if (verdict) return;
+    answerRef.current?.focus();
+  }, [index, verdict, example]);
 
   useEffect(() => {
     me()
@@ -368,6 +378,7 @@ function MentalPage() {
             }}
           >
             <input
+              ref={answerRef}
               className="sov-answer-input"
               value={value}
               onChange={(e) => setValue(e.target.value.replace(/[^\d-]/g, ""))}

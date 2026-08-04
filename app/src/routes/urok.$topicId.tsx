@@ -49,6 +49,7 @@ function LessonPage() {
 
   const startedAt = useRef(Date.now());
   const questionAt = useRef(Date.now());
+  const answerRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -90,6 +91,15 @@ function LessonPage() {
   // до всех ранних возвратов: порядок хуков в React менять нельзя.
   const currentPrompt = !done && session && !verdict ? (session.tasks[index]?.prompt ?? null) : null;
   useAutoSpeak(currentPrompt, [index, mode]);
+
+  // Курсор сам встаёт в поле ответа на каждом задании. Одного autoFocus мало:
+  // он срабатывает лишь при первом появлении поля, а дальше React переиспользует
+  // тот же элемент — и после «Дальше» ребёнку приходилось тыкать в него мышкой.
+  // Хук стоит до ранних возвратов: порядок хуков в React менять нельзя.
+  useEffect(() => {
+    if (done || verdict) return;
+    answerRef.current?.focus();
+  }, [index, mode, verdict, done]);
 
   if (error) {
     return (
@@ -307,6 +317,7 @@ function LessonPage() {
               }}
             >
               <input
+                ref={answerRef}
                 className="sov-answer-input"
                 value={value}
                 onChange={(e) => setValue(e.target.value)}

@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { ChildAction, Owl, Wordmark } from "../components/brand";
 import { AutoSpeakToggle, SpeakButton, useAutoSpeak } from "../components/speak";
@@ -31,6 +31,15 @@ function DemoPage() {
   const [scored, setScored] = useState<Set<string>>(new Set());
   const [done, setDone] = useState(false);
   const [pending, setPending] = useState(false);
+  const answerRef = useRef<HTMLInputElement | null>(null);
+
+  // Курсор сам встаёт в поле ответа на каждом задании: autoFocus срабатывает
+  // лишь при первом появлении поля, дальше React переиспользует тот же элемент.
+  // В нулевом уроке это первое, что видит человек — лишний клик тут дороже всего.
+  useEffect(() => {
+    if (done || verdict) return;
+    answerRef.current?.focus();
+  }, [index, verdict, done]);
 
   useEffect(() => {
     demoLesson()
@@ -194,6 +203,7 @@ function DemoPage() {
               }}
             >
               <input
+                ref={answerRef}
                 className="sov-answer-input"
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
