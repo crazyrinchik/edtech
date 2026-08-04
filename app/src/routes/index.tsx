@@ -45,8 +45,8 @@ const STEPS = [
     id: "roditel",
     image: "/assets/scene-4.webp",
     title: "Родитель подключается кодом",
-    text: "Вы передаёте восемь символов, родитель заводит себе пароль и видит прогресс. Платить ему не нужно, и вашего аккаунта он не касается.",
-    tags: ["Восемь символов", "Родитель не платит", "Согласие подписывает сам"],
+    text: "Вы диктуете шесть цифр, родитель заводит себе пароль и видит прогресс. Платить ему не нужно, и вашего аккаунта он не касается.",
+    tags: ["Шесть цифр", "Родитель не платит", "Согласие подписывает сам"],
   },
 ];
 
@@ -90,7 +90,7 @@ function Hero() {
             <StartAction to="/registraciya" search={{ rol: "repetitor" }}>
               Создать аккаунт репетитора
             </StartAction>
-            <QuietAction to="/priglashenie">Ввести код родителя</QuietAction>
+            <QuietAction to="/priglashenie">Ввести код приглашения</QuietAction>
           </div>
 
           <p className="sov-mono" style={{ marginTop: 22, color: "var(--sov-ink-soft)" }}>

@@ -26,13 +26,29 @@ import {
 } from "../core.server";
 
 const INVITE_DAYS = 14;
+const INVITE_DIGITS = 6;
 
-/** Код приглашения читают вслух по телефону: без похожих символов. */
-const INVITE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-
-function inviteCode(): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(8));
-  return Array.from(bytes, (b) => INVITE_ALPHABET[b % INVITE_ALPHABET.length]).join("");
+/**
+ * Код приглашения диктуют по телефону, поэтому он из одних цифр: буквы
+ * приходится диктовать по алфавиту («эс как доллар»), а раскладку на
+ * телефоне ещё и переключать. Шесть цифр набираются с цифровой клавиатуры
+ * и не путаются с четырёхзначным кодом кабинета — тот заметно короче.
+ *
+ * Код — первичный ключ, поэтому проверяем занятость: миллион вариантов
+ * при живых приглашениях на две недели сталкивается редко, но молча
+ * падать на вставке нельзя.
+ */
+async function freshInviteCode(): Promise<string> {
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const n = crypto.getRandomValues(new Uint32Array(1))[0] % 10 ** INVITE_DIGITS;
+    const code = String(n).padStart(INVITE_DIGITS, "0");
+    const taken = await db()
+      .prepare("SELECT code FROM invites WHERE code = ?")
+      .bind(code)
+      .first<{ code: string }>();
+    if (!taken) return code;
+  }
+  throw new Error("Не удалось выдать код, попробуйте ещё раз");
 }
 
 async function requireTutor() {
@@ -263,7 +279,11 @@ export const tutorStudents = createServerFn({ method: "GET" }).handler(async () 
       ? null
       : await db()
           .prepare(
-            "SELECT code FROM invites WHERE child_id = ? AND used_at IS NULL AND expires_at > ? LIMIT 1",
+            // ORDER BY обязателен: без него при двух живых приглашениях
+            // кабинет показывал произвольное из них, и репетитор мог
+            // продиктовать код, который сам уже считал заменённым.
+            `SELECT code FROM invites WHERE child_id = ? AND used_at IS NULL AND expires_at > ?
+              ORDER BY created_at DESC LIMIT 1`,
           )
           .bind(child.id, nowIso())
           .first<{ code: string }>();
@@ -320,7 +340,7 @@ export const createInvite = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const user = await requireTutor();
     await requireStudent(data.childId, user.id);
-    const code = inviteCode();
+    const code = await freshInviteCode();
     await db()
       .prepare(
         `INSERT INTO invites (code, child_id, tutor_id, role, created_at, expires_at)
@@ -350,7 +370,7 @@ export const inviteInfo = createServerFn({ method: "GET" })
            JOIN users u ON u.id = i.tutor_id
           WHERE i.code = ? AND i.used_at IS NULL AND i.expires_at > ?`,
       )
-      .bind(data.code.trim().toUpperCase(), nowIso())
+      .bind(data.code.replace(/\D/g, ""), nowIso())
       .first<{ child_name: string; grade: number; tutor_name: string | null }>();
     if (!row) return { ok: false as const };
     return {
@@ -376,7 +396,7 @@ export const acceptInvite = createServerFn({ method: "POST" })
     if (!data.consentPd || !data.consentChildPd) {
       throw new Error("Без согласия на обработку данных подключиться нельзя");
     }
-    const code = data.code.trim().toUpperCase();
+    const code = data.code.replace(/\D/g, "");
     const invite = await db()
       .prepare("SELECT * FROM invites WHERE code = ? AND used_at IS NULL AND expires_at > ?")
       .bind(code, nowIso())

@@ -113,7 +113,8 @@ function InvitePage() {
           <>
             <h1 style={{ fontSize: "2.2rem" }}>Код приглашения</h1>
             <p style={{ marginTop: 12, color: "var(--sov-ink-soft)" }}>
-              Восемь символов, которые дал репетитор. По нему откроется профиль вашего ребёнка.
+              Шесть цифр, которые дал репетитор. По ним откроется профиль вашего ребёнка.
+              Это не код кабинета из четырёх цифр — тот придумывает себе сам родитель.
             </p>
             <form className="sov-form" style={{ marginTop: 32 }} onSubmit={check}>
               {error ? <div className="sov-alert">{error}</div> : null}
@@ -122,10 +123,11 @@ function InvitePage() {
                 <input
                   id="code"
                   value={code}
-                  onChange={(e) => setCode(e.target.value.toUpperCase().slice(0, 12))}
+                  onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  inputMode="numeric"
                   autoComplete="off"
                   required
-                  style={{ fontFamily: "var(--sov-mono)", letterSpacing: ".2em" }}
+                  style={{ fontFamily: "var(--sov-mono)", letterSpacing: ".3em" }}
                 />
               </div>
               <FormAction pending={pending}>Проверить код</FormAction>

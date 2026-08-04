@@ -243,7 +243,7 @@ function TutorPage() {
 /**
  * Код приглашения показывается прямо в списке: его чаще всего диктуют по
  * телефону или пересылают в мессенджер, и лишний переход в карточку ради
- * восьми символов только мешает.
+ * шести цифр только мешает.
  */
 function InviteRow({
   childId,
@@ -258,7 +258,7 @@ function InviteRow({
   if (code) {
     return (
       <p className="sov-student__note">
-        Код для родителя: <span className="sov-code">{code}</span>
+        Код приглашения: <span className="sov-code">{code}</span>
       </p>
     );
   }
