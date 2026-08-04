@@ -102,7 +102,11 @@
 .sov-hero__grid { display: grid; gap: 48px; align-items: center; grid-template-columns: 1fr; }
 @media (min-width: 900px) { .sov-hero__grid { grid-template-columns: 1.05fr .95fr; } }
 .sov-hero h1 { font-size: clamp(2.6rem, 6vw, 4.2rem); font-weight: 700; }
-.sov-hero p { font-size: 1.1rem; color: var(--sov-ink-soft); max-width: 46ch; margin-top: 20px; }
+/* h1 доходит до 4.2rem — 20px под ним смотрелись прижатыми. */
+.sov-hero p {
+  font-size: 1.1rem; color: var(--sov-ink-soft); max-width: 46ch;
+  margin-top: clamp(20px, 2.6vw, 32px);
+}
 .sov-hero__actions { display: flex; gap: 22px; align-items: center; flex-wrap: wrap; margin-top: 34px; }
 .sov-hero__art {
   position: relative; aspect-ratio: 4 / 3; border-radius: 24px; overflow: hidden;
@@ -152,8 +156,18 @@
 /* ------------------------------------------------------- секции витрины */
 
 .sov-section { padding: 96px 0; }
-.sov-section h2 { font-size: clamp(1.9rem, 3.6vw, 2.7rem); font-weight: 700; max-width: 20ch; }
-.sov-section__lead { margin-top: 16px; color: var(--sov-ink-soft); max-width: 56ch; font-size: 1.05rem; }
+/* Было 20ch — заголовки ломались на две строки посреди пустой полосы: ch это
+   ширина нуля, а кириллица шире, так что перенос наступал на 16–17 символах.
+   В колонках .sov-split ширину и так ограничивает сетка. */
+.sov-section h2 { font-size: clamp(1.9rem, 3.6vw, 2.7rem); font-weight: 700; max-width: 36ch; }
+/* Селектор с двумя классами не случайно: выше в файле стоит `.sov p { margin: 0 }`
+   со специфичностью (0,1,1), и одиночный `.sov-section__lead` (0,1,0) ей
+   проигрывал — заявленные 16px не применялись никогда, лид вплотную прилипал
+   к заголовку. Отбивка растёт вместе с кеглем: h2 доходит до 2.7rem. */
+.sov .sov-section__lead {
+  margin-top: clamp(18px, 2.2vw, 28px);
+  color: var(--sov-ink-soft); max-width: 56ch; font-size: 1.05rem;
+}
 
 .sov-split { display: grid; gap: 40px; margin-top: 48px; grid-template-columns: 1fr; align-items: center; }
 @media (min-width: 860px) { .sov-split { grid-template-columns: 1fr 1fr; } }
