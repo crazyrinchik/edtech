@@ -1,9 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import {
   NightSky,
-  Owl,
   QuietAction,
   SiteFooter,
   SiteHeader,
@@ -327,29 +326,104 @@ function ForParents() {
   );
 }
 
+/**
+ * Иконки гарантий. Рисуются здесь, а не берутся эмодзи: системные эмодзи
+ * приходят цветными и разными на каждой платформе — из графики сайта они
+ * выпадают. Общий язык: viewBox 24, обводка 2, цвет наследуется.
+ */
+const guardIcon = (paths: ReactNode) => (
+  <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor"
+    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    {paths}
+  </svg>
+);
+
+const GUARDS = [
+  {
+    // два отдельных согласия — две галочки, а не одна
+    icon: guardIcon(
+      <>
+        <rect x="3" y="4" width="7" height="7" rx="2" />
+        <path d="M5 7.5 6.5 9 9 6" />
+        <rect x="3" y="14" width="7" height="7" rx="2" />
+        <path d="M5 17.5 6.5 19 9 16" />
+        <path d="M13 7h8M13 17h8" />
+      </>,
+    ),
+    title: "Согласие отдельно",
+    text: "Данные родителя и данные ребёнка подтверждаются двумя разными галочками, а не одной общей.",
+  },
+  {
+    icon: guardIcon(
+      <>
+        <rect x="4" y="10" width="16" height="10" rx="2.5" />
+        <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+        <circle cx="12" cy="15" r="1.4" fill="currentColor" stroke="none" />
+      </>,
+    ),
+    title: "Профиль внутри семьи",
+    text: "Ребёнок не может открыть данные других семей: доступ проверяется на каждом запросе.",
+  },
+  {
+    icon: guardIcon(
+      <>
+        <circle cx="8" cy="12" r="4" />
+        <path d="M12 12h9M18 12v3.5M15 12v2.5" />
+      </>,
+    ),
+    title: "Пароли не хранятся",
+    text: "В базе лежит только хеш, восстановить из него исходный пароль нельзя.",
+  },
+  {
+    icon: guardIcon(
+      <>
+        <path d="M12 3l7 3v6c0 4.2-2.9 7.7-7 9-4.1-1.3-7-4.8-7-9V6l7-3Z" />
+        <path d="M9 12.2 11 14.2 15 10" />
+      </>,
+    ),
+    title: "Обмен по HTTPS",
+    text: "Соединение шифруется целиком, включая ответы ребёнка на задания.",
+  },
+];
+
 function Safety() {
   return (
     <section className="sov-section sov-shell sov-section--glow">
-      <div className="sov-split sov-split--flip">
-        <div className="sov-panel">
-          <Owl size={44} />
-          <h3 style={{ marginTop: 14 }}>Что знает система о ребёнке</h3>
-          <ul style={{ margin: "14px 0 0", paddingLeft: 18, color: "var(--sov-ink-soft)", lineHeight: 1.9 }}>
+      <h2>Данные детей под защитой</h2>
+      <p className="sov-section__lead">
+        Аккаунт заводит взрослый и отдельно подтверждает согласие на обработку данных ребёнка
+        по 152-ФЗ.
+      </p>
+
+      <div className="sov-guards">
+        {GUARDS.map((g) => (
+          <div key={g.title} className="sov-guard">
+            <span className="sov-guard__icon">{g.icon}</span>
+            <h3>{g.title}</h3>
+            <p>{g.text}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Главный вопрос родителя не «как защищено», а «что система знает
+          о моём ребёнке» — поэтому список данных явно поделён надвое. */}
+      <div className="sov-data">
+        <h3>Что знает система о ребёнке</h3>
+        <div className="sov-data__col sov-data__col--yes">
+          <b>Хранит</b>
+          <ul>
             <li>Имя, которое выбрал родитель</li>
             <li>Класс и аватар</li>
-            <li>Ответы на задания и время занятий</li>
+            <li>Ответы и время занятий</li>
           </ul>
-          <p className="sov-mono" style={{ marginTop: 16, color: "var(--sov-ink-soft)" }}>
-            Почта, телефон и фотографии ребёнка не собираются.
-          </p>
         </div>
-        <div>
-          <h2>Данные детей под защитой</h2>
-          <p className="sov-section__lead">
-            Аккаунт заводит родитель и отдельно подтверждает согласие на обработку данных ребёнка по
-            152-ФЗ. Профиль виден только внутри своего аккаунта: ребёнок не может открыть данные
-            других семей. Пароли хранятся в виде хеша, весь обмен идёт по HTTPS.
-          </p>
+        <div className="sov-data__col sov-data__col--no">
+          <b>Не спрашивает</b>
+          <ul>
+            <li>Почту и телефон</li>
+            <li>Фотографии</li>
+            <li>Геолокацию</li>
+          </ul>
         </div>
       </div>
     </section>

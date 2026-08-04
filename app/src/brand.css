@@ -828,3 +828,42 @@ a.sov-level:active { transform: translate(0, 2px); box-shadow: 0 2px 0 rgba(18,3
 .sov-big--warm { background: linear-gradient(150deg, #ffeede 0%, #ffffff 70%); box-shadow: 0 9px 0 rgba(224,128,62,.18); }
 .sov-big h3 { font-size: clamp(1.4rem, 3vw, 1.9rem); font-weight: 700; }
 .sov-big p { color: var(--sov-ink-soft); margin-top: 12px; }
+
+/* ── секция про данные: гарантии карточками ─────────────────────────
+   Раньше это был абзац в четыре строки рядом с панелькой, причём
+   колонки выравнивались по центру и слева над заголовком зияла пустота.
+   Теперь каждое обещание — отдельная карточка, а список данных вынесен
+   в широкую плашку с явным делением «хранит / не спрашивает»: родителя
+   волнует не то, как всё защищено, а что именно система знает о ребёнке. */
+.sov-guards {
+  display: grid; gap: 16px; margin-top: clamp(28px, 4vw, 40px);
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+}
+.sov-guard {
+  border: 2px solid var(--sov-line); border-radius: 20px; padding: 24px;
+  background: #fff; display: grid; gap: 10px; align-content: start;
+}
+.sov-guard__icon {
+  width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center;
+  background: var(--sov-cobalt-soft); color: var(--sov-cobalt);
+}
+.sov-guard h3 { font-size: 1.05rem; font-weight: 700; }
+.sov-guard p { color: var(--sov-ink-soft); font-size: .92rem; }
+
+.sov-data {
+  margin-top: 18px; border: 2px solid var(--sov-ink); border-radius: 22px;
+  padding: clamp(22px, 3vw, 28px); background: linear-gradient(150deg, #eef2fb 0%, #ffffff 65%);
+  display: grid; gap: 20px 32px; grid-template-columns: 1fr;
+}
+@media (min-width: 860px) { .sov-data { grid-template-columns: auto 1fr 1fr; align-items: start; } }
+.sov-data h3 { font-size: 1.15rem; font-weight: 700; max-width: 14ch; }
+.sov-data__col b {
+  display: block; font-size: .78rem; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--sov-ink-soft);
+}
+.sov-data__col ul { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 9px; }
+.sov-data__col li { display: flex; gap: 9px; align-items: flex-start; font-size: .95rem; }
+.sov-data__col li::before { font-weight: 800; line-height: 1.5; }
+.sov-data__col--yes li::before { content: "✓"; color: #35b06a; }
+.sov-data__col--no li { color: var(--sov-ink-soft); }
+.sov-data__col--no li::before { content: "✕"; color: #b3bccc; }
