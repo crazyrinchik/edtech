@@ -787,7 +787,12 @@ a.sov-level:active { transform: translate(0, 2px); box-shadow: 0 2px 0 rgba(18,3
 .sov-night__art { position: absolute; inset: 0; pointer-events: none; }
 .sov-night__art svg { width: 100%; height: 100%; display: block; }
 .sov-night > .sov-shell { position: relative; z-index: 1; }
-.sov-night h2 { color: #fff; }
+/* Размер заголовка приходится повторять: он задан селектором `.sov-section h2`,
+   а у ночной полосы своя раскладка и класса .sov-section на ней нет — без
+   этого правила заголовок выпадал в размер обычного текста. */
+.sov-night h2 {
+  color: #fff; font-size: clamp(1.9rem, 3.6vw, 2.7rem); font-weight: 700; max-width: 36ch;
+}
 .sov-night .sov-section__lead { color: rgba(255,255,255,.75); }
 
 .sov-figures {
