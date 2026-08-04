@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 
 import {
+  NightSky,
   Owl,
   QuietAction,
   SiteFooter,
@@ -17,21 +18,25 @@ const SCENES = [
     image: "/assets/scene-1.webp",
     title: "Занятие начинается за две минуты",
     text: "Родитель заводит профиль ребёнка, проходит короткую диагностику и сразу видит, с какой темы начинать. Никаких длинных настроек.",
-    tags: ["7 заданий на предмет", "Стартовый уровень", "Без лишних шагов"],
+    // Баблы описывают то, что показывает сама шторка, а не набор тем.
+    // Диагностика — ровно 6 заданий на предмет (см. DIAGNOSTIC в content/seed.ts).
+    tags: ["6 заданий на предмет", "Уровень определяется сам", "Без настроек"],
   },
   {
     id: "chisla",
     image: "/assets/scene-2.webp",
     title: "Математика как дорожка из полян",
-    text: "Темы открываются по очереди. Ребёнок видит короткий путь вперёд, а не бесконечный список. Каждая поляна это 5 или 10 заданий.",
-    tags: ["Счёт до 20", "Таблица умножения", "Порядок действий"],
+    // Точного числа заданий на тему здесь нет намеренно: в сиде их от 2 до 12,
+    // и любая цифра была бы неправдой для половины тем.
+    text: "Темы открываются по очереди. Ребёнок видит короткий путь вперёд, а не бесконечный список. Каждая поляна это отдельная тема с проверочной в конце.",
+    tags: ["Темы открываются по очереди", "Одна поляна — одна тема", "Виден путь вперёд"],
   },
   {
     id: "bukvy",
     image: "/assets/scene-3.webp",
     title: "Ошибка объясняется, а не отмечается красным",
     text: "Вместо слова «неверно» появляется разбор: почему так, как проверить, что запомнить. После разбора можно попробовать снова.",
-    tags: ["Жи и ши", "Части речи", "Проверочное слово"],
+    tags: ["Разбор вместо «неверно»", "Правильный ответ и почему", "Можно попробовать снова"],
   },
   {
     id: "vyshka",
@@ -211,30 +216,30 @@ function Journey() {
 /** Тренажёры открыты без аккаунта — это отдельный вход в продукт, не подраздел тем. */
 function Trainers() {
   return (
-    <section className="sov-section sov-shell">
+    <section className="sov-section sov-shell sov-section--glow">
       <h2>Бесплатные тренажёры</h2>
       <p className="sov-section__lead">
         Открыты без аккаунта — можно начать прямо сейчас. Регистрация нужна только для того,
         чтобы сохранялся прогресс.
       </p>
-      <div className="sov-split">
-        <div className="sov-panel">
+      <div className="sov-duo">
+        <div className="sov-big">
           <h3>Устный счёт</h3>
-          <p style={{ color: "var(--sov-ink-soft)", marginTop: 8, fontSize: ".95rem" }}>
+          <p>
             Однозначные, двузначные и трёхзначные числа, выбор действий и таймер на каждый ответ —
             от пяти секунд до «без ограничения».
           </p>
-          <div style={{ marginTop: 18 }}>
+          <div style={{ marginTop: 22 }}>
             <StartAction to="/schet">Открыть тренажёр</StartAction>
           </div>
         </div>
-        <div className="sov-panel">
+        <div className="sov-big sov-big--warm">
           <h3>Скорочтение</h3>
-          <p style={{ color: "var(--sov-ink-soft)", marginTop: 8, fontSize: ".95rem" }}>
+          <p>
             Слова показываются по одному с выбранной скоростью, после текста — вопросы на
             понимание. Три уровня сложности текстов.
           </p>
-          <div style={{ marginTop: 18 }}>
+          <div style={{ marginTop: 22 }}>
             <StartAction to="/chtenie">Открыть тренажёр</StartAction>
           </div>
         </div>
@@ -245,24 +250,36 @@ function Trainers() {
 
 function HowItWorks() {
   return (
-    <section className="sov-section sov-shell">
-      <h2>Что происходит внутри занятия</h2>
-      <p className="sov-section__lead">
-        Одна тема это набор из 5 или 10 упражнений с мгновенной проверкой. В конце темы идёт
-        короткая проверочная работа, и только после неё открывается следующая.
-      </p>
-      <div className="sov-rows">
-        {[
-          ["Мгновенная проверка", "Ответ засчитывается сразу после нажатия. Реакция интерфейса занимает доли секунды, ребёнок не ждёт."],
-          ["Разбор вместо оценки", "При ошибке появляется объяснение простыми словами и правильный ответ. Попробовать снова можно тут же."],
-          ["Звёзды за темы", "Награда привязана к пройденным темам, а не к времени в приложении. Сидеть дольше не значит получить больше."],
-          ["Мягкий стоп", "Через 20 минут занятие предлагает сделать перерыв. Лимит родитель настраивает сам."],
-        ].map(([title, text]) => (
-          <div key={title} className="sov-row">
-            <h3>{title}</h3>
-            <p>{text}</p>
+    /* Ночь над лесом: совёнок ночная птица, а карта уровней у ребёнка
+       упирается в опушку. Тёмная полоса разрывает бежевую монотонность
+       сильнее любого оттенка и при этом остаётся в языке продукта. */
+    <section className="sov-night">
+      <NightSky />
+      <div className="sov-shell">
+        <h2>Что происходит внутри занятия</h2>
+        <p className="sov-section__lead">
+          Одна тема это набор упражнений с мгновенной проверкой. Следующая открывается только
+          после проверочной работы.
+        </p>
+        {/* Каждая цифра проверена по коду, а не придумана для красоты. */}
+        <div className="sov-figures">
+          <div className="sov-fig">
+            <b>70%</b>
+            <span>нужно набрать в проверочной, чтобы тема засчиталась</span>
           </div>
-        ))}
+          <div className="sov-fig">
+            <b>20</b>
+            <span>минут — и занятие само предложит передохнуть</span>
+          </div>
+          <div className="sov-fig">
+            <b>3</b>
+            <span>звезды за тему, и только за неё, а не за время в приложении</span>
+          </div>
+          <div className="sov-fig">
+            <b>0</b>
+            <span>слов «неверно»: вместо оценки ребёнок видит разбор ошибки</span>
+          </div>
+        </div>
       </div>
     </section>
   );
@@ -270,7 +287,7 @@ function HowItWorks() {
 
 function ForParents() {
   return (
-    <section className="sov-section sov-shell">
+    <section className="sov-section sov-shell sov-section--glow">
       <div className="sov-split">
         <div>
           <h2>Кабинет родителя</h2>
@@ -312,7 +329,7 @@ function ForParents() {
 
 function Safety() {
   return (
-    <section className="sov-section sov-shell">
+    <section className="sov-section sov-shell sov-section--glow">
       <div className="sov-split sov-split--flip">
         <div className="sov-panel">
           <Owl size={44} />
@@ -341,7 +358,7 @@ function Safety() {
 
 function Plans() {
   return (
-    <section className="sov-section sov-shell">
+    <section className="sov-section sov-shell sov-section--glow">
       <h2>Сколько это стоит</h2>
       <p className="sov-section__lead">
         Первая тема каждого предмета открыта всегда. Подписка снимает ограничение и открывает

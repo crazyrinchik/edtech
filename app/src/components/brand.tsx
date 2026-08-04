@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 
 import { Owl as Mascot } from "./mascot";
 
-export { currentOwlItem, ForestScene, OWL_UNLOCKS, owlStage } from "./mascot";
+export { currentOwlItem, ForestScene, NightSky, OWL_UNLOCKS, owlStage } from "./mascot";
 export type { OwlItem, OwlMood } from "./mascot";
 
 /**

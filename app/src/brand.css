@@ -754,3 +754,72 @@ a.sov-level:active { transform: translate(0, 2px); box-shadow: 0 2px 0 rgba(18,3
   color: var(--sov-cobalt); text-decoration: none; border-bottom: 2px dotted var(--sov-cobalt);
 }
 .sov-level__check:hover { color: #16389b; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   Витрина ниже шторок: ночная полоса и крупные цифры.
+   Сплошной бежевый фон на всю нижнюю половину читался вяло. Тёмная
+   секция посередине разрывает монотонность сильнее любого оттенка, а
+   ночь над лесом — это язык самого продукта: совёнок ночная птица, и
+   карта уровней у ребёнка заканчивается опушкой.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Светлые секции получают мягкие пятна света вместо ровной заливки. */
+.sov-section--glow {
+  background:
+    radial-gradient(900px 420px at 12% 0%, #ffffff 0%, rgba(255,255,255,0) 62%),
+    var(--sov-paper);
+}
+
+.sov-night {
+  position: relative;
+  overflow: hidden;
+  padding: clamp(64px, 8vw, 96px) 0;
+  background: linear-gradient(180deg, #0b1428 0%, #14274a 55%, #1d365e 100%);
+  color: #fff;
+}
+/* Луна: мягкое сияние в правом верхнем углу, без самой окружности —
+   диск конкурировал бы с заголовком за внимание. */
+.sov-night::before {
+  content: ""; position: absolute; right: 6%; top: -60px;
+  width: 340px; height: 340px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,225,150,.30) 0%, rgba(255,225,150,0) 68%);
+}
+.sov-night__art { position: absolute; inset: 0; pointer-events: none; }
+.sov-night__art svg { width: 100%; height: 100%; display: block; }
+.sov-night > .sov-shell { position: relative; z-index: 1; }
+.sov-night h2 { color: #fff; }
+.sov-night .sov-section__lead { color: rgba(255,255,255,.75); }
+
+.sov-figures {
+  display: grid; gap: 18px; margin-top: clamp(28px, 4vw, 44px);
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+.sov-fig {
+  border: 2px solid var(--sov-ink); border-radius: 22px; padding: 26px 24px;
+  background: #fff; box-shadow: 0 7px 0 rgba(18,32,58,.12);
+}
+.sov-fig b {
+  display: block; font-size: clamp(2.4rem, 4.6vw, 3.4rem); font-weight: 800;
+  line-height: .95; letter-spacing: -.04em; color: var(--sov-cobalt);
+}
+.sov-fig span { display: block; margin-top: 10px; color: var(--sov-ink-soft); font-size: .95rem; }
+/* На ночном фоне карточки становятся полупрозрачными, цифры — тёплыми. */
+.sov-night .sov-fig {
+  background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.25); box-shadow: none;
+}
+.sov-night .sov-fig b { color: #ffd166; }
+.sov-night .sov-fig span { color: rgba(255,255,255,.72); }
+/* Деревья не должны задевать нижний край карточек. */
+.sov-night .sov-figures { margin-bottom: clamp(20px, 4vw, 48px); }
+
+/* Крупные карточки тренажёров вместо ровных панелей. */
+.sov-duo { display: grid; gap: 20px; grid-template-columns: 1fr; margin-top: clamp(28px, 4vw, 44px); }
+@media (min-width: 860px) { .sov-duo { grid-template-columns: 1fr 1fr; } }
+.sov-big {
+  border: 2px solid var(--sov-ink); border-radius: 26px; padding: clamp(24px, 3vw, 34px);
+  background: linear-gradient(150deg, #e2eaff 0%, #ffffff 70%);
+  box-shadow: 0 9px 0 rgba(31,79,216,.16);
+}
+.sov-big--warm { background: linear-gradient(150deg, #ffeede 0%, #ffffff 70%); box-shadow: 0 9px 0 rgba(224,128,62,.18); }
+.sov-big h3 { font-size: clamp(1.4rem, 3vw, 1.9rem); font-weight: 700; }
+.sov-big p { color: var(--sov-ink-soft); margin-top: 12px; }

@@ -318,6 +318,90 @@ function Mushroom({ x, y, scale = 1 }: { x: number; y: number; scale?: number })
   );
 }
 
+/* ------------------------------------------------------- ночная полоса */
+
+/**
+ * Звёзды и силуэт леса для тёмной секции витрины.
+ *
+ * Совёнок — ночная птица, а карта уровней у ребёнка упирается в опушку;
+ * поэтому тёмная полоса на лендинге не просто «тёмная для контраста», а
+ * ночь над тем же лесом.
+ *
+ * Координаты считаются один раз при загрузке модуля простым генератором с
+ * фиксированным семенем: Math.random() дал бы разные звёзды на сервере и в
+ * браузере, и React ругался бы на расхождение разметки при гидратации.
+ */
+function seeded(seed: number) {
+  let s = seed;
+  return () => {
+    s = (s * 1664525 + 1013904223) % 4294967296;
+    return s / 4294967296;
+  };
+}
+
+const NIGHT_STARS = (() => {
+  const rnd = seeded(20260804);
+  return Array.from({ length: 68 }, (_, i) => ({
+    x: rnd() * 1436 + 2,
+    y: rnd() * 320 + 4,
+    r: i < 6 ? 1.9 + rnd() * 0.7 : [0.9, 1.1, 1.4][Math.floor(rnd() * 3)],
+    o: 0.35 + rnd() * 0.6,
+  }));
+})();
+
+const NIGHT_TREES = (() => {
+  const rnd = seeded(77001);
+  const list: { x: number; scale: number; pine: boolean; far: boolean }[] = [];
+  for (const far of [true, false]) {
+    let x = -20;
+    while (x < 1470) {
+      list.push({ x, scale: (far ? 0.8 : 0.95) + rnd() * 0.5, pine: rnd() < 0.55, far });
+      x += 70 + rnd() * 60;
+    }
+  }
+  return list;
+})();
+
+function NightTree({ x, scale, pine, fill }: { x: number; scale: number; pine: boolean; fill: string }) {
+  return (
+    <g transform={`translate(${x.toFixed(0)} 420) scale(${scale.toFixed(2)})`} fill={fill}>
+      {pine ? (
+        <>
+          <rect x="-4" y="-14" width="8" height="18" rx="3" />
+          <path d="M0-58c8 10 13 18 15 24-5-2-10-3-15-3s-10 1-15 3c2-6 7-14 15-24Z" />
+          <path d="M0-42c9 11 15 20 17 27-6-2-11-3-17-3s-11 1-17 3c2-7 8-16 17-27Z" />
+          <path d="M0-26c10 12 16 21 18 29-6-2-12-4-18-4s-12 2-18 4c2-8 8-17 18-29Z" />
+        </>
+      ) : (
+        <>
+          <rect x="-4" y="-18" width="9" height="22" rx="3" />
+          <ellipse cx="-12" cy="-28" rx="15" ry="13" />
+          <ellipse cx="12" cy="-28" rx="15" ry="13" />
+          <ellipse cx="0" cy="-40" rx="19" ry="17" />
+        </>
+      )}
+    </g>
+  );
+}
+
+export function NightSky() {
+  return (
+    <div className="sov-night__art" aria-hidden="true">
+      <svg viewBox="0 0 1440 420" preserveAspectRatio="xMidYMax slice">
+        {NIGHT_STARS.map((s, i) => (
+          <circle key={i} cx={s.x.toFixed(0)} cy={s.y.toFixed(0)} r={s.r.toFixed(1)} fill="#fff" opacity={s.o.toFixed(2)} />
+        ))}
+        {NIGHT_TREES.filter((t) => t.far).map((t, i) => (
+          <NightTree key={`f${i}`} {...t} fill="#0c1730" />
+        ))}
+        {NIGHT_TREES.filter((t) => !t.far).map((t, i) => (
+          <NightTree key={`n${i}`} {...t} fill="#070d1e" />
+        ))}
+      </svg>
+    </div>
+  );
+}
+
 /**
  * Фон-лес: несколько планов с разной насыщенностью, чтобы получилась глубина.
  * Рисуется за содержимым, поэтому aria-hidden.
