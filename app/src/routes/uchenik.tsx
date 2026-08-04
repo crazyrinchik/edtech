@@ -13,9 +13,19 @@ import {
 } from "../components/brand";
 import { AutoSpeakToggle, SpeakButton } from "../components/speak";
 import { getDiagnostic, getSkillMap, me, submitDiagnostic } from "../lib/api/app.functions";
+import { childAssignments } from "../lib/api/tutor.functions";
 
 /** Уровень считается на сервере как звёзды/5 + 1 — держим шаг тем же. */
 const STARS_PER_LEVEL = 5;
+
+/** «к четвергу» ребёнку понятнее даты: он живёт неделей, а не числами. */
+function dueLabel(iso: string): string {
+  const days = Math.ceil((new Date(iso).getTime() - Date.now()) / 864e5);
+  if (days < 0) return "срок прошёл";
+  if (days === 0) return "на сегодня";
+  if (days === 1) return "на завтра";
+  return `осталось ${days} дн.`;
+}
 
 function plural(n: number, one: string, few: string, many: string): string {
   const mod10 = n % 10;
@@ -44,6 +54,8 @@ type DiagData = {
   childName: string; grade: number;
   blocks: { subjectId: string; subjectName: string; tasks: { id: string; kind: string; prompt: string; payload: Record<string, unknown>; explanation: string }[] }[];
 };
+type Homework = Awaited<ReturnType<typeof childAssignments>>["assignments"];
+
 type DiagResult = { subjectId: string; subjectName: string; correct: number; total: number; percent: number; level: string }[];
 
 function PupilPage() {
@@ -51,6 +63,7 @@ function PupilPage() {
   const [childId, setChildId] = useState<string | null>(null);
   const [data, setData] = useState<MapData | null>(null);
   const [manyChildren, setManyChildren] = useState(false);
+  const [homework, setHomework] = useState<Homework>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -78,6 +91,11 @@ function PupilPage() {
         if (!alive) return;
         setChildId(first);
         setData(map);
+        // Домашка грузится отдельно: без репетитора её просто нет, и
+        // задерживать из-за неё карту тем незачем.
+        childAssignments({ data: { childId: first } })
+          .then((hw) => alive && setHomework(hw.assignments))
+          .catch(() => undefined);
       } catch (e) {
         if (alive) setError(e instanceof Error ? e.message : "Не удалось загрузить занятия");
       }
@@ -172,6 +190,47 @@ function PupilPage() {
             </div>
           </div>
         </div>
+
+        {/* Домашка стоит над всем остальным: это то, о чём договорились с
+            репетитором, и искать её среди тем ребёнок не должен. */}
+        {homework.map((hw) => (
+          <section key={hw.id} className="sov-homework">
+            <div className="sov-homework__head">
+              <strong>{hw.title}</strong>
+              <span className="sov-homework__due">
+                {hw.dueAt ? dueLabel(hw.dueAt) : "без срока"}
+              </span>
+            </div>
+            <div className="sov-homework__items">
+              {hw.items.map((item) =>
+                item.kind === "topic" ? (
+                  <Link
+                    key={item.id}
+                    to="/urok/$topicId"
+                    params={{ topicId: item.refId }}
+                    search={{ mode: "practice" }}
+                    className="sov-homework__item"
+                    data-done={item.done}
+                  >
+                    <span className="sov-homework__mark">{item.done ? "✓" : "•"}</span>
+                    {item.name}
+                  </Link>
+                ) : (
+                  <Link
+                    key={item.id}
+                    to={item.refId === "chtenie" ? "/chtenie" : "/schet"}
+                    className="sov-homework__item"
+                    data-done={item.done}
+                  >
+                    <span className="sov-homework__mark">{item.done ? "✓" : "•"}</span>
+                    {item.name}
+                  </Link>
+                ),
+              )}
+            </div>
+            {hw.comment ? <p className="sov-homework__comment">{hw.comment}</p> : null}
+          </section>
+        ))}
 
         {/* Полка наград: видно и то, что уже есть, и то, что впереди. */}
         <div className="sov-shelf">

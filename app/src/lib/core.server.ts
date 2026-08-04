@@ -246,13 +246,65 @@ export async function requireAdmin(): Promise<SessionUser> {
 }
 
 /** Ребёнок доступен только своему родителю. */
-export async function requireOwnChild(childId: string, userId: string) {
+/**
+ * Доступ к ученику. Раньше здесь стояло сравнение с children.parent_id —
+ * один владелец на всю жизнь профиля. С приходом репетиторов взрослых у
+ * ученика несколько, поэтому связь вынесена в child_access, а это условие
+ * стоит в каждой функции, принимающей childId: другой репетитор и другая
+ * семья не должны видеть чужого ребёнка.
+ */
+export async function requireChildAccess(childId: string, userId: string) {
   const child = await db()
-    .prepare("SELECT * FROM children WHERE id = ? AND parent_id = ?")
+    .prepare(
+      `SELECT c.* FROM children c
+         JOIN child_access a ON a.child_id = c.id
+        WHERE c.id = ? AND a.user_id = ?`,
+    )
     .bind(childId, userId)
     .first<Record<string, unknown>>();
-  if (!child) throw new Error("Профиль ребёнка не найден");
+  if (!child) throw new Error("Профиль ученика не найден");
   return child;
+}
+
+/** Роль конкретного взрослого рядом с этим учеником: repetitor видит больше. */
+export async function childAccessRole(childId: string, userId: string): Promise<string | null> {
+  const row = await db()
+    .prepare("SELECT role FROM child_access WHERE child_id = ? AND user_id = ?")
+    .bind(childId, userId)
+    .first<{ role: string }>();
+  return row?.role ?? null;
+}
+
+export async function grantChildAccess(
+  childId: string,
+  userId: string,
+  role: "parent" | "tutor",
+): Promise<void> {
+  await db()
+    .prepare(
+      `INSERT INTO child_access (child_id, user_id, role, created_at) VALUES (?, ?, ?, ?)
+       ON CONFLICT (child_id, user_id) DO UPDATE SET role = ?`,
+    )
+    .bind(childId, userId, role, nowIso(), role)
+    .run();
+}
+
+/**
+ * Платит тот, кто привёл. Тема открыта, пока активная подписка есть хотя бы
+ * у одного взрослого рядом с учеником: обычно это репетитор, но если он ушёл,
+ * родитель может продолжить сам, ничего не перенося.
+ */
+export async function childHasPaidAccess(childId: string): Promise<boolean> {
+  const row = await db()
+    .prepare(
+      `SELECT 1 AS ok FROM child_access a
+         JOIN users u ON u.id = a.user_id
+        WHERE a.child_id = ? AND u.subscription_status = 'active' AND u.blocked = 0
+        LIMIT 1`,
+    )
+    .bind(childId)
+    .first<{ ok: number }>();
+  return !!row;
 }
 
 /* ------------------------------------------------------------- аналитика */

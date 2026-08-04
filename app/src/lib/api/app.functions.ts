@@ -17,7 +17,9 @@ import {
   lockParent,
   nowIso,
   requireAdmin,
-  requireOwnChild,
+  requireChildAccess,
+  childHasPaidAccess,
+  grantChildAccess,
   requireParentAccess,
   requireUser,
   saveParentPin,
@@ -79,15 +81,28 @@ export const me = createServerFn({ method: "GET" }).handler(async () => {
   if (!user) {
     return { user: null, children: [], activeChildId: null, parentPinSet: false, parentUnlocked: false };
   }
+  // Учеников даёт child_access, а не children.parent_id: у ученика
+  // может быть и родитель, и репетитор, и видеть его должны оба.
   const children = await db()
-    .prepare("SELECT * FROM children WHERE parent_id = ? ORDER BY created_at")
+    .prepare(
+      `SELECT c.* FROM children c
+         JOIN child_access a ON a.child_id = c.id
+        WHERE a.user_id = ? ORDER BY c.created_at`,
+    )
     .bind(user.id)
     .all<ChildRecord>();
   const pinSet = await hasParentPin(user.id);
+  // Кука активного ребёнка переживает смену аккаунта в том же браузере:
+  // войдя другим взрослым, можно было получить id чужого профиля и упереться
+  // в «профиль не найден» на первом же запросе. Отдаём её только если этот
+  // ученик действительно доступен текущему пользователю.
+  const list = (children.results ?? []) as ChildRecord[];
+  const cookieChild = getCookie(CHILD_COOKIE) ?? null;
+  const activeChildId = list.some((c) => c.id === cookieChild) ? cookieChild : null;
   return {
     user,
-    children: (children.results ?? []) as ChildRecord[],
-    activeChildId: getCookie(CHILD_COOKIE) ?? null,
+    children: list,
+    activeChildId,
     parentPinSet: pinSet,
     parentUnlocked: pinSet ? await isParentUnlocked(user.id) : true,
   };
@@ -112,14 +127,21 @@ export const registerParent = createServerFn({ method: "POST" })
       email: z.string().email("Проверьте адрес почты"),
       password: z.string().min(8, "Пароль от 8 символов"),
       name: z.string().trim().min(1, "Укажите имя"),
+      role: z.enum(["parent", "tutor"]).default("parent"),
       consentPd: z.boolean(),
       consentChildPd: z.boolean(),
     }),
   )
   .handler(async ({ data }) => {
     await ensureSeeded();
-    if (!data.consentPd || !data.consentChildPd) {
+    if (!data.consentPd) {
       throw new Error("Без согласия на обработку данных регистрация невозможна");
+    }
+    // Согласие за ребёнка даёт законный представитель. У репетитора на этом
+    // шаге ученика ещё нет, и подписываться за чужую семью он не может:
+    // это согласие соберёт родитель, когда откроет приглашение.
+    if (data.role === "parent" && !data.consentChildPd) {
+      throw new Error("Без согласия на обработку данных ребёнка регистрация невозможна");
     }
     const email = data.email.toLowerCase().trim();
     const existing = await db().prepare("SELECT id FROM users WHERE email = ?").bind(email).first();
@@ -134,12 +156,21 @@ export const registerParent = createServerFn({ method: "POST" })
     await db()
       .prepare(
         `INSERT INTO users (id, email, password_hash, name, role, subscription_status, consent_pd, consent_child_pd, consent_at, created_at)
-         VALUES (?, ?, ?, ?, 'parent', 'free', 1, 1, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, 'free', 1, ?, ?, ?)`,
       )
-      .bind(id, email, await hashPassword(data.password), data.name.trim(), nowIso(), nowIso())
+      .bind(
+        id,
+        email,
+        await hashPassword(data.password),
+        data.name.trim(),
+        data.role,
+        data.consentChildPd ? 1 : 0,
+        nowIso(),
+        nowIso(),
+      )
       .run();
     await startSession(id);
-    await track("register", { userId: id });
+    await track("register", { userId: id, props: { role: data.role } });
     return { ok: true };
   });
 
@@ -234,6 +265,9 @@ export const addChild = createServerFn({ method: "POST" })
       )
       .bind(id, user.id, data.name.trim(), data.avatar, data.grade, data.birthYear, nowIso())
       .run();
+    // Роль в child_access, а не parent_id, решает, кто видит ученика.
+    // Родитель, заводящий ребёнка сам, получает обе: и владение, и доступ.
+    await grantChildAccess(id, user.id, user.role === "tutor" ? "tutor" : "parent");
     setCookie(CHILD_COOKIE, id, { path: "/", sameSite: "lax" });
     await track("child_created", { userId: user.id, childId: id });
     return { id };
@@ -243,7 +277,7 @@ export const selectChild = createServerFn({ method: "POST" })
   .inputValidator(z.object({ childId: z.string() }))
   .handler(async ({ data }) => {
     const user = await requireUser();
-    await requireOwnChild(data.childId, user.id);
+    await requireChildAccess(data.childId, user.id);
     // Кука выбранного ребёнка живёт до закрытия браузера: если детей несколько,
     // новый сеанс должен начинаться с вопроса «кто сейчас занимается», а не
     // с прошлого выбора недельной давности.
@@ -261,7 +295,7 @@ export const updateChild = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const user = await requireParentAccess();
-    await requireOwnChild(data.childId, user.id);
+    await requireChildAccess(data.childId, user.id);
     await db()
       .prepare("UPDATE children SET daily_limit_min = ?, sound_on = ? WHERE id = ?")
       .bind(data.dailyLimitMin, data.soundOn ? 1 : 0, data.childId)
@@ -275,7 +309,7 @@ export const getDiagnostic = createServerFn({ method: "GET" })
   .inputValidator(z.object({ childId: z.string() }))
   .handler(async ({ data }) => {
     const user = await requireUser();
-    const child = (await requireOwnChild(data.childId, user.id)) as unknown as ChildRecord;
+    const child = (await requireChildAccess(data.childId, user.id)) as unknown as ChildRecord;
     const blocks = diagnosticFor(child.grade).map((block) => ({
       subjectId: block.subjectId,
       subjectName: block.subjectName,
@@ -299,7 +333,7 @@ export const submitDiagnostic = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const user = await requireUser();
-    const child = (await requireOwnChild(data.childId, user.id)) as unknown as ChildRecord;
+    const child = (await requireChildAccess(data.childId, user.id)) as unknown as ChildRecord;
     const blocks = diagnosticFor(child.grade);
 
     const result = blocks.map((block) => {
@@ -334,8 +368,8 @@ export const getSkillMap = createServerFn({ method: "GET" })
   .handler(async ({ data }) => {
     await ensureSeeded();
     const user = await requireUser();
-    const child = (await requireOwnChild(data.childId, user.id)) as unknown as ChildRecord;
-    const paid = user.subscriptionStatus === "active";
+    const child = (await requireChildAccess(data.childId, user.id)) as unknown as ChildRecord;
+    const paid = await childHasPaidAccess(data.childId);
 
     const subjects = await db()
       .prepare("SELECT * FROM subjects ORDER BY sort_order")
@@ -398,11 +432,11 @@ export const startTopic = createServerFn({ method: "GET" })
   .handler(async ({ data }) => {
     await ensureSeeded();
     const user = await requireUser();
-    await requireOwnChild(data.childId, user.id);
+    await requireChildAccess(data.childId, user.id);
 
     const topic = await db().prepare("SELECT * FROM topics WHERE id = ?").bind(data.topicId).first<TopicRow>();
     if (!topic) throw new Error("Тема не найдена");
-    if (!topic.is_free && user.subscriptionStatus !== "active") {
+    if (!topic.is_free && !(await childHasPaidAccess(data.childId))) {
       throw new Error("Эта тема доступна по подписке");
     }
 
@@ -444,7 +478,7 @@ export const answerTask = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const user = await requireUser();
-    await requireOwnChild(data.childId, user.id);
+    await requireChildAccess(data.childId, user.id);
     const task = await db().prepare("SELECT * FROM tasks WHERE id = ?").bind(data.taskId).first<TaskRow>();
     if (!task) throw new Error("Задание не найдено");
 
@@ -487,7 +521,7 @@ export const finishTopic = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const user = await requireUser();
-    const child = (await requireOwnChild(data.childId, user.id)) as unknown as ChildRecord;
+    const child = (await requireChildAccess(data.childId, user.id)) as unknown as ChildRecord;
 
     // Число заданий берётся из базы, а не из тела запроса: в проверочной темы
     // «Считаем до 10» их пять, и результат вроде 92% означал бы, что клиент
@@ -551,7 +585,7 @@ export const finishTopic = createServerFn({ method: "POST" })
         )
         .bind(topic.subject_id, topic.grade, topic.sort_order)
         .first<{ name: string; is_free: number }>();
-      if (row) next = { name: row.name, locked: !row.is_free && user.subscriptionStatus !== "active" };
+      if (row) next = { name: row.name, locked: !row.is_free && !(await childHasPaidAccess(data.childId)) };
     }
 
     // Род ребёнка приложение не спрашивает, поэтому в сообщении нет глаголов
@@ -575,7 +609,7 @@ export const parentReport = createServerFn({ method: "GET" })
   .handler(async ({ data }) => {
     await ensureSeeded();
     const user = await requireParentAccess();
-    const child = (await requireOwnChild(data.childId, user.id)) as unknown as ChildRecord;
+    const child = (await requireChildAccess(data.childId, user.id)) as unknown as ChildRecord;
     const weekAgo = new Date(Date.now() - 7 * 864e5).toISOString();
 
     const totals = await db()
@@ -807,7 +841,7 @@ async function saveDrillRow(opts: {
   const user = await currentUser();
   if (!user) return false;
   try {
-    await requireOwnChild(opts.childId, user.id);
+    await requireChildAccess(opts.childId, user.id);
   } catch {
     return false;
   }

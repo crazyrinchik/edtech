@@ -9,11 +9,20 @@ export const Route = createFileRoute("/registraciya")({
   component: RegisterPage,
 });
 
-const STEPS = ["parent", "child", "pin"] as const;
+/**
+ * Регистрация раздваивается на входе. Репетитор платит сам и заводит
+ * учеников в своём кабинете, поэтому ни профиль ребёнка, ни код родителя
+ * ему на этом шаге не нужны — и согласие за чужую семью он не подписывает.
+ */
+const PARENT_STEPS = ["role", "parent", "child", "pin"] as const;
+const TUTOR_STEPS = ["role", "parent"] as const;
+
+type Step = (typeof PARENT_STEPS)[number];
 
 function RegisterPage() {
   const navigate = useNavigate();
-  const [step, setStep] = useState<(typeof STEPS)[number]>("parent");
+  const [role, setRole] = useState<"parent" | "tutor">("parent");
+  const [step, setStep] = useState<Step>("role");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [avatar, setAvatar] = useState("owl");
@@ -31,10 +40,15 @@ function RegisterPage() {
           email: String(form.get("email") ?? ""),
           password: String(form.get("password") ?? ""),
           name: String(form.get("name") ?? ""),
+          role,
           consentPd: form.get("consentPd") === "on",
-          consentChildPd: form.get("consentChildPd") === "on",
+          consentChildPd: role === "parent" && form.get("consentChildPd") === "on",
         },
       });
+      if (role === "tutor") {
+        await navigate({ to: "/repetitor" });
+        return;
+      }
       setStep("child");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Не получилось зарегистрироваться");
@@ -63,6 +77,8 @@ function RegisterPage() {
     setPending(false);
   }
 
+  const steps: readonly Step[] = role === "tutor" ? TUTOR_STEPS : PARENT_STEPS;
+
   async function submitPin(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setPending(true);
@@ -81,15 +97,64 @@ function RegisterPage() {
     <div className="sov">
       <SiteHeader right={<QuietAction to="/vhod">Войти</QuietAction>} />
       <main className="sov-narrow" style={{ paddingTop: 48, paddingBottom: 80 }}>
-        <p className="sov-mono" style={{ color: "var(--sov-ink-soft)" }}>
-          Шаг {STEPS.indexOf(step) + 1} из {STEPS.length}
-        </p>
+        {step === "role" ? null : (
+          <p className="sov-mono" style={{ color: "var(--sov-ink-soft)" }}>
+            Шаг {steps.indexOf(step) + 1} из {steps.length}
+          </p>
+        )}
+
+        {step === "role" ? (
+          <>
+            <h1 style={{ fontSize: "2.2rem", marginTop: 10 }}>Кто вы?</h1>
+            <p style={{ marginTop: 12, color: "var(--sov-ink-soft)" }}>
+              От этого зависит, что будет дальше: репетитор заводит учеников сам,
+              родитель — своего ребёнка.
+            </p>
+            <div className="sov-pick" style={{ marginTop: 30 }}>
+              <button
+                type="button"
+                className="sov-pick__card"
+                onClick={() => {
+                  setRole("tutor");
+                  setStep("parent");
+                }}
+              >
+                <strong>Я репетитор</strong>
+                <span>
+                  Ученики, домашние задания и отчёты в одном кабинете. Подписку оплачиваете вы,
+                  семьям платить не нужно.
+                </span>
+              </button>
+              <button
+                type="button"
+                className="sov-pick__card"
+                onClick={() => {
+                  setRole("parent");
+                  setStep("parent");
+                }}
+              >
+                <strong>Я родитель</strong>
+                <span>
+                  Занятия ребёнка дома и кабинет с прогрессом. Если с ребёнком занимается
+                  репетитор, попросите у него код приглашения.
+                </span>
+              </button>
+            </div>
+            <p style={{ marginTop: 24 }}>
+              <QuietAction to="/priglashenie">У меня есть код приглашения</QuietAction>
+            </p>
+          </>
+        ) : null}
 
         {step === "parent" ? (
           <>
-            <h1 style={{ fontSize: "2.2rem", fontWeight: 700, marginTop: 10 }}>Аккаунт родителя</h1>
+            <h1 style={{ fontSize: "2.2rem", marginTop: 10 }}>
+              {role === "tutor" ? "Аккаунт репетитора" : "Аккаунт родителя"}
+            </h1>
             <p style={{ marginTop: 12, color: "var(--sov-ink-soft)" }}>
-              Аккаунт оформляет взрослый. Профиль ребёнка добавим на следующем шаге.
+              {role === "tutor"
+                ? "Учеников добавите в кабинете сразу после регистрации."
+                : "Аккаунт оформляет взрослый. Профиль ребёнка добавим на следующем шаге."}
             </p>
             <form className="sov-form" style={{ marginTop: 32 }} onSubmit={submitParent}>
               {error ? <div className="sov-alert">{error}</div> : null}
@@ -110,21 +175,28 @@ function RegisterPage() {
                 <input type="checkbox" name="consentPd" required />
                 <span>Даю согласие на обработку моих персональных данных по 152-ФЗ.</span>
               </label>
-              <label className="sov-check">
-                <input type="checkbox" name="consentChildPd" required />
-                <span>
-                  Как законный представитель даю согласие на обработку данных моего ребёнка: имя,
-                  класс, ответы на задания и время занятий.
-                </span>
-              </label>
-              <FormAction pending={pending}>Продолжить</FormAction>
+              {/* Согласие за ребёнка подписывает только законный представитель.
+                  У репетитора его спрашивать не за кого: данные учеников
+                  подтвердит родитель, когда откроет приглашение. */}
+              {role === "parent" ? (
+                <label className="sov-check">
+                  <input type="checkbox" name="consentChildPd" required />
+                  <span>
+                    Как законный представитель даю согласие на обработку данных моего ребёнка: имя,
+                    класс, ответы на задания и время занятий.
+                  </span>
+                </label>
+              ) : null}
+              <FormAction pending={pending}>
+                {role === "tutor" ? "Открыть кабинет" : "Продолжить"}
+              </FormAction>
             </form>
           </>
         ) : null}
 
         {step === "child" ? (
           <>
-            <h1 style={{ fontSize: "2.2rem", fontWeight: 700, marginTop: 10 }}>Профиль ребёнка</h1>
+            <h1 style={{ fontSize: "2.2rem", marginTop: 10 }}>Профиль ребёнка</h1>
             <p style={{ marginTop: 12, color: "var(--sov-ink-soft)" }}>
               Достаточно имени и класса. Почту и телефон ребёнка мы не спрашиваем.
             </p>
@@ -175,7 +247,7 @@ function RegisterPage() {
 
         {step === "pin" ? (
           <>
-            <h1 style={{ fontSize: "2.2rem", fontWeight: 700, marginTop: 10 }}>Код родителя</h1>
+            <h1 style={{ fontSize: "2.2rem", marginTop: 10 }}>Код родителя</h1>
             <p style={{ marginTop: 12, color: "var(--sov-ink-soft)" }}>
               Четыре цифры для входа в кабинет: отчёты, настройки и подписка. Ребёнок открывает
               занятия без кода — он нужен только взрослой части.

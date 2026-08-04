@@ -762,3 +762,94 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
     animation-duration: .001ms !important; transition-duration: .001ms !important;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   Кабинет репетитора: ученики и домашняя работа.
+   Взрослый интерфейс, поэтому без нижних граней и капслока — здесь
+   просматривают список, а не нажимают большие кнопки.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Развилка ролей на регистрации. */
+.sov-pick { display: grid; gap: 14px; grid-template-columns: 1fr; }
+@media (min-width: 720px) { .sov-pick { grid-template-columns: 1fr 1fr; } }
+.sov-pick__card {
+  display: grid; gap: 8px; text-align: left; cursor: pointer;
+  background: #fff; border: 2px solid var(--sov-line); border-bottom-width: 4px;
+  border-radius: var(--sov-radius); padding: 22px 24px; font-family: var(--sov-font);
+  color: var(--sov-ink); transition: border-color .14s, background .14s;
+}
+.sov-pick__card:hover { border-color: var(--sov-cobalt); background: var(--sov-cobalt-soft); }
+.sov-pick__card strong { font-size: 1.15rem; font-weight: 800; }
+.sov-pick__card span { font-size: .93rem; font-weight: 500; color: var(--sov-ink-soft); line-height: 1.5; }
+
+/* Список учеников. */
+.sov-students { display: grid; gap: 14px; margin-top: 26px; grid-template-columns: 1fr; }
+@media (min-width: 900px) { .sov-students { grid-template-columns: 1fr 1fr; } }
+.sov-student { border: 2px solid var(--sov-line); border-radius: var(--sov-radius); background: #fff; overflow: hidden; }
+.sov-student__head {
+  display: flex; align-items: center; gap: 14px; padding: 18px 22px;
+  text-decoration: none; color: var(--sov-ink); border-bottom: 2px solid var(--sov-line);
+  transition: background .14s;
+}
+.sov-student__head:hover { background: var(--sov-cobalt-soft); }
+.sov-student__who { display: grid; gap: 2px; }
+.sov-student__who strong { font-size: 1.15rem; font-weight: 800; }
+.sov-student__who > span { font-size: .88rem; font-weight: 600; color: var(--sov-ink-soft); }
+.sov-student__body { padding: 18px 22px; display: grid; gap: 12px; justify-items: start; }
+.sov-student__risk { font-size: .9rem; font-weight: 600; color: var(--sov-warn); }
+.sov-student__note { font-size: .88rem; font-weight: 600; color: var(--sov-ink-soft); }
+.sov-student__title { display: flex; align-items: center; gap: 16px; margin-top: 10px; }
+
+/* Строка домашки в списке: статус несёт левая грань, а не заливка —
+   иначе четыре карточки подряд превращаются в светофор. */
+.sov-hw {
+  width: 100%; display: grid; gap: 3px; padding: 12px 16px;
+  border-left: 4px solid var(--sov-line); background: var(--sov-paper);
+  border-radius: 0 12px 12px 0;
+}
+.sov-hw b { font-size: 1rem; font-weight: 800; }
+.sov-hw span { font-size: .86rem; font-weight: 600; color: var(--sov-ink-soft); }
+.sov-hw[data-status="done"] { border-left-color: var(--sov-ok); }
+.sov-hw[data-status="overdue"] { border-left-color: var(--sov-warn); }
+.sov-hw[data-status="in_progress"] { border-left-color: var(--sov-cobalt); }
+.sov-hw[data-status="none"] { background: none; }
+
+/* Карточки домашки в карточке ученика. */
+.sov-hw-list { display: grid; gap: 14px; margin-top: 16px; }
+.sov-hw-card {
+  border: 2px solid var(--sov-line); border-left-width: 4px;
+  border-radius: 0 var(--sov-radius) var(--sov-radius) 0; background: #fff; padding: 18px 22px;
+  display: grid; gap: 10px; justify-items: start;
+}
+.sov-hw-card[data-status="done"] { border-left-color: var(--sov-ok); }
+.sov-hw-card[data-status="overdue"] { border-left-color: var(--sov-warn); }
+.sov-hw-card[data-status="in_progress"] { border-left-color: var(--sov-cobalt); }
+.sov-hw-card header { display: flex; align-items: baseline; gap: 12px; justify-content: space-between; width: 100%; }
+.sov-hw-card header strong { font-size: 1.1rem; font-weight: 800; }
+.sov-hw-card__status { font-size: .74rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--sov-ink-soft); }
+.sov-hw-card ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.sov-hw-card li { font-size: .95rem; font-weight: 600; color: var(--sov-ink-soft); }
+.sov-hw-card li[data-done="true"] { color: var(--sov-ok); }
+.sov-hw-card li em { font-style: normal; font-weight: 500; }
+.sov-hw-card__comment { font-size: .92rem; font-weight: 500; color: var(--sov-ink-soft); }
+
+/* Домашка на экране ребёнка: стоит над картой тем, поэтому синяя. */
+.sov-homework {
+  margin-top: 18px; background: #fff; border: 2px solid var(--sov-cobalt);
+  border-radius: var(--sov-radius); padding: 18px 22px; display: grid; gap: 10px;
+}
+.sov-homework__head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.sov-homework__head strong { font-size: 1.15rem; font-weight: 800; }
+.sov-homework__due { font-size: .8rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--sov-cobalt); }
+.sov-homework__items { display: grid; gap: 8px; }
+.sov-homework__item {
+  display: flex; align-items: center; gap: 10px; text-decoration: none;
+  color: var(--sov-ink); font-weight: 700; font-size: 1rem;
+}
+.sov-homework__item[data-done="true"] { color: var(--sov-ok); }
+.sov-homework__mark {
+  width: 26px; height: 26px; flex: none; border-radius: 50%; display: grid; place-items: center;
+  background: var(--sov-paper-2); color: var(--sov-ink-soft); font-size: .8rem; font-weight: 800;
+}
+.sov-homework__item[data-done="true"] .sov-homework__mark { background: var(--sov-ok); color: #fff; }
+.sov-homework__comment { font-size: .92rem; font-weight: 500; color: var(--sov-ink-soft); }

@@ -9,49 +9,26 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
-import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as AdminRouteImport } from './routes/admin'
-import { Route as RegistraciyaRouteImport } from './routes/registraciya'
-import { Route as RoditelRouteImport } from './routes/roditel'
-import { Route as UchenikRouteImport } from './routes/uchenik'
 import { Route as VhodRouteImport } from './routes/vhod'
+import { Route as UchenikRouteImport } from './routes/uchenik'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as SchetRouteImport } from './routes/schet'
+import { Route as RoditelRouteImport } from './routes/roditel'
+import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
+import { Route as RegistraciyaRouteImport } from './routes/registraciya'
+import { Route as PriglashenieRouteImport } from './routes/priglashenie'
 import { Route as KtoRouteImport } from './routes/kto'
 import { Route as DemoRouteImport } from './routes/demo'
 import { Route as ChtenieRouteImport } from './routes/chtenie'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as IndexRouteImport } from './routes/index'
+import { Route as RepetitorIndexRouteImport } from './routes/repetitor.index'
 import { Route as UrokTopicIdRouteImport } from './routes/urok.$topicId'
+import { Route as RepetitorUchenikChildIdRouteImport } from './routes/repetitor.uchenik.$childId'
 
-const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
-  id: '/sitemap.xml',
-  path: '/sitemap.xml',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const RobotsDottxtRoute = RobotsDottxtRouteImport.update({
-  id: '/robots.txt',
-  path: '/robots.txt',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-
-const AdminRoute = AdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const RegistraciyaRoute = RegistraciyaRouteImport.update({
-  id: '/registraciya',
-  path: '/registraciya',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const RoditelRoute = RoditelRouteImport.update({
-  id: '/roditel',
-  path: '/roditel',
+const VhodRoute = VhodRouteImport.update({
+  id: '/vhod',
+  path: '/vhod',
   getParentRoute: () => rootRouteImport,
 } as any)
 const UchenikRoute = UchenikRouteImport.update({
@@ -59,14 +36,34 @@ const UchenikRoute = UchenikRouteImport.update({
   path: '/uchenik',
   getParentRoute: () => rootRouteImport,
 } as any)
-const VhodRoute = VhodRouteImport.update({
-  id: '/vhod',
-  path: '/vhod',
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SchetRoute = SchetRouteImport.update({
   id: '/schet',
   path: '/schet',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RoditelRoute = RoditelRouteImport.update({
+  id: '/roditel',
+  path: '/roditel',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RobotsDottxtRoute = RobotsDottxtRouteImport.update({
+  id: '/robots.txt',
+  path: '/robots.txt',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RegistraciyaRoute = RegistraciyaRouteImport.update({
+  id: '/registraciya',
+  path: '/registraciya',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PriglashenieRoute = PriglashenieRouteImport.update({
+  id: '/priglashenie',
+  path: '/priglashenie',
   getParentRoute: () => rootRouteImport,
 } as any)
 const KtoRoute = KtoRouteImport.update({
@@ -84,99 +81,170 @@ const ChtenieRoute = ChtenieRouteImport.update({
   path: '/chtenie',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RepetitorIndexRoute = RepetitorIndexRouteImport.update({
+  id: '/repetitor/',
+  path: '/repetitor/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const UrokTopicIdRoute = UrokTopicIdRouteImport.update({
   id: '/urok/$topicId',
   path: '/urok/$topicId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RepetitorUchenikChildIdRoute = RepetitorUchenikChildIdRouteImport.update({
+  id: '/repetitor/uchenik/$childId',
+  path: '/repetitor/uchenik/$childId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
+  '/': typeof IndexRoute
   '/admin': typeof AdminRoute
-  '/registraciya': typeof RegistraciyaRoute
-  '/roditel': typeof RoditelRoute
-  '/uchenik': typeof UchenikRoute
-  '/vhod': typeof VhodRoute
   '/chtenie': typeof ChtenieRoute
   '/demo': typeof DemoRoute
   '/kto': typeof KtoRoute
-  '/schet': typeof SchetRoute
-  '/urok/$topicId': typeof UrokTopicIdRoute
-  '/': typeof IndexRoute
+  '/priglashenie': typeof PriglashenieRoute
+  '/registraciya': typeof RegistraciyaRoute
   '/robots.txt': typeof RobotsDottxtRoute
+  '/roditel': typeof RoditelRoute
+  '/schet': typeof SchetRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/uchenik': typeof UchenikRoute
+  '/vhod': typeof VhodRoute
+  '/urok/$topicId': typeof UrokTopicIdRoute
+  '/repetitor/': typeof RepetitorIndexRoute
+  '/repetitor/uchenik/$childId': typeof RepetitorUchenikChildIdRoute
 }
 export interface FileRoutesByTo {
+  '/': typeof IndexRoute
   '/admin': typeof AdminRoute
-  '/registraciya': typeof RegistraciyaRoute
-  '/roditel': typeof RoditelRoute
-  '/uchenik': typeof UchenikRoute
-  '/vhod': typeof VhodRoute
   '/chtenie': typeof ChtenieRoute
   '/demo': typeof DemoRoute
   '/kto': typeof KtoRoute
-  '/schet': typeof SchetRoute
-  '/urok/$topicId': typeof UrokTopicIdRoute
-  '/': typeof IndexRoute
+  '/priglashenie': typeof PriglashenieRoute
+  '/registraciya': typeof RegistraciyaRoute
   '/robots.txt': typeof RobotsDottxtRoute
+  '/roditel': typeof RoditelRoute
+  '/schet': typeof SchetRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/uchenik': typeof UchenikRoute
+  '/vhod': typeof VhodRoute
+  '/urok/$topicId': typeof UrokTopicIdRoute
+  '/repetitor': typeof RepetitorIndexRoute
+  '/repetitor/uchenik/$childId': typeof RepetitorUchenikChildIdRoute
 }
 export interface FileRoutesById {
+  __root__: typeof rootRouteImport
+  '/': typeof IndexRoute
   '/admin': typeof AdminRoute
-  '/registraciya': typeof RegistraciyaRoute
-  '/roditel': typeof RoditelRoute
-  '/uchenik': typeof UchenikRoute
-  '/vhod': typeof VhodRoute
   '/chtenie': typeof ChtenieRoute
   '/demo': typeof DemoRoute
   '/kto': typeof KtoRoute
-  '/schet': typeof SchetRoute
-  '/urok/$topicId': typeof UrokTopicIdRoute
-  __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
+  '/priglashenie': typeof PriglashenieRoute
+  '/registraciya': typeof RegistraciyaRoute
   '/robots.txt': typeof RobotsDottxtRoute
+  '/roditel': typeof RoditelRoute
+  '/schet': typeof SchetRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/uchenik': typeof UchenikRoute
+  '/vhod': typeof VhodRoute
+  '/urok/$topicId': typeof UrokTopicIdRoute
+  '/repetitor/': typeof RepetitorIndexRoute
+  '/repetitor/uchenik/$childId': typeof RepetitorUchenikChildIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/robots.txt' | '/sitemap.xml' | '/admin' | '/chtenie' | '/demo' | '/kto' | '/registraciya' | '/roditel' | '/schet' | '/uchenik' | '/vhod' | '/urok/$topicId'
+  fullPaths:
+    | '/'
+    | '/admin'
+    | '/chtenie'
+    | '/demo'
+    | '/kto'
+    | '/priglashenie'
+    | '/registraciya'
+    | '/robots.txt'
+    | '/roditel'
+    | '/schet'
+    | '/sitemap.xml'
+    | '/uchenik'
+    | '/vhod'
+    | '/urok/$topicId'
+    | '/repetitor/'
+    | '/repetitor/uchenik/$childId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/robots.txt' | '/sitemap.xml' | '/admin' | '/chtenie' | '/demo' | '/kto' | '/registraciya' | '/roditel' | '/schet' | '/uchenik' | '/vhod' | '/urok/$topicId'
-  id: '__root__' | '/' | '/robots.txt' | '/sitemap.xml' | '/admin' | '/chtenie' | '/demo' | '/kto' | '/registraciya' | '/roditel' | '/schet' | '/uchenik' | '/vhod' | '/urok/$topicId'
+  to:
+    | '/'
+    | '/admin'
+    | '/chtenie'
+    | '/demo'
+    | '/kto'
+    | '/priglashenie'
+    | '/registraciya'
+    | '/robots.txt'
+    | '/roditel'
+    | '/schet'
+    | '/sitemap.xml'
+    | '/uchenik'
+    | '/vhod'
+    | '/urok/$topicId'
+    | '/repetitor'
+    | '/repetitor/uchenik/$childId'
+  id:
+    | '__root__'
+    | '/'
+    | '/admin'
+    | '/chtenie'
+    | '/demo'
+    | '/kto'
+    | '/priglashenie'
+    | '/registraciya'
+    | '/robots.txt'
+    | '/roditel'
+    | '/schet'
+    | '/sitemap.xml'
+    | '/uchenik'
+    | '/vhod'
+    | '/urok/$topicId'
+    | '/repetitor/'
+    | '/repetitor/uchenik/$childId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
+  IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
+  ChtenieRoute: typeof ChtenieRoute
+  DemoRoute: typeof DemoRoute
+  KtoRoute: typeof KtoRoute
+  PriglashenieRoute: typeof PriglashenieRoute
   RegistraciyaRoute: typeof RegistraciyaRoute
+  RobotsDottxtRoute: typeof RobotsDottxtRoute
   RoditelRoute: typeof RoditelRoute
+  SchetRoute: typeof SchetRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   UchenikRoute: typeof UchenikRoute
   VhodRoute: typeof VhodRoute
   UrokTopicIdRoute: typeof UrokTopicIdRoute
-  IndexRoute: typeof IndexRoute
-  RobotsDottxtRoute: typeof RobotsDottxtRoute
-  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  RepetitorIndexRoute: typeof RepetitorIndexRoute
+  RepetitorUchenikChildIdRoute: typeof RepetitorUchenikChildIdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/admin': {
-      id: '/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AdminRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/registraciya': {
-      id: '/registraciya'
-      path: '/registraciya'
-      fullPath: '/registraciya'
-      preLoaderRoute: typeof RegistraciyaRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/roditel': {
-      id: '/roditel'
-      path: '/roditel'
-      fullPath: '/roditel'
-      preLoaderRoute: typeof RoditelRouteImport
+    '/vhod': {
+      id: '/vhod'
+      path: '/vhod'
+      fullPath: '/vhod'
+      preLoaderRoute: typeof VhodRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/uchenik': {
@@ -186,39 +254,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof UchenikRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/vhod': {
-      id: '/vhod'
-      path: '/vhod'
-      fullPath: '/vhod'
-      preLoaderRoute: typeof VhodRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/urok/$topicId': {
-      id: '/urok/$topicId'
-      path: '/urok/$topicId'
-      fullPath: '/urok/$topicId'
-      preLoaderRoute: typeof UrokTopicIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/chtenie': {
-      id: '/chtenie'
-      path: '/chtenie'
-      fullPath: '/chtenie'
-      preLoaderRoute: typeof ChtenieRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/demo': {
-      id: '/demo'
-      path: '/demo'
-      fullPath: '/demo'
-      preLoaderRoute: typeof DemoRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/kto': {
-      id: '/kto'
-      path: '/kto'
-      fullPath: '/kto'
-      preLoaderRoute: typeof KtoRouteImport
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/schet': {
@@ -228,11 +268,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SchetRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/sitemap.xml': {
-      id: '/sitemap.xml'
-      path: '/sitemap.xml'
-      fullPath: '/sitemap.xml'
-      preLoaderRoute: typeof SitemapDotxmlRouteImport
+    '/roditel': {
+      id: '/roditel'
+      path: '/roditel'
+      fullPath: '/roditel'
+      preLoaderRoute: typeof RoditelRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/robots.txt': {
@@ -242,6 +282,48 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RobotsDottxtRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/registraciya': {
+      id: '/registraciya'
+      path: '/registraciya'
+      fullPath: '/registraciya'
+      preLoaderRoute: typeof RegistraciyaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/priglashenie': {
+      id: '/priglashenie'
+      path: '/priglashenie'
+      fullPath: '/priglashenie'
+      preLoaderRoute: typeof PriglashenieRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/kto': {
+      id: '/kto'
+      path: '/kto'
+      fullPath: '/kto'
+      preLoaderRoute: typeof KtoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/demo': {
+      id: '/demo'
+      path: '/demo'
+      fullPath: '/demo'
+      preLoaderRoute: typeof DemoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/chtenie': {
+      id: '/chtenie'
+      path: '/chtenie'
+      fullPath: '/chtenie'
+      preLoaderRoute: typeof ChtenieRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -249,23 +331,47 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/repetitor/': {
+      id: '/repetitor/'
+      path: '/repetitor'
+      fullPath: '/repetitor/'
+      preLoaderRoute: typeof RepetitorIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/urok/$topicId': {
+      id: '/urok/$topicId'
+      path: '/urok/$topicId'
+      fullPath: '/urok/$topicId'
+      preLoaderRoute: typeof UrokTopicIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/repetitor/uchenik/$childId': {
+      id: '/repetitor/uchenik/$childId'
+      path: '/repetitor/uchenik/$childId'
+      fullPath: '/repetitor/uchenik/$childId'
+      preLoaderRoute: typeof RepetitorUchenikChildIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
+  IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
-  RegistraciyaRoute: RegistraciyaRoute,
-  RoditelRoute: RoditelRoute,
-  UchenikRoute: UchenikRoute,
-  VhodRoute: VhodRoute,
-  UrokTopicIdRoute: UrokTopicIdRoute,
   ChtenieRoute: ChtenieRoute,
   DemoRoute: DemoRoute,
   KtoRoute: KtoRoute,
-  SchetRoute: SchetRoute,
-  IndexRoute: IndexRoute,
+  PriglashenieRoute: PriglashenieRoute,
+  RegistraciyaRoute: RegistraciyaRoute,
   RobotsDottxtRoute: RobotsDottxtRoute,
+  RoditelRoute: RoditelRoute,
+  SchetRoute: SchetRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  UchenikRoute: UchenikRoute,
+  VhodRoute: VhodRoute,
+  UrokTopicIdRoute: UrokTopicIdRoute,
+  RepetitorIndexRoute: RepetitorIndexRoute,
+  RepetitorUchenikChildIdRoute: RepetitorUchenikChildIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
