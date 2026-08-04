@@ -189,6 +189,10 @@ function StudentPage() {
 
           <div className="sov-field">
             <label>Темы</label>
+            <span className="sov-field__hint">
+              Доступны темы обоих классов: программу выбираете вы, а не поле в профиле ученика.
+              Весь список с заданиями — в разделе «Темы и задания».
+            </span>
             {data.subjects.map((subject) => (
               <div key={subject.id} style={{ marginTop: 10 }}>
                 <b className="sov-mono">{subject.name}</b>
@@ -208,6 +212,7 @@ function StudentPage() {
                         }
                       >
                         {t.name}
+                        <em style={{ fontStyle: "normal", opacity: 0.6 }}> · {t.grade} кл.</em>
                         {t.status === "completed" ? " ✓" : ""}
                       </button>
                     ))}

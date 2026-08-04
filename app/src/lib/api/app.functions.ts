@@ -422,6 +422,13 @@ export const getSkillMap = createServerFn({ method: "GET" })
       totalStars,
       level: Math.floor(totalStars / 5) + 1,
       paid,
+      // Есть ли у ученика педагог: от этого зависит, показывать ли карту
+      // тем. У ученика репетитора программу выбирает педагог, у семейного —
+      // сам ребёнок.
+      hasTutor: !!(await db()
+        .prepare("SELECT 1 AS ok FROM child_access WHERE child_id = ? AND role = 'tutor' LIMIT 1")
+        .bind(data.childId)
+        .first<{ ok: number }>()),
     };
   });
 

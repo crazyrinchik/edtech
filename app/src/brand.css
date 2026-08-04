@@ -853,3 +853,129 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 }
 .sov-homework__item[data-done="true"] .sov-homework__mark { background: var(--sov-ok); color: #fff; }
 .sov-homework__comment { font-size: .92rem; font-weight: 500; color: var(--sov-ink-soft); }
+
+/* ── экран ребёнка: задание вперёд приветствия ──────────────────────
+   Раньше самой заметной плашкой экрана была синяя шапка с именем и
+   уровнем — она отвечала на вопрос «как меня зовут». Цвет действия
+   отдан домашке: первым делом ребёнок видит, что задал педагог. */
+
+.sov-hollow {
+  background: #fff; color: var(--sov-ink);
+  border: 2px solid var(--sov-line); box-shadow: none;
+  padding: 14px 18px; gap: 14px;
+}
+.sov-hollow__owl { background: none; padding: 0; }
+.sov-hollow__badge {
+  right: -6px; bottom: -4px; min-width: 24px; height: 24px; font-size: .8rem;
+  background: var(--sov-cobalt); color: #fff; border: 2px solid #fff;
+}
+.sov-hollow__info { flex: none; min-width: 0; }
+.sov-hollow__hi { font-size: 1.15rem; }
+.sov-hollow__grade { color: var(--sov-ink-soft); margin-top: 0; }
+.sov-hollow__xp { flex: 1; min-width: 220px; }
+.sov-hollow__xp .sov-xp { margin-top: 0; }
+.sov-xp__row { color: var(--sov-ink); }
+.sov-xp__track { background: var(--sov-paper-2); }
+.sov-xp__fill { background: var(--sov-cobalt); }
+.sov-xp__hint { color: var(--sov-ink-soft); }
+
+/* Домашка забирает себе синий: это единственная заливка в верхней части
+   экрана, поэтому взгляд идёт туда и никуда больше. */
+.sov-homework {
+  background: var(--sov-cobalt); border: none;
+  box-shadow: 0 4px 0 var(--sov-cobalt-deep); color: #fff;
+  padding: 20px 24px; gap: 12px;
+}
+.sov-homework__head strong { color: #fff; font-size: 1.2rem; }
+.sov-homework__due { color: #fff; }
+.sov-homework__count {
+  font-size: .82rem; font-weight: 800; text-transform: uppercase;
+  letter-spacing: .05em; color: rgba(255,255,255,.75);
+}
+.sov-homework__item {
+  background: #fff; border-radius: 12px; padding: 13px 16px;
+  color: var(--sov-ink); border-bottom: 4px solid rgba(0,0,0,.08);
+}
+.sov-homework__item[data-done="true"] { color: var(--sov-ok); background: var(--sov-ok-bg); }
+.sov-homework__mark { background: var(--sov-paper-2); }
+.sov-homework__comment { color: rgba(255,255,255,.85); }
+
+/* Нет задания — не пустое место, а разрешение выбрать самому. */
+.sov-kid__free {
+  margin-top: 18px; padding: 16px 20px; border-radius: var(--sov-radius);
+  background: var(--sov-paper-2); color: var(--sov-ink-soft);
+  font-weight: 600; font-size: .98rem;
+}
+
+/* Метка «задано» на тропе: ребёнок, пролиставший задание, всё равно
+   видит, какие темы просил педагог. */
+.sov-level__tag {
+  display: inline-block; margin-left: 8px; vertical-align: 2px;
+  font-style: normal; font-size: .68rem; font-weight: 800;
+  text-transform: uppercase; letter-spacing: .05em;
+  background: var(--sov-cobalt); color: #fff;
+  border-radius: 999px; padding: 3px 9px;
+}
+
+/* ── обзор программы у репетитора ───────────────────────────────── */
+
+.sov-prog { display: grid; gap: 12px; margin-top: 18px; }
+.sov-prog__item {
+  border: 2px solid var(--sov-line); border-radius: var(--sov-radius);
+  background: #fff; padding: 16px 20px; display: grid; gap: 10px;
+}
+.sov-prog__item[data-locked="true"] { background: var(--sov-paper-2); border-color: var(--sov-paper-3); }
+.sov-prog__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.sov-prog__title { display: grid; gap: 3px; min-width: 0; }
+.sov-prog__title strong { font-size: 1.08rem; font-weight: 800; }
+.sov-prog__meta { font-size: .84rem; font-weight: 600; color: var(--sov-ink-soft); }
+.sov-prog__actions { display: flex; gap: 8px; flex: none; }
+.sov-prog__summary { font-size: .93rem; font-weight: 500; color: var(--sov-ink-soft); }
+.sov-prog__ok { font-size: .95rem; font-weight: 700; color: var(--sov-ok); }
+
+.sov-prog__assign {
+  display: grid; gap: 12px; padding: 14px 16px;
+  background: var(--sov-cobalt-soft); border-radius: 12px;
+}
+.sov-prog__row { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; }
+.sov-prog__row label {
+  display: grid; gap: 5px; font-size: .84rem; font-weight: 700; color: var(--sov-ink-soft);
+}
+.sov-prog__row input, .sov-prog__row select {
+  font-family: var(--sov-font); font-size: .95rem; font-weight: 600; padding: 10px 13px;
+  border: 2px solid var(--sov-line); border-radius: 12px; background: #fff; color: var(--sov-ink);
+}
+
+/* Задания темы: репетитор читает их подряд, поэтому список, а не карточки. */
+.sov-tasks { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 12px; }
+.sov-tasks li {
+  display: grid; gap: 4px; padding: 12px 16px;
+  border-left: 4px solid var(--sov-line); background: var(--sov-paper);
+  border-radius: 0 12px 12px 0;
+}
+.sov-tasks li[data-check="true"] { border-left-color: var(--sov-cobalt); }
+.sov-tasks b {
+  font-size: .7rem; font-weight: 800; text-transform: uppercase;
+  letter-spacing: .05em; color: var(--sov-ink-soft);
+}
+.sov-tasks__prompt { font-size: 1rem; font-weight: 700; }
+.sov-tasks__options { font-size: .9rem; font-weight: 600; color: var(--sov-ink-soft); }
+.sov-tasks__answer { font-size: .9rem; font-weight: 800; color: var(--sov-ok); }
+.sov-tasks__why { font-size: .9rem; font-weight: 500; color: var(--sov-ink-soft); line-height: 1.45; }
+
+/* Пункт домашки с двумя входами: тренировка и проверочная. Тему
+   засчитывает только вторая, и без карты тем другого пути к ней нет. */
+.sov-homework__row { display: flex; align-items: stretch; gap: 8px; }
+.sov-homework__row .sov-homework__item { flex: 1; min-width: 0; }
+.sov-homework__check {
+  display: grid; place-items: center; flex: none; padding: 0 16px;
+  background: rgba(255,255,255,.16); border-radius: 12px; color: #fff;
+  font-size: .78rem; font-weight: 800; text-transform: uppercase;
+  letter-spacing: .04em; text-decoration: none; text-align: center;
+  border-bottom: 4px solid rgba(0,0,0,.12);
+}
+.sov-homework__check:hover { background: rgba(255,255,255,.26); }
+@media (max-width: 560px) {
+  .sov-homework__row { flex-direction: column; }
+  .sov-homework__check { padding: 10px 16px; }
+}

@@ -48,7 +48,7 @@ type TopicItem = {
 type MapData = {
   child: { id: string; name: string; avatar: string; grade: number; soundOn: boolean; dailyLimitMin: number; diagnosticsDone: boolean };
   subjects: { id: string; name: string; topics: TopicItem[] }[];
-  totalStars: number; level: number; paid: boolean;
+  totalStars: number; level: number; paid: boolean; hasTutor: boolean;
 };
 type DiagData = {
   childName: string; grade: number;
@@ -63,6 +63,7 @@ function PupilPage() {
   const [childId, setChildId] = useState<string | null>(null);
   const [data, setData] = useState<MapData | null>(null);
   const [manyChildren, setManyChildren] = useState(false);
+  const [adultRole, setAdultRole] = useState<string>("parent");
   const [homework, setHomework] = useState<Homework>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -86,7 +87,10 @@ function PupilPage() {
           await navigate({ to: "/roditel" });
           return;
         }
-        if (alive) setManyChildren(account.children.length > 1);
+        if (alive) {
+          setManyChildren(account.children.length > 1);
+          setAdultRole(account.user.role);
+        }
         const map = await getSkillMap({ data: { childId: first } });
         if (!alive) return;
         setChildId(first);
@@ -135,6 +139,12 @@ function PupilPage() {
     return <Diagnostic childId={childId} onDone={() => location.reload()} />;
   }
 
+  // Темы из активной домашки помечаются прямо на тропе: ребёнок, который
+  // пролистал задание и пошёл выбирать сам, всё равно видит, что задано.
+  const assignedTopics = new Set(
+    homework.flatMap((hw) => hw.items.filter((i) => i.kind === "topic").map((i) => i.refId)),
+  );
+
   const stage = owlStage(data.level);
   const item = currentOwlItem(data.level);
   const starsInLevel = data.totalStars % STARS_PER_LEVEL;
@@ -152,24 +162,36 @@ function PupilPage() {
                 <ChildAvatar avatar={data.child.avatar} size={22} /> Сменить
               </Link>
             ) : null}
-            <Link to="/roditel" className="sov-act-ghost" style={{ textDecoration: "none" }}>
-              Кабинет родителя
-            </Link>
+            {/* Взрослый рядом с ребёнком теперь не обязательно родитель:
+                репетитору нужен список учеников, а не родительский кабинет. */}
+            {adultRole === "tutor" ? (
+              <Link to="/repetitor" className="sov-act-ghost" style={{ textDecoration: "none" }}>
+                К ученикам
+              </Link>
+            ) : (
+              <Link to="/roditel" className="sov-act-ghost" style={{ textDecoration: "none" }}>
+                Кабинет родителя
+              </Link>
+            )}
           </div>
         </div>
 
-        {/* Шапка занятий: совёнок, уровень и полоса до следующего уровня.
-            Уровень = звёзды/5 + 1, поэтому «до следующего» — это 5 звёзд. */}
+        {/* Приветствие ужато в строку, и синей заливки на нём больше нет.
+            Раньше это была самая заметная плашка экрана, хотя отвечала на
+            вопрос «как меня зовут». Цвет действия отдан домашке — теперь
+            ребёнок первым делом видит, что задал педагог. */}
         <div className="sov-hollow">
           <div className="sov-hollow__owl">
-            <Owl size={88} stage={stage} item={item} mood="happy" animated />
+            <Owl size={52} stage={stage} item={item} mood="happy" animated />
             <span className="sov-hollow__badge">{data.level}</span>
           </div>
 
           <div className="sov-hollow__info">
             <strong className="sov-hollow__hi">Привет, {data.child.name}</strong>
             <span className="sov-hollow__grade">{data.child.grade} класс</span>
+          </div>
 
+          <div className="sov-hollow__xp">
             <div className="sov-xp">
               <div className="sov-xp__row">
                 <span>Уровень {data.level}</span>
@@ -192,7 +214,15 @@ function PupilPage() {
         </div>
 
         {/* Домашка стоит над всем остальным: это то, о чём договорились с
-            репетитором, и искать её среди тем ребёнок не должен. */}
+            педагогом, и искать её среди тем ребёнок не должен. */}
+        {homework.length === 0 ? (
+          <p className="sov-kid__free">
+            {data.hasTutor
+              ? "Задания сейчас нет. Можно потренироваться в устном счёте или скорочтении."
+              : "Задания от педагога сейчас нет — выбирай тему сам или загляни в тренажёры."}
+          </p>
+        ) : null}
+
         {homework.map((hw) => (
           <section key={hw.id} className="sov-homework">
             <div className="sov-homework__head">
@@ -201,20 +231,37 @@ function PupilPage() {
                 {hw.dueAt ? dueLabel(hw.dueAt) : "без срока"}
               </span>
             </div>
+            {/* Счёт сделанного словами: «1 из 3» ребёнок читает быстрее,
+                чем считает галочки в списке. */}
+            <span className="sov-homework__count">
+              Сделано {hw.doneCount} из {hw.total}
+            </span>
             <div className="sov-homework__items">
               {hw.items.map((item) =>
                 item.kind === "topic" ? (
-                  <Link
-                    key={item.id}
-                    to="/urok/$topicId"
-                    params={{ topicId: item.refId }}
-                    search={{ mode: "practice" }}
-                    className="sov-homework__item"
-                    data-done={item.done}
-                  >
-                    <span className="sov-homework__mark">{item.done ? "✓" : "•"}</span>
-                    {item.name}
-                  </Link>
+                  <div key={item.id} className="sov-homework__row">
+                    <Link
+                      to="/urok/$topicId"
+                      params={{ topicId: item.refId }}
+                      search={{ mode: "practice" }}
+                      className="sov-homework__item"
+                      data-done={item.done}
+                    >
+                      <span className="sov-homework__mark">{item.done ? "✓" : "•"}</span>
+                      {item.name}
+                    </Link>
+                    {/* Тему засчитывает только проверочная. Пока у ученика была
+                        карта тем, вход в неё жил там; без карты второй двери
+                        не остаётся, поэтому она стоит прямо в задании. */}
+                    <Link
+                      to="/urok/$topicId"
+                      params={{ topicId: item.refId }}
+                      search={{ mode: "check" }}
+                      className="sov-homework__check"
+                    >
+                      Проверочная
+                    </Link>
+                  </div>
                 ) : (
                   <Link
                     key={item.id}
@@ -231,20 +278,6 @@ function PupilPage() {
             {hw.comment ? <p className="sov-homework__comment">{hw.comment}</p> : null}
           </section>
         ))}
-
-        {/* Полка наград: видно и то, что уже есть, и то, что впереди. */}
-        <div className="sov-shelf">
-          {OWL_UNLOCKS.map((u) => {
-            const open = data.level >= u.level;
-            return (
-              <div key={u.level} className="sov-shelf__item" data-open={open}>
-                <Owl size={44} stage={u.level} item={u.item} mood={open ? "happy" : "sleepy"} />
-                <strong>{u.title}</strong>
-                <span>{open ? u.note : `Уровень ${u.level}`}</span>
-              </div>
-            );
-          })}
-        </div>
 
         {/* Тренажёры стоят до тем: в них заходят «на пять минут», и искать их
             в конце длинной карты неудобно. */}
@@ -265,7 +298,13 @@ function PupilPage() {
           </Link>
         </div>
 
-        {data.subjects.map((subject) => {
+        {/* Карта тем видна только ученику без педагога. Когда занятия ведёт
+            репетитор, программу выбирает он: свободная карта рядом с
+            заданием предлагала ребёнку заняться чем-то другим, а темы
+            вперёд плана ломали последовательность, которую держит педагог. */}
+        {data.hasTutor
+          ? null
+          : data.subjects.map((subject) => {
           const passed = subject.topics.filter((t) => t.status === "completed").length;
           return (
             <section key={subject.id} className="sov-quest">
@@ -293,11 +332,15 @@ function PupilPage() {
                         : started
                           ? `Начато, лучший результат ${topic.bestPercent}%`
                           : topic.summary;
+                  const assigned = assignedTopics.has(topic.id);
                   const body = (
                     <>
                       <span className="sov-level__num">{done ? "✓" : index + 1}</span>
                       <span className="sov-level__text">
-                        <strong>{topic.name}</strong>
+                        <strong>
+                          {topic.name}
+                          {assigned ? <em className="sov-level__tag">задано</em> : null}
+                        </strong>
                         <span>{note}</span>
                       </span>
                       <Stars value={topic.stars} />
@@ -343,15 +386,38 @@ function PupilPage() {
                   );
                 })}
               </ol>
-            </section>
-          );
-        })}
+              </section>
+            );
+          })}
 
-        {!data.paid ? (
+        {/* Полка наград уехала под темы. Пять сов занимали первый экран
+            целиком, хотя отвечают на вопрос «что будет потом», а не «что
+            делать сейчас». */}
+        <section className="sov-quest">
+          <header className="sov-quest__head">
+            <h2>Награды</h2>
+            <span className="sov-quest__count">уровень {data.level}</span>
+          </header>
+          <div className="sov-shelf">
+            {OWL_UNLOCKS.map((u) => {
+              const open = data.level >= u.level;
+              return (
+                <div key={u.level} className="sov-shelf__item" data-open={open}>
+                  <Owl size={44} stage={u.level} item={u.item} mood={open ? "happy" : "sleepy"} />
+                  <strong>{u.title}</strong>
+                  <span>{open ? u.note : `Уровень ${u.level}`}</span>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        {!data.paid && !data.hasTutor ? (
           <div className="sov-panel" style={{ marginTop: 40, marginBottom: 40 }}>
-            <h3>Остальные темы закрыты</h3>
+            <h3>Остальные темы пока закрыты</h3>
             <p style={{ marginTop: 8, color: "var(--sov-ink-soft)" }}>
-              Попросите взрослого открыть подписку в кабинете родителя.
+              Их откроет твой взрослый — педагог или родитель. Пока в каждом предмете открыта
+              первая тема, а тренажёры работают целиком.
             </p>
           </div>
         ) : null}

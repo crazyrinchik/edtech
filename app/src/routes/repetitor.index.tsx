@@ -97,6 +97,7 @@ function TutorPage() {
       <SiteHeader
         right={
           <>
+            <QuietAction to="/repetitor/temy">Темы и задания</QuietAction>
             <QuietAction to="/roditel">Подписка</QuietAction>
             <button
               type="button"

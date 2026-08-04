@@ -460,22 +460,27 @@ export const studentCard = createServerFn({ method: "GET" })
       .prepare("SELECT id, name FROM subjects ORDER BY sort_order")
       .all<{ id: string; name: string }>();
 
+    // Раньше здесь стояло WHERE t.grade <= ?: репетитору были видны только
+    // темы до класса ученика. Программу выбирает педагог, а не поле в
+    // профиле — второклассник может добирать первый класс, а сильный
+    // первоклассник уходить вперёд. Класс темы теперь просто подписан.
     const topics = await db()
       .prepare(
-        `SELECT t.id, t.subject_id, t.name, t.summary,
+        `SELECT t.id, t.subject_id, t.name, t.summary, t.grade, t.is_free,
                 COALESCE(p.status, 'new') AS status,
                 COALESCE(p.best_percent, 0) AS best_percent
            FROM topics t
            LEFT JOIN progress p ON p.topic_id = t.id AND p.child_id = ?
-          WHERE t.grade <= ?
-          ORDER BY t.subject_id, t.sort_order`,
+          ORDER BY t.subject_id, t.grade, t.sort_order`,
       )
-      .bind(child.id, child.grade)
+      .bind(child.id)
       .all<{
         id: string;
         subject_id: string;
         name: string;
         summary: string | null;
+        grade: number;
+        is_free: number;
         status: string;
         best_percent: number;
       }>();
@@ -586,4 +591,166 @@ export const childAssignments = createServerFn({ method: "GET" })
     await requireChildAccess(data.childId, user.id);
     const all = await buildAssignments(data.childId, await activeAssignments(data.childId));
     return { assignments: all.filter((a) => a.status !== "done").slice(0, 3) };
+  });
+
+/* ------------------------------------------------------- обзор программы
+
+   Репетитору нужно видеть всю программу целиком, а не срез под одного
+   ученика: он готовится к занятию, сверяется с учебником и решает, что
+   давать дальше. Содержимое заданий открывает подписка — это и есть то,
+   за что он платит; без неё видны названия тем и бесплатные темы. */
+
+export const curriculum = createServerFn({ method: "GET" }).handler(async () => {
+  const user = await requireTutor();
+  const paid = user.subscriptionStatus === "active";
+
+  const subjects = await db()
+    .prepare("SELECT id, name FROM subjects ORDER BY sort_order")
+    .all<{ id: string; name: string }>();
+
+  const topics = await db()
+    .prepare(
+      `SELECT t.id, t.subject_id, t.grade, t.name, t.summary, t.is_free,
+              (SELECT COUNT(*) FROM tasks k WHERE k.topic_id = t.id AND k.is_check = 0) AS practice,
+              (SELECT COUNT(*) FROM tasks k WHERE k.topic_id = t.id AND k.is_check = 1) AS check_tasks
+         FROM topics t
+        ORDER BY t.subject_id, t.grade, t.sort_order`,
+    )
+    .all<{
+      id: string;
+      subject_id: string;
+      grade: number;
+      name: string;
+      summary: string | null;
+      is_free: number;
+      practice: number;
+      check_tasks: number;
+    }>();
+
+  const students = await db()
+    .prepare(
+      `SELECT c.id, c.name, c.grade FROM children c
+         JOIN child_access a ON a.child_id = c.id
+        WHERE a.user_id = ? AND a.role = 'tutor'
+        ORDER BY c.created_at`,
+    )
+    .bind(user.id)
+    .all<{ id: string; name: string; grade: number }>();
+
+  return {
+    paid,
+    subjects: subjects.results ?? [],
+    topics: (topics.results ?? []).map((t) => ({
+      id: t.id,
+      subjectId: t.subject_id,
+      grade: t.grade,
+      name: t.name,
+      summary: t.summary,
+      free: !!t.is_free,
+      practice: Number(t.practice),
+      check: Number(t.check_tasks),
+      // Без подписки открыты только бесплатные темы — ровно то же правило,
+      // по которому тема открывается ученику.
+      locked: !paid && !t.is_free,
+    })),
+    students: students.results ?? [],
+  };
+});
+
+/** Задания темы целиком: тренировка, проверочная, ответы и разборы. */
+export const topicTasks = createServerFn({ method: "GET" })
+  .inputValidator(z.object({ topicId: z.string() }))
+  .handler(async ({ data }) => {
+    const user = await requireTutor();
+    const topic = await db()
+      .prepare("SELECT id, name, is_free FROM topics WHERE id = ?")
+      .bind(data.topicId)
+      .first<{ id: string; name: string; is_free: number }>();
+    if (!topic) throw new Error("Тема не найдена");
+    if (!topic.is_free && user.subscriptionStatus !== "active") {
+      throw new Error("Задания этой темы открывает подписка");
+    }
+
+    const tasks = await db()
+      .prepare(
+        `SELECT id, kind, prompt, payload, answer, explanation, is_check
+           FROM tasks WHERE topic_id = ? ORDER BY is_check, sort_order`,
+      )
+      .bind(data.topicId)
+      .all<{
+        id: string;
+        kind: string;
+        prompt: string;
+        payload: string;
+        answer: string;
+        explanation: string;
+        is_check: number;
+      }>();
+
+    return {
+      topic: { id: topic.id, name: topic.name },
+      tasks: (tasks.results ?? []).map((t) => ({
+        id: t.id,
+        kind: t.kind,
+        prompt: t.prompt,
+        options: ((): string[] => {
+          try {
+            return (JSON.parse(t.payload) as { options?: string[] }).options ?? [];
+          } catch {
+            return [];
+          }
+        })(),
+        answer: t.answer,
+        explanation: t.explanation,
+        check: !!t.is_check,
+      })),
+    };
+  });
+
+/**
+ * Выдать тему сразу нескольким ученикам: на занятии тему проходят с
+ * группой, и заходить в каждую карточку отдельно значит повторять одно и
+ * то же действие столько раз, сколько учеников.
+ */
+export const assignTopic = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      topicId: z.string(),
+      childIds: z.array(z.string()).min(1, "Выберите хотя бы одного ученика"),
+      dueAt: z.string().nullable(),
+      targetPercent: z.number().int().min(0).max(100).default(70),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const user = await requireTutor();
+    const topic = await db()
+      .prepare("SELECT id, name FROM topics WHERE id = ?")
+      .bind(data.topicId)
+      .first<{ id: string; name: string }>();
+    if (!topic) throw new Error("Тема не найдена");
+
+    for (const childId of data.childIds) {
+      await requireStudent(childId, user.id);
+      const id = uid("asg");
+      await db().batch([
+        db()
+          .prepare(
+            `INSERT INTO assignments (id, child_id, tutor_id, title, comment, due_at, created_at)
+             VALUES (?, ?, ?, ?, NULL, ?, ?)`,
+          )
+          .bind(id, childId, user.id, topic.name, data.dueAt, nowIso()),
+        db()
+          .prepare(
+            `INSERT INTO assignment_items (id, assignment_id, kind, ref_id, target_percent, sort_order)
+             VALUES (?, ?, 'topic', ?, ?, 0)`,
+          )
+          .bind(uid("ai"), id, topic.id, data.targetPercent),
+      ]);
+    }
+
+    await track("assignment_bulk", {
+      userId: user.id,
+      props: { topic: topic.id, students: data.childIds.length },
+    });
+    return { count: data.childIds.length };
   });
