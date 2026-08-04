@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { QuietAction, SiteHeader, FormAction } from "../components/brand";
-import { loginParent } from "../lib/api/app.functions";
+import { loginParent, me } from "../lib/api/app.functions";
 
 export const Route = createFileRoute("/vhod")({
   head: () => ({ meta: [{ title: "Вход, Совёнок" }] }),
@@ -26,7 +26,10 @@ function LoginPage() {
           password: String(form.get("password") ?? ""),
         },
       });
-      await navigate({ to: "/roditel" });
+      // Вход один для всех, а дальше роль решает, куда человек попадёт:
+      // репетитору нужен список учеников, родителю — кабинет.
+      const account = await me();
+      await navigate({ to: account.user?.role === "tutor" ? "/repetitor" : "/roditel" });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Не получилось войти");
       setPending(false);
@@ -37,9 +40,9 @@ function LoginPage() {
     <div className="sov">
       <SiteHeader right={<QuietAction to="/registraciya">Создать аккаунт</QuietAction>} />
       <main className="sov-narrow" style={{ paddingTop: 48, paddingBottom: 80 }}>
-        <h1 style={{ fontSize: "2.2rem", fontWeight: 700 }}>Вход для родителя</h1>
+        <h1 style={{ fontSize: "2.2rem" }}>Вход</h1>
         <p style={{ marginTop: 12, color: "var(--sov-ink-soft)" }}>
-          Занятия ребёнка открываются из вашего аккаунта.
+          Одна дверь для репетитора и для родителя — куда попадёте, решит ваша роль.
         </p>
         <form className="sov-form" style={{ marginTop: 32 }} onSubmit={onSubmit}>
           {error ? <div className="sov-alert">{error}</div> : null}
@@ -54,8 +57,11 @@ function LoginPage() {
           <FormAction pending={pending}>Войти</FormAction>
         </form>
         <p style={{ marginTop: 26, color: "var(--sov-ink-soft)", fontSize: ".95rem" }}>
-          Вход один на семью. Кабинет родителя внутри закрыт отдельным кодом из четырёх цифр —
-          занятия ребёнок открывает сам, а отчёты и подписка остаются взрослому.
+          Репетитор попадёт в список учеников. У родителя вход один на семью: занятия ребёнок
+          открывает сам, а кабинет с отчётами закрыт отдельным кодом из четырёх цифр.
+        </p>
+        <p style={{ marginTop: 18 }}>
+          <QuietAction to="/priglashenie">У меня есть код от репетитора</QuietAction>
         </p>
       </main>
     </div>

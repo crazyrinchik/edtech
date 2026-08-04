@@ -4,7 +4,19 @@ import { useState } from "react";
 import { ChildAvatar, CHILD_AVATARS, FormAction, QuietAction, SiteHeader } from "../components/brand";
 import { addChild, registerParent, setParentPin } from "../lib/api/app.functions";
 
+/**
+ * ?rol=repetitor или ?rol=roditel пропускает развилку: с витрины человек
+ * уже нажал на свою карточку, и спрашивать второй раз одно и то же грубо.
+ */
 export const Route = createFileRoute("/registraciya")({
+  // Ключ именно необязательный, а не «есть со значением undefined»: иначе
+  // роутер потребует search у каждой ссылки на регистрацию во всём проекте.
+  validateSearch: (search: Record<string, unknown>): { rol?: "repetitor" | "roditel" } =>
+    search.rol === "repetitor"
+      ? { rol: "repetitor" }
+      : search.rol === "roditel"
+        ? { rol: "roditel" }
+        : {},
   head: () => ({ meta: [{ title: "Регистрация, Совёнок" }] }),
   component: RegisterPage,
 });
@@ -21,8 +33,9 @@ type Step = (typeof PARENT_STEPS)[number];
 
 function RegisterPage() {
   const navigate = useNavigate();
-  const [role, setRole] = useState<"parent" | "tutor">("parent");
-  const [step, setStep] = useState<Step>("role");
+  const { rol } = Route.useSearch();
+  const [role, setRole] = useState<"parent" | "tutor">(rol === "repetitor" ? "tutor" : "parent");
+  const [step, setStep] = useState<Step>(rol ? "parent" : "role");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [avatar, setAvatar] = useState("owl");
@@ -97,7 +110,10 @@ function RegisterPage() {
     <div className="sov">
       <SiteHeader right={<QuietAction to="/vhod">Войти</QuietAction>} />
       <main className="sov-narrow" style={{ paddingTop: 48, paddingBottom: 80 }}>
-        {step === "role" ? null : (
+        {/* Пришедшему с витрины по прямой ссылке счётчик врал бы: развилку он
+            уже прошёл там, и «шаг 2 из 2» на единственной форме читается
+            как потерянный шаг. */}
+        {step === "role" || (rol && step === "parent") ? null : (
           <p className="sov-mono" style={{ color: "var(--sov-ink-soft)" }}>
             Шаг {steps.indexOf(step) + 1} из {steps.length}
           </p>

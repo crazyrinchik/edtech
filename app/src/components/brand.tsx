@@ -43,9 +43,17 @@ export function Wordmark({ compact = false }: { compact?: boolean }) {
 
 /* Каждая кнопка получает собственный характер: общего стиля кнопок нет. */
 
-export function StartAction({ to, children }: { to: string; children: ReactNode }) {
+export function StartAction({
+  to,
+  children,
+  search,
+}: {
+  to: string;
+  children: ReactNode;
+  search?: Record<string, string>;
+}) {
   return (
-    <Link to={to} className="sov-act-start">
+    <Link to={to} search={search as never} className="sov-act-start">
       <span className="sov-act-start__label">{children}</span>
       <span className="sov-act-start__arrow" aria-hidden="true">
         <svg viewBox="0 0 20 20" width="18" height="18">
@@ -56,9 +64,17 @@ export function StartAction({ to, children }: { to: string; children: ReactNode 
   );
 }
 
-export function QuietAction({ to, children }: { to: string; children: ReactNode }) {
+export function QuietAction({
+  to,
+  children,
+  search,
+}: {
+  to: string;
+  children: ReactNode;
+  search?: Record<string, string>;
+}) {
   return (
-    <Link to={to} className="sov-act-quiet">
+    <Link to={to} search={search as never} className="sov-act-quiet">
       {children}
     </Link>
   );
