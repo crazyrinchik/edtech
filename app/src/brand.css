@@ -763,12 +763,9 @@ a.sov-level:active { transform: translate(0, 2px); box-shadow: 0 2px 0 rgba(18,3
    карта уровней у ребёнка заканчивается опушкой.
    ═══════════════════════════════════════════════════════════════════ */
 
-/* Светлые секции получают мягкие пятна света вместо ровной заливки. */
-.sov-section--glow {
-  background:
-    radial-gradient(900px 420px at 12% 0%, #ffffff 0%, rgba(255,255,255,0) 62%),
-    var(--sov-paper);
-}
+/* Мягкого пятна света в секциях больше нет: градиент рисовался внутри
+   .sov-shell, а тот ограничен по ширине — на светлом фоне была видна
+   прямоугольная кромка над заголовками. */
 
 .sov-night {
   position: relative;
@@ -867,3 +864,74 @@ a.sov-level:active { transform: translate(0, 2px); box-shadow: 0 2px 0 rgba(18,3
 .sov-data__col--yes li::before { content: "✓"; color: #35b06a; }
 .sov-data__col--no li { color: var(--sov-ink-soft); }
 .sov-data__col--no li::before { content: "✕"; color: #b3bccc; }
+
+/* ── кабинет родителя: карточка вместо описания ─────────────────────
+   Раньше слева был текст с плашками, справа панель зон риска, а колонки
+   выравнивались по центру — под коротким текстом зияла пустота. Теперь
+   колонки по верху, а справа компактная карточка: шапка, три числа
+   через разделители и одна зона риска. Вложенных коробок нет — карточка
+   читается одним объектом. */
+.sov-cab { display: grid; gap: 34px; grid-template-columns: 1fr; align-items: start; }
+@media (min-width: 900px) { .sov-cab { grid-template-columns: .95fr 1.05fr; } }
+
+.sov-cab__card {
+  border: 2px solid var(--sov-ink); border-radius: 22px; background: #fff; overflow: hidden;
+  box-shadow: 0 8px 0 rgba(31,79,216,.10);
+}
+.sov-cab__head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 14px 20px; border-bottom: 1px solid var(--sov-line); background: #f7f9fd;
+}
+.sov-cab__head strong { font-size: .95rem; }
+.sov-cab__head span { font-size: .78rem; color: var(--sov-ink-soft); }
+
+.sov-cab__metrics { display: grid; grid-template-columns: repeat(3, 1fr); }
+.sov-cab__metric { padding: 20px; border-right: 1px solid var(--sov-line); }
+.sov-cab__metric:last-child { border-right: none; }
+.sov-cab__metric b { display: block; font-size: 1.75rem; font-weight: 800; line-height: 1; letter-spacing: -.03em; }
+.sov-cab__metric span { display: block; margin-top: 6px; font-size: .78rem; color: var(--sov-ink-soft); }
+
+.sov-cab__risk {
+  margin: 0 20px 18px; border-left: 4px solid #e0803e; background: #fff8f0;
+  border-radius: 0 12px 12px 0; padding: 12px 16px;
+}
+.sov-cab__risk em {
+  font-style: normal; display: block;
+  font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: #a86a2e;
+}
+.sov-cab__note { padding: 0 20px 18px; font-size: .78rem; color: var(--sov-ink-soft); }
+
+/* ── тарифы: таблица сравнения вместо двух списков ──────────────────
+   Две карточки заставляли сличать пункты глазами. В таблице сразу видно,
+   что бесплатно доступно пять строк из восьми — это снимает подозрение,
+   что бесплатный тариф пустой, лучше любого текста. */
+.sov-compare {
+  margin-top: clamp(28px, 4vw, 40px); border: 2px solid var(--sov-ink);
+  border-radius: 24px; overflow: hidden; background: #fff;
+}
+.sov-compare__row {
+  display: grid; grid-template-columns: 1fr 110px 110px; align-items: center;
+  gap: 12px; padding: 14px 24px;
+}
+.sov-compare__row + .sov-compare__row { border-top: 1px solid var(--sov-line); }
+.sov-compare__row--head { background: #eef2fb; font-weight: 700; }
+.sov-compare__row > :not(:first-child) { text-align: center; }
+.sov-compare__yes { color: #35b06a; font-weight: 800; }
+.sov-compare__no { color: #b3bccc; font-weight: 800; }
+.sov-compare__price {
+  display: grid; grid-template-columns: 1fr 110px 110px; gap: 12px; align-items: center;
+  padding: 20px 24px; background: #f7f9fd; border-top: 2px solid var(--sov-ink);
+}
+.sov-compare__price b {
+  display: block; text-align: center; font-size: 1.5rem; font-weight: 800; letter-spacing: -.03em;
+}
+.sov-compare__price small { display: block; text-align: center; font-size: .75rem; color: var(--sov-ink-soft); }
+.sov-compare__cta { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; margin-top: 22px; }
+
+/* Три колонки на телефоне не помещаются: сужаем столбцы и кегль. */
+@media (max-width: 620px) {
+  .sov-compare__row, .sov-compare__price { grid-template-columns: 1fr 60px 60px; gap: 8px; padding: 12px 16px; }
+  .sov-compare__row { font-size: .88rem; }
+  .sov-compare__price b { font-size: 1.15rem; }
+  .sov-compare__price small { font-size: .68rem; }
+}

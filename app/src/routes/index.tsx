@@ -215,7 +215,7 @@ function Journey() {
 /** Тренажёры открыты без аккаунта — это отдельный вход в продукт, не подраздел тем. */
 function Trainers() {
   return (
-    <section className="sov-section sov-shell sov-section--glow">
+    <section className="sov-section sov-shell">
       <h2>Бесплатные тренажёры</h2>
       <p className="sov-section__lead">
         Открыты без аккаунта — можно начать прямо сейчас. Регистрация нужна только для того,
@@ -286,38 +286,46 @@ function HowItWorks() {
 
 function ForParents() {
   return (
-    <section className="sov-section sov-shell sov-section--glow">
-      <div className="sov-split">
+    <section className="sov-section sov-shell">
+      <div className="sov-cab">
         <div>
           <h2>Кабинет родителя</h2>
           <p className="sov-section__lead">
             Взрослый интерфейс без анимаций и персонажей: видно, занимается ли ребёнок, что уже
             освоено и где он ошибается чаще всего.
           </p>
-          <div className="sov-chips">
-            <span className="sov-chip">Процент верных ответов</span>
-            <span className="sov-chip">Минуты за неделю</span>
-            <span className="sov-chip">Зоны риска</span>
+          <div className="sov-chips" style={{ marginTop: 22 }}>
             <span className="sov-chip">История занятий</span>
+            <span className="sov-chip">Лимит времени</span>
+            <span className="sov-chip">Несколько детей</span>
           </div>
         </div>
-        <div className="sov-panel">
-          <h3>Зоны риска</h3>
-          <p style={{ color: "var(--sov-ink-soft)", marginTop: 8, fontSize: ".95rem" }}>
-            Темы, где ребёнок ошибается регулярно, выносятся отдельно. Это подсказка, что повторить
-            вместе за столом.
-          </p>
-          <div style={{ marginTop: 18 }}>
-            <div className="sov-risk">
-              <strong>Вычитание до 20</strong>
-              <div className="sov-mono" style={{ marginTop: 4 }}>верных 52 процента</div>
+
+        <div className="sov-cab__card">
+          <div className="sov-cab__head">
+            <strong>Маша, 1 класс</strong>
+            <span>за неделю</span>
+          </div>
+          <div className="sov-cab__metrics">
+            <div className="sov-cab__metric">
+              <b>74%</b>
+              <span>верных ответов</span>
             </div>
-            <div className="sov-risk">
-              <strong>Проверяемые гласные в корне</strong>
-              <div className="sov-mono" style={{ marginTop: 4 }}>верных 61 процент</div>
+            <div className="sov-cab__metric">
+              <b>86</b>
+              <span>минут занятий</span>
+            </div>
+            <div className="sov-cab__metric">
+              <b>3</b>
+              <span>темы пройдено</span>
             </div>
           </div>
-          <p className="sov-mono" style={{ marginTop: 16, color: "var(--sov-ink-soft)" }}>
+          <div className="sov-cab__risk">
+            <em>Зона риска</em>
+            <strong>Вычитание до 20</strong>
+            <div className="sov-mono" style={{ marginTop: 3 }}>верных 52 процента</div>
+          </div>
+          <p className="sov-cab__note">
             Пример оформления. Реальные цифры появятся после первых занятий.
           </p>
         </div>
@@ -386,9 +394,24 @@ const GUARDS = [
   },
 ];
 
+/**
+ * Строки сравнения тарифов. Подписка даёт всё, поэтому в разметке правая
+ * колонка всегда «да» — здесь хранится только доступность на бесплатном.
+ */
+const COMPARE: { feature: string; free: boolean }[] = [
+  { feature: "Нулевой урок и оба тренажёра без регистрации", free: true },
+  { feature: "Входная диагностика", free: true },
+  { feature: "Кабинет родителя целиком", free: true },
+  { feature: "Несколько детей в одном аккаунте", free: true },
+  { feature: "Первая тема по каждому предмету", free: true },
+  { feature: "Все темы 1 и 2 класса", free: false },
+  { feature: "Проверочные работы и звёзды", free: false },
+  { feature: "Зоны риска по каждой теме", free: false },
+];
+
 function Safety() {
   return (
-    <section className="sov-section sov-shell sov-section--glow">
+    <section className="sov-section sov-shell">
       <h2>Данные детей под защитой</h2>
       <p className="sov-section__lead">
         Аккаунт заводит взрослый и отдельно подтверждает согласие на обработку данных ребёнка
@@ -432,40 +455,47 @@ function Safety() {
 
 function Plans() {
   return (
-    <section className="sov-section sov-shell sov-section--glow">
+    <section className="sov-section sov-shell">
       <h2>Сколько это стоит</h2>
       <p className="sov-section__lead">
         Первая тема каждого предмета открыта всегда. Подписка снимает ограничение и открывает
         остальные темы обоих предметов.
       </p>
-      <div className="sov-plans">
-        <div className="sov-plan">
-          <h3>Бесплатно</h3>
-          <div className="sov-plan__price">0 ₽</div>
-          <ul>
-            <li>Нулевой урок и оба тренажёра без регистрации</li>
-            <li>Входная диагностика</li>
-            <li>По одной теме в математике и русском</li>
-            <li>Кабинет родителя целиком</li>
-            <li>Несколько детей в одном аккаунте</li>
-          </ul>
-          <div style={{ marginTop: 24 }}>
-            <StartAction to="/registraciya">Завести аккаунт</StartAction>
+      {/* Таблицей, а не двумя списками: так сразу видно, что бесплатно
+          доступно пять строк из восьми, и не нужно сличать пункты глазами. */}
+      <div className="sov-compare">
+        <div className="sov-compare__row sov-compare__row--head">
+          <span>Возможность</span>
+          <span>Бесплатно</span>
+          <span>Подписка</span>
+        </div>
+        {COMPARE.map((row) => (
+          <div key={row.feature} className="sov-compare__row">
+            <span>{row.feature}</span>
+            <span className={row.free ? "sov-compare__yes" : "sov-compare__no"}>
+              {row.free ? "✓" : "—"}
+            </span>
+            <span className="sov-compare__yes">✓</span>
           </div>
+        ))}
+        <div className="sov-compare__price">
+          <span style={{ fontWeight: 700 }}>Цена</span>
+          <span>
+            <b>0 ₽</b>
+            <small>всегда</small>
+          </span>
+          <span>
+            <b>490 ₽</b>
+            <small>в месяц, отмена в один клик</small>
+          </span>
         </div>
-        <div className="sov-plan sov-plan--paid">
-          <h3>Подписка</h3>
-          <div className="sov-plan__price">490 ₽ в месяц</div>
-          <ul>
-            <li>Все темы 1 и 2 класса</li>
-            <li>Проверочные работы и звёзды</li>
-            <li>Зоны риска по каждой теме</li>
-            <li>Отмена в один клик</li>
-          </ul>
-          <p className="sov-mono" style={{ marginTop: 18 }}>
-            На пилоте оплата подключается промокодом. Введите SOVENOK в кабинете.
-          </p>
-        </div>
+      </div>
+
+      <div className="sov-compare__cta">
+        <StartAction to="/registraciya">Завести аккаунт</StartAction>
+        <span className="sov-mono" style={{ color: "var(--sov-ink-soft)" }}>
+          На пилоте оплата подключается промокодом: введите SOVENOK в кабинете.
+        </span>
       </div>
     </section>
   );
