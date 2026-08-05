@@ -42,6 +42,10 @@ function LessonPage() {
   const [verdict, setVerdict] = useState<Verdict>(null);
   const [correctCount, setCorrectCount] = useState(0);
   const [scored, setScored] = useState<Set<string>>(new Set());
+  // Что уже отвечено на каждом шаге. Нужно, чтобы можно было вернуться
+  // назад и увидеть свой ответ с разбором, а не пустой экран: ребёнок
+  // возвращается именно затем, чтобы перечитать объяснение.
+  const [history, setHistory] = useState<Record<number, { value: string; verdict: Verdict }>>({});
   const [done, setDone] = useState<Finish | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState(0);
@@ -222,7 +226,23 @@ function LessonPage() {
       setScored((prev) => new Set(prev).add(task.id));
     }
     setVerdict(res);
+    setHistory((prev) => ({ ...prev, [index]: { value: answer, verdict: res } }));
     setPending(false);
+  }
+
+  /**
+   * Шаг назад. Прогресс не теряется: ответы уже записаны по одному, а
+   * счётчик верных считает уникальные задания (scored), поэтому повторный
+   * проход по пройденному ничего не удваивает и не обнуляет.
+   */
+  function back() {
+    if (index === 0) return;
+    const target = index - 1;
+    const past = history[target];
+    setIndex(target);
+    setValue(past?.value ?? "");
+    setVerdict(past?.verdict ?? null);
+    questionAt.current = Date.now();
   }
 
   /**
@@ -261,9 +281,11 @@ function LessonPage() {
   async function next() {
     if (!childId) return;
     if (index + 1 < session!.tasks.length) {
-      setIndex((i) => i + 1);
-      setValue("");
-      setVerdict(null);
+      const target = index + 1;
+      const past = history[target];
+      setIndex(target);
+      setValue(past?.value ?? "");
+      setVerdict(past?.verdict ?? null);
       questionAt.current = Date.now();
       return;
     }
@@ -324,14 +346,21 @@ function LessonPage() {
             <SpeakButton text={task.prompt} />
           </div>
 
-          <button
-            type="button"
-            className="sov-leave"
-            disabled={pending}
-            onClick={() => void leave()}
-          >
-            Выйти и сохранить
-          </button>
+          <div className="sov-steps">
+            {/* Шаг назад: перечитать разбор предыдущего вопроса. Раньше из
+                задания можно было только выйти целиком. */}
+            <button type="button" className="sov-leave" disabled={index === 0} onClick={back}>
+              ← Предыдущий вопрос
+            </button>
+            <button
+              type="button"
+              className="sov-leave"
+              disabled={pending}
+              onClick={() => void leave()}
+            >
+              Выйти и сохранить
+            </button>
+          </div>
 
           {task.kind === "match" ? (
             <MatchTask

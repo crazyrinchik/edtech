@@ -1121,3 +1121,9 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 }
 .sov-homework__attach:hover { border-color: var(--sov-cobalt); color: var(--sov-cobalt); }
 .sov-homework__attach input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+
+/* Шаг назад и выход стоят рядом: оба уводят из текущего вопроса, но ни
+   один не является действием урока — потому оба тихие. */
+.sov-steps { display: flex; gap: 20px; flex-wrap: wrap; align-items: center; margin-top: 14px; }
+.sov-steps .sov-leave { margin-top: 0; }
+.sov-leave:disabled { opacity: .4; cursor: default; text-decoration-color: transparent; }
