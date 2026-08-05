@@ -656,6 +656,7 @@ function CustomItem({
     body?: string | null;
     fileName?: string | null;
     answer?: string | null;
+    answerFile?: string | null;
     submittedAt?: string | null;
     grade?: number | null;
     comment?: string | null;
@@ -663,6 +664,7 @@ function CustomItem({
   onDone: () => Promise<void>;
 }) {
   const [answer, setAnswer] = useState(item.answer ?? "");
+  const [file, setFile] = useState<{ name: string; type: string; data: string } | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -676,10 +678,10 @@ function CustomItem({
           type="button"
           className="sov-homework__file"
           onClick={async () => {
-            const file = await customTaskFile({ data: { itemId: item.id } });
-            const bytes = Uint8Array.from(atob(file.data), (c) => c.charCodeAt(0));
+            const got = await customTaskFile({ data: { itemId: item.id, which: "task" } });
+            const bytes = Uint8Array.from(atob(got.data), (c) => c.charCodeAt(0));
             const url = URL.createObjectURL(
-              new Blob([bytes], { type: file.type ?? "application/octet-stream" }),
+              new Blob([bytes], { type: got.type ?? "application/octet-stream" }),
             );
             window.open(url, "_blank", "noopener");
             setTimeout(() => URL.revokeObjectURL(url), 60000);
@@ -702,16 +704,49 @@ function CustomItem({
             onChange={(e) => setAnswer(e.target.value)}
             placeholder="Напиши ответ или что сделал"
           />
+
+          {/* Работа чаще всего сделана в тетради — её проще сфотографировать,
+              чем переписывать в поле. Поэтому фотография это полноценный
+              ответ, а не приложение к тексту. */}
+          <label className="sov-homework__attach">
+            <input
+              type="file"
+              accept=".pdf,image/*"
+              capture="environment"
+              onChange={async (e) => {
+                const picked = e.target.files?.[0];
+                if (!picked) {
+                  setFile(null);
+                  return;
+                }
+                if (picked.size > 1_500_000) {
+                  setError("Файл больше 1,5 МБ — сфотографируй помельче");
+                  e.target.value = "";
+                  return;
+                }
+                const bytes = new Uint8Array(await picked.arrayBuffer());
+                let binary = "";
+                for (let i = 0; i < bytes.length; i += 1) binary += String.fromCharCode(bytes[i]);
+                setFile({ name: picked.name, type: picked.type, data: btoa(binary) });
+                setError(null);
+              }}
+            />
+            <span>{file ? `Выбрано: ${file.name}` : "Сфотографировать или выбрать файл"}</span>
+          </label>
+
+          {item.answerFile && !file ? (
+            <span className="sov-homework__grade">Уже отправлено: {item.answerFile}</span>
+          ) : null}
           {error ? <span className="sov-homework__grade">{error}</span> : null}
           <button
             type="button"
             className="sov-act-child"
-            disabled={pending || !answer.trim()}
+            disabled={pending || (!answer.trim() && !file)}
             onClick={async () => {
               setPending(true);
               setError(null);
               try {
-                await submitCustomAnswer({ data: { itemId: item.id, answer } });
+                await submitCustomAnswer({ data: { itemId: item.id, answer, file } });
                 await onDone();
               } catch (e) {
                 setError(e instanceof Error ? e.message : "Не получилось отправить");

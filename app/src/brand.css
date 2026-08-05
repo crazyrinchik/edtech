@@ -1110,3 +1110,14 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
   font-family: var(--sov-font); font-size: .95rem; padding: 10px 13px;
   border: 2px solid var(--sov-line); border-radius: 12px; background: #fff;
 }
+
+/* Прикрепить фотографию ответа. Родной input[type=file] выглядит
+   по-разному в каждом браузере и не читается ребёнком — прячем его
+   внутрь подписанной кнопки. */
+.sov-homework__attach {
+  display: inline-flex; align-items: center; gap: 10px; cursor: pointer;
+  border: 2px dashed var(--sov-line); border-radius: 12px; padding: 12px 18px;
+  font-size: .92rem; font-weight: 700; color: var(--sov-ink-soft); background: #fff;
+}
+.sov-homework__attach:hover { border-color: var(--sov-cobalt); color: var(--sov-cobalt); }
+.sov-homework__attach input { position: absolute; width: 1px; height: 1px; opacity: 0; }

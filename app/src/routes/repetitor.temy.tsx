@@ -78,7 +78,14 @@ function CurriculumPage() {
 
   return (
     <div className="sov">
-      <SiteHeader right={<QuietAction to="/repetitor">К ученикам</QuietAction>} />
+      <SiteHeader
+        right={
+          <>
+            <QuietAction to="/repetitor/trenazhery">Тренажёры</QuietAction>
+            <QuietAction to="/repetitor">К ученикам</QuietAction>
+          </>
+        }
+      />
 
       <main className="sov-shell" style={{ paddingBottom: 60 }}>
         <h1 style={{ fontSize: "2.2rem", marginTop: 10 }}>Темы и задания</h1>

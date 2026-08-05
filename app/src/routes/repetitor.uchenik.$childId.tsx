@@ -6,6 +6,7 @@ import {
   cancelAssignment,
   createAssignment,
   createCustomAssignment,
+  customTaskFile,
   gradeCustomAnswer,
   studentCard,
 } from "../lib/api/tutor.functions";
@@ -458,6 +459,7 @@ function CustomAnswer({
     grade?: number | null;
     comment?: string | null;
     fileName?: string | null;
+    answerFile?: string | null;
   };
   onDone: () => Promise<void>;
 }) {
@@ -478,7 +480,24 @@ function CustomAnswer({
   return (
     <div className="sov-custom">
       <span className="sov-custom__meta">Ответ ученика</span>
-      <p className="sov-custom__answer">{item.answer}</p>
+      {item.answer ? <p className="sov-custom__answer">{item.answer}</p> : null}
+      {item.answerFile ? (
+        <button
+          type="button"
+          className="sov-homework__file"
+          onClick={async () => {
+            const got = await customTaskFile({ data: { itemId: item.id, which: "answer" } });
+            const bytes = Uint8Array.from(atob(got.data), (c) => c.charCodeAt(0));
+            const url = URL.createObjectURL(
+              new Blob([bytes], { type: got.type ?? "application/octet-stream" }),
+            );
+            window.open(url, "_blank", "noopener");
+            setTimeout(() => URL.revokeObjectURL(url), 60000);
+          }}
+        >
+          Открыть {item.answerFile}
+        </button>
+      ) : null}
 
       {item.grade ? (
         <span className="sov-custom__grade">

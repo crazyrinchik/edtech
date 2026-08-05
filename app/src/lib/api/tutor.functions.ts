@@ -101,6 +101,7 @@ export type AssignmentItemView = {
   body?: string | null;
   fileName?: string | null;
   answer?: string | null;
+  answerFile?: string | null;
   submittedAt?: string | null;
   grade?: number | null;
   comment?: string | null;
@@ -168,11 +169,12 @@ async function buildAssignments(childId: string, rows: AssignmentRow[]): Promise
       // быть, тогда LEFT JOIN отдаёт NULL — и строка становится ненаходимой,
       // а задание показывается безымянным «заданием от педагога».
       `SELECT ai.id AS item_id, s.answer, s.submitted_at, s.grade, s.comment,
-              t.title, t.body, t.file_name
+              t.title, t.body, t.file_name, f.file_name AS answer_file
          FROM assignment_items ai
          JOIN assignments a ON a.id = ai.assignment_id
          LEFT JOIN custom_submissions s ON s.item_id = ai.id
          LEFT JOIN custom_tasks t ON t.id = ai.ref_id
+         LEFT JOIN custom_answer_files f ON f.item_id = ai.id
         WHERE a.child_id = ? AND ai.kind = 'custom'`,
     )
     .bind(childId)
@@ -185,6 +187,7 @@ async function buildAssignments(childId: string, rows: AssignmentRow[]): Promise
       title: string | null;
       body: string | null;
       file_name: string | null;
+      answer_file: string | null;
     }>();
 
   const now = nowIso();
@@ -206,6 +209,7 @@ async function buildAssignments(childId: string, rows: AssignmentRow[]): Promise
           body: row?.body ?? null,
           fileName: row?.file_name ?? null,
           answer: row?.answer ?? null,
+          answerFile: row?.answer_file ?? null,
           submittedAt: row?.submitted_at ?? null,
           grade: row?.grade ?? null,
           comment: row?.comment ?? null,
@@ -898,17 +902,25 @@ export const createCustomAssignment = createServerFn({ method: "POST" })
 
 /** Вложение отдаётся отдельным запросом: в списке заданий оно ни к чему. */
 export const customTaskFile = createServerFn({ method: "GET" })
-  .inputValidator(z.object({ itemId: z.string() }))
+  .inputValidator(z.object({ itemId: z.string(), which: z.enum(["task", "answer"]).default("task") }))
   .handler(async ({ data }) => {
     const user = await requireUser();
+    // Задание педагога и ответ ученика лежат в разных таблицах, но отдаются
+    // одной ручкой: проверка доступа у них общая и должна быть одна.
+    const source =
+      data.which === "answer"
+        ? `SELECT a.child_id, f.file_name, f.file_type, f.file_data
+             FROM assignment_items ai
+             JOIN assignments a ON a.id = ai.assignment_id
+             JOIN custom_answer_files f ON f.item_id = ai.id
+            WHERE ai.id = ?`
+        : `SELECT a.child_id, t.file_name, t.file_type, t.file_data
+             FROM assignment_items ai
+             JOIN assignments a ON a.id = ai.assignment_id
+             JOIN custom_tasks t ON t.id = ai.ref_id
+            WHERE ai.id = ?`;
     const row = await db()
-      .prepare(
-        `SELECT a.child_id, t.file_name, t.file_type, t.file_data
-           FROM assignment_items ai
-           JOIN assignments a ON a.id = ai.assignment_id
-           JOIN custom_tasks t ON t.id = ai.ref_id
-          WHERE ai.id = ?`,
-      )
+      .prepare(source)
       .bind(data.itemId)
       .first<{ child_id: string; file_name: string | null; file_type: string | null; file_data: string | null }>();
     if (!row?.file_data) throw new Error("Файла нет");
@@ -918,7 +930,17 @@ export const customTaskFile = createServerFn({ method: "GET" })
 
 /** Ответ ученика. Отправить может любой взрослый рядом с ним — обычно сам ребёнок из своего экрана. */
 export const submitCustomAnswer = createServerFn({ method: "POST" })
-  .inputValidator(z.object({ itemId: z.string(), answer: z.string().trim().min(1, "Напиши ответ") }))
+  .inputValidator(
+    z.object({
+      itemId: z.string(),
+      // Ответом может быть одна фотография тетради: заставлять ещё и писать
+      // текст, когда работа уже снята, незачем.
+      answer: z.string().trim(),
+      file: z
+        .object({ name: z.string().min(1), type: z.string().min(1), data: z.string().min(1) })
+        .nullable(),
+    }),
+  )
   .handler(async ({ data }) => {
     const user = await requireUser();
     const row = await db()
@@ -932,14 +954,37 @@ export const submitCustomAnswer = createServerFn({ method: "POST" })
     if (!row) throw new Error("Задание не найдено");
     await requireChildAccess(row.child_id, user.id);
 
+    if (!data.answer && !data.file) throw new Error("Напиши ответ или приложи фотографию");
+    if (data.file) {
+      const bytes = Math.floor((data.file.data.length * 3) / 4);
+      if (bytes > MAX_FILE_BYTES) throw new Error("Файл больше 1,5 МБ — приложи файл поменьше");
+    }
+
+    const now = nowIso();
     await db()
       .prepare(
         `INSERT INTO custom_submissions (item_id, child_id, answer, submitted_at)
          VALUES (?, ?, ?, ?)
          ON CONFLICT (item_id) DO UPDATE SET answer = ?, submitted_at = ?, grade = NULL, comment = NULL, graded_at = NULL`,
       )
-      .bind(data.itemId, row.child_id, data.answer, nowIso(), data.answer, nowIso())
+      .bind(data.itemId, row.child_id, data.answer, now, data.answer, now)
       .run();
+
+    // Новая отправка заменяет прежнее вложение целиком: история черновиков
+    // не нужна ни ребёнку, ни педагогу, а место в базе занимает.
+    if (data.file) {
+      await db()
+        .prepare(
+          `INSERT INTO custom_answer_files (item_id, child_id, file_name, file_type, file_data, uploaded_at)
+           VALUES (?, ?, ?, ?, ?, ?)
+           ON CONFLICT (item_id) DO UPDATE SET file_name = ?, file_type = ?, file_data = ?, uploaded_at = ?`,
+        )
+        .bind(
+          data.itemId, row.child_id, data.file.name, data.file.type, data.file.data, now,
+          data.file.name, data.file.type, data.file.data, now,
+        )
+        .run();
+    }
     return { ok: true };
   });
 
@@ -983,4 +1028,109 @@ export const gradeCustomAnswer = createServerFn({ method: "POST" })
       .run();
     await track("custom_graded", { userId: user.id, childId: row.child_id, props: { grade: data.grade } });
     return { ok: true };
+  });
+
+/* ------------------------------------------------ подписка репетитора
+
+   Раньше «Подписка» в кабинете вела в /roditel, а тот закрыт кодом
+   родителя — репетитору предлагали придумать код от чужого кабинета,
+   которым он никогда не пользуется. Подписка репетитора живёт отдельно
+   и никакими кодами не закрывается: это его собственные деньги. */
+
+export const tutorSubscription = createServerFn({ method: "GET" }).handler(async () => {
+  const user = await requireTutor();
+  const students = await db()
+    .prepare("SELECT COUNT(*) AS n FROM child_access WHERE user_id = ? AND role = 'tutor'")
+    .bind(user.id)
+    .first<{ n: number }>();
+  const sub = await db()
+    .prepare(
+      `SELECT plan, status, start_date, end_date FROM subscriptions
+        WHERE user_id = ? AND status = 'active' ORDER BY start_date DESC LIMIT 1`,
+    )
+    .bind(user.id)
+    .first<{ plan: string; status: string; start_date: string; end_date: string | null }>();
+
+  return {
+    active: user.subscriptionStatus === "active",
+    students: Number(students?.n ?? 0),
+    until: sub?.end_date ?? null,
+    plan: sub?.plan ?? null,
+  };
+});
+
+export const tutorRedeemPromo = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ code: z.string().trim().min(3) }))
+  .handler(async ({ data }) => {
+    const user = await requireTutor();
+    const code = data.code.trim().toUpperCase();
+    const promo = await db()
+      .prepare("SELECT code, months, used_by FROM promo_codes WHERE code = ?")
+      .bind(code)
+      .first<{ code: string; months: number; used_by: string | null }>();
+    if (!promo) throw new Error("Такого промокода нет");
+    if (promo.used_by && promo.used_by !== user.id) throw new Error("Промокод уже использован");
+
+    const end = new Date(Date.now() + promo.months * 30 * 864e5).toISOString();
+    await db().batch([
+      db().prepare("UPDATE users SET subscription_status = 'active' WHERE id = ?").bind(user.id),
+      db()
+        .prepare("UPDATE promo_codes SET used_by = ?, used_at = ? WHERE code = ?")
+        .bind(user.id, nowIso(), code),
+      db()
+        .prepare(
+          `INSERT INTO subscriptions (id, user_id, plan, status, start_date, end_date)
+           VALUES (?, ?, ?, 'active', ?, ?)`,
+        )
+        .bind(uid("sub"), user.id, `promo_${promo.months}m`, nowIso(), end),
+    ]);
+    await track("subscription_activated", { userId: user.id, props: { code, role: "tutor" } });
+    return { until: end };
+  });
+
+export const tutorCancelSubscription = createServerFn({ method: "POST" }).handler(async () => {
+  const user = await requireTutor();
+  await db().batch([
+    db().prepare("UPDATE users SET subscription_status = 'free' WHERE id = ?").bind(user.id),
+    db()
+      .prepare("UPDATE subscriptions SET status = 'cancelled' WHERE user_id = ? AND status = 'active'")
+      .bind(user.id),
+  ]);
+  return { ok: true };
+});
+
+/** Выдать тренажёр сразу нескольким ученикам — как и тему. */
+export const assignDrill = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      kind: z.enum(["schet", "chtenie", "shulte"]),
+      childIds: z.array(z.string()).min(1, "Выберите хотя бы одного ученика"),
+      dueAt: z.string().nullable(),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const user = await requireTutor();
+    const title =
+      data.kind === "chtenie" ? "Скорочтение" : data.kind === "shulte" ? "Таблица Шульте" : "Устный счёт";
+
+    for (const childId of data.childIds) {
+      await requireStudent(childId, user.id);
+      const id = uid("asg");
+      await db().batch([
+        db()
+          .prepare(
+            `INSERT INTO assignments (id, child_id, tutor_id, title, comment, due_at, created_at)
+             VALUES (?, ?, ?, ?, NULL, ?, ?)`,
+          )
+          .bind(id, childId, user.id, title, data.dueAt, nowIso()),
+        db()
+          .prepare(
+            `INSERT INTO assignment_items (id, assignment_id, kind, ref_id, target_percent, sort_order)
+             VALUES (?, ?, 'drill', ?, 0, 0)`,
+          )
+          .bind(uid("ai"), id, data.kind),
+      ]);
+    }
+    await track("drill_assigned", { userId: user.id, props: { kind: data.kind, students: data.childIds.length } });
+    return { count: data.childIds.length };
   });

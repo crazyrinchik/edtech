@@ -98,7 +98,10 @@ function TutorPage() {
         right={
           <>
             <QuietAction to="/repetitor/temy">Темы и задания</QuietAction>
-            <QuietAction to="/roditel">Подписка</QuietAction>
+            <QuietAction to="/repetitor/trenazhery">Тренажёры</QuietAction>
+            {/* Раньше вело в /roditel, а тот закрыт кодом родителя: репетитору
+                предлагали придумать код от чужого кабинета. */}
+            <QuietAction to="/repetitor/podpiska">Подписка</QuietAction>
             <button
               type="button"
               className="sov-act-ghost"

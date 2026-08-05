@@ -19,7 +19,60 @@ export function speechSupported(): boolean {
   return !!synth() && typeof window !== "undefined" && "SpeechSynthesisUtterance" in window;
 }
 
-/** Русский голос: системный «Milena»/«Yuri» звучит живее, чем голос по умолчанию. */
+/**
+ * Первый вызов getVoices() в Chrome возвращает пустой список: голоса
+ * подгружаются асинхронно, и событие voiceschanged может прийти раньше,
+ * чем на него успели подписаться. Поэтому список прогревается один раз
+ * при загрузке модуля — к моменту первого нажатия на ушко он уже готов.
+ */
+function warmUpVoices(): void {
+  const s = synth();
+  if (!s) return;
+  if (s.getVoices().length) return;
+  const onChange = () => {
+    s.removeEventListener("voiceschanged", onChange);
+  };
+  s.addEventListener("voiceschanged", onChange);
+  // Ещё и опрос: в части сборок Safari событие не приходит вовсе.
+  let tries = 0;
+  const timer = window.setInterval(() => {
+    tries += 1;
+    if (s.getVoices().length || tries > 20) window.clearInterval(timer);
+  }, 250);
+}
+
+if (typeof window !== "undefined") warmUpVoices();
+
+/**
+ * Высота и темп подбирались на слух. Пробовали поднять тон до 1.35, чтобы
+ * голос звучал мультяшнее, — на единственном системном русском голосе это
+ * читается не как зверёк, а как ускоренная запись, и разборчивость падает.
+ * Оставлено близко к натуральному: детям важнее понять, чем умилиться.
+ */
+const PITCH = 1.05;
+const RATE = 0.9;
+
+/**
+ * Женские голоса звучат мягче и ближе к мультфильму, поэтому идут первыми.
+ * Список по именам, а не по полу: у SpeechSynthesisVoice пола нет, а имена
+ * системных русских голосов известны и стабильны.
+ *
+ * Кириллица в списке не для красоты: на системе с русским языком тот же
+ * голос называется «Милена», и латинское «milena» не совпало бы с ним
+ * никогда — выбор молча падал бы в запасной вариант.
+ */
+const PREFERRED = [
+  "milena", "милена",
+  "alyona", "alena", "алёна", "алена",
+  "katya", "катя",
+  "tatyana", "татьяна",
+  "google русский", "google russian",
+];
+
+function normalize(name: string): string {
+  return name.toLowerCase().replace(/ё/g, "е");
+}
+
 function pickVoice(): SpeechSynthesisVoice | null {
   const s = synth();
   if (!s) return null;
@@ -27,6 +80,13 @@ function pickVoice(): SpeechSynthesisVoice | null {
   if (!voices.length) return null;
   const ru = voices.filter((v) => v.lang.toLowerCase().startsWith(RU));
   if (!ru.length) return null;
+
+  for (const name of PREFERRED) {
+    const wanted = normalize(name);
+    const hit = ru.find((v) => normalize(v.name).includes(wanted));
+    if (hit) return hit;
+  }
+  // Локальный голос звучит ровнее сетевого и не зависит от связи.
   return ru.find((v) => v.localService) ?? ru[0];
 }
 
@@ -41,8 +101,8 @@ export function speak(text: string, opts: { rate?: number } = {}): void {
   s.cancel();
   const utterance = new SpeechSynthesisUtterance(cleanForSpeech(text));
   utterance.lang = "ru-RU";
-  utterance.rate = opts.rate ?? 0.9;
-  utterance.pitch = 1.05;
+  utterance.rate = opts.rate ?? RATE;
+  utterance.pitch = PITCH;
   const voice = pickVoice();
   if (voice) utterance.voice = voice;
   s.speak(utterance);

@@ -25,7 +25,9 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as RepetitorIndexRouteImport } from './routes/repetitor.index'
 import { Route as UrokTopicIdRouteImport } from './routes/urok.$topicId'
+import { Route as RepetitorTrenazheryRouteImport } from './routes/repetitor.trenazhery'
 import { Route as RepetitorTemyRouteImport } from './routes/repetitor.temy'
+import { Route as RepetitorPodpiskaRouteImport } from './routes/repetitor.podpiska'
 import { Route as RepetitorUchenikChildIdRouteImport } from './routes/repetitor.uchenik.$childId'
 
 const VhodRoute = VhodRouteImport.update({
@@ -108,9 +110,19 @@ const UrokTopicIdRoute = UrokTopicIdRouteImport.update({
   path: '/urok/$topicId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RepetitorTrenazheryRoute = RepetitorTrenazheryRouteImport.update({
+  id: '/repetitor/trenazhery',
+  path: '/repetitor/trenazhery',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RepetitorTemyRoute = RepetitorTemyRouteImport.update({
   id: '/repetitor/temy',
   path: '/repetitor/temy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RepetitorPodpiskaRoute = RepetitorPodpiskaRouteImport.update({
+  id: '/repetitor/podpiska',
+  path: '/repetitor/podpiska',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RepetitorUchenikChildIdRoute = RepetitorUchenikChildIdRouteImport.update({
@@ -134,7 +146,9 @@ export interface FileRoutesByFullPath {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/uchenik': typeof UchenikRoute
   '/vhod': typeof VhodRoute
+  '/repetitor/podpiska': typeof RepetitorPodpiskaRoute
   '/repetitor/temy': typeof RepetitorTemyRoute
+  '/repetitor/trenazhery': typeof RepetitorTrenazheryRoute
   '/urok/$topicId': typeof UrokTopicIdRoute
   '/repetitor/': typeof RepetitorIndexRoute
   '/repetitor/uchenik/$childId': typeof RepetitorUchenikChildIdRoute
@@ -154,7 +168,9 @@ export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/uchenik': typeof UchenikRoute
   '/vhod': typeof VhodRoute
+  '/repetitor/podpiska': typeof RepetitorPodpiskaRoute
   '/repetitor/temy': typeof RepetitorTemyRoute
+  '/repetitor/trenazhery': typeof RepetitorTrenazheryRoute
   '/urok/$topicId': typeof UrokTopicIdRoute
   '/repetitor': typeof RepetitorIndexRoute
   '/repetitor/uchenik/$childId': typeof RepetitorUchenikChildIdRoute
@@ -175,7 +191,9 @@ export interface FileRoutesById {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/uchenik': typeof UchenikRoute
   '/vhod': typeof VhodRoute
+  '/repetitor/podpiska': typeof RepetitorPodpiskaRoute
   '/repetitor/temy': typeof RepetitorTemyRoute
+  '/repetitor/trenazhery': typeof RepetitorTrenazheryRoute
   '/urok/$topicId': typeof UrokTopicIdRoute
   '/repetitor/': typeof RepetitorIndexRoute
   '/repetitor/uchenik/$childId': typeof RepetitorUchenikChildIdRoute
@@ -197,7 +215,9 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/uchenik'
     | '/vhod'
+    | '/repetitor/podpiska'
     | '/repetitor/temy'
+    | '/repetitor/trenazhery'
     | '/urok/$topicId'
     | '/repetitor/'
     | '/repetitor/uchenik/$childId'
@@ -217,7 +237,9 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/uchenik'
     | '/vhod'
+    | '/repetitor/podpiska'
     | '/repetitor/temy'
+    | '/repetitor/trenazhery'
     | '/urok/$topicId'
     | '/repetitor'
     | '/repetitor/uchenik/$childId'
@@ -237,7 +259,9 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/uchenik'
     | '/vhod'
+    | '/repetitor/podpiska'
     | '/repetitor/temy'
+    | '/repetitor/trenazhery'
     | '/urok/$topicId'
     | '/repetitor/'
     | '/repetitor/uchenik/$childId'
@@ -258,7 +282,9 @@ export interface RootRouteChildren {
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   UchenikRoute: typeof UchenikRoute
   VhodRoute: typeof VhodRoute
+  RepetitorPodpiskaRoute: typeof RepetitorPodpiskaRoute
   RepetitorTemyRoute: typeof RepetitorTemyRoute
+  RepetitorTrenazheryRoute: typeof RepetitorTrenazheryRoute
   UrokTopicIdRoute: typeof UrokTopicIdRoute
   RepetitorIndexRoute: typeof RepetitorIndexRoute
   RepetitorUchenikChildIdRoute: typeof RepetitorUchenikChildIdRoute
@@ -378,11 +404,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof UrokTopicIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/repetitor/trenazhery': {
+      id: '/repetitor/trenazhery'
+      path: '/repetitor/trenazhery'
+      fullPath: '/repetitor/trenazhery'
+      preLoaderRoute: typeof RepetitorTrenazheryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/repetitor/temy': {
       id: '/repetitor/temy'
       path: '/repetitor/temy'
       fullPath: '/repetitor/temy'
       preLoaderRoute: typeof RepetitorTemyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/repetitor/podpiska': {
+      id: '/repetitor/podpiska'
+      path: '/repetitor/podpiska'
+      fullPath: '/repetitor/podpiska'
+      preLoaderRoute: typeof RepetitorPodpiskaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/repetitor/uchenik/$childId': {
@@ -410,7 +450,9 @@ const rootRouteChildren: RootRouteChildren = {
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   UchenikRoute: UchenikRoute,
   VhodRoute: VhodRoute,
+  RepetitorPodpiskaRoute: RepetitorPodpiskaRoute,
   RepetitorTemyRoute: RepetitorTemyRoute,
+  RepetitorTrenazheryRoute: RepetitorTrenazheryRoute,
   UrokTopicIdRoute: UrokTopicIdRoute,
   RepetitorIndexRoute: RepetitorIndexRoute,
   RepetitorUchenikChildIdRoute: RepetitorUchenikChildIdRoute,
