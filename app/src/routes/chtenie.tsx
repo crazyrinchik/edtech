@@ -322,6 +322,9 @@ function ReadingTop() {
     <div className="sov-demo__top">
       <Wordmark compact />
       <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+        <Link to="/shulte" className="sov-act-ghost" style={{ textDecoration: "none" }}>
+          Таблица Шульте
+        </Link>
         <Link to="/schet" className="sov-act-ghost" style={{ textDecoration: "none" }}>
           Устный счёт
         </Link>

@@ -27,9 +27,11 @@ function LoginPage() {
         },
       });
       // Вход один для всех, а дальше роль решает, куда человек попадёт:
-      // репетитору нужен список учеников, родителю — кабинет.
+      // репетитору — список учеников, родителю — занятия ребёнка. Кабинет
+      // взрослого открывается отдельно, кнопкой и кодом: чаще всего вход
+      // происходит, чтобы посадить ребёнка заниматься, а не читать отчёты.
       const account = await me();
-      await navigate({ to: account.user?.role === "tutor" ? "/repetitor" : "/roditel" });
+      await navigate({ to: account.user?.role === "tutor" ? "/repetitor" : "/uchenik" });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Не получилось войти");
       setPending(false);
@@ -57,8 +59,8 @@ function LoginPage() {
           <FormAction pending={pending}>Войти</FormAction>
         </form>
         <p style={{ marginTop: 26, color: "var(--sov-ink-soft)", fontSize: ".95rem" }}>
-          Репетитор попадёт в список учеников. У родителя вход один на семью: занятия ребёнок
-          открывает сам, а кабинет с отчётами закрыт отдельным кодом из четырёх цифр.
+          Репетитор попадёт в список учеников, родитель — сразу к занятиям ребёнка. Кабинет с
+          отчётами и подпиской открывается оттуда кнопкой и закрыт кодом из четырёх цифр.
         </p>
         <p style={{ marginTop: 18 }}>
           <QuietAction to="/priglashenie">У меня есть код от репетитора</QuietAction>

@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as VhodRouteImport } from './routes/vhod'
 import { Route as UchenikRouteImport } from './routes/uchenik'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as ShulteRouteImport } from './routes/shulte'
 import { Route as SchetRouteImport } from './routes/schet'
 import { Route as RoditelRouteImport } from './routes/roditel'
 import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
@@ -40,6 +41,11 @@ const UchenikRoute = UchenikRouteImport.update({
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ShulteRoute = ShulteRouteImport.update({
+  id: '/shulte',
+  path: '/shulte',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SchetRoute = SchetRouteImport.update({
@@ -124,6 +130,7 @@ export interface FileRoutesByFullPath {
   '/robots.txt': typeof RobotsDottxtRoute
   '/roditel': typeof RoditelRoute
   '/schet': typeof SchetRoute
+  '/shulte': typeof ShulteRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/uchenik': typeof UchenikRoute
   '/vhod': typeof VhodRoute
@@ -143,6 +150,7 @@ export interface FileRoutesByTo {
   '/robots.txt': typeof RobotsDottxtRoute
   '/roditel': typeof RoditelRoute
   '/schet': typeof SchetRoute
+  '/shulte': typeof ShulteRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/uchenik': typeof UchenikRoute
   '/vhod': typeof VhodRoute
@@ -163,6 +171,7 @@ export interface FileRoutesById {
   '/robots.txt': typeof RobotsDottxtRoute
   '/roditel': typeof RoditelRoute
   '/schet': typeof SchetRoute
+  '/shulte': typeof ShulteRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/uchenik': typeof UchenikRoute
   '/vhod': typeof VhodRoute
@@ -184,6 +193,7 @@ export interface FileRouteTypes {
     | '/robots.txt'
     | '/roditel'
     | '/schet'
+    | '/shulte'
     | '/sitemap.xml'
     | '/uchenik'
     | '/vhod'
@@ -203,6 +213,7 @@ export interface FileRouteTypes {
     | '/robots.txt'
     | '/roditel'
     | '/schet'
+    | '/shulte'
     | '/sitemap.xml'
     | '/uchenik'
     | '/vhod'
@@ -222,6 +233,7 @@ export interface FileRouteTypes {
     | '/robots.txt'
     | '/roditel'
     | '/schet'
+    | '/shulte'
     | '/sitemap.xml'
     | '/uchenik'
     | '/vhod'
@@ -242,6 +254,7 @@ export interface RootRouteChildren {
   RobotsDottxtRoute: typeof RobotsDottxtRoute
   RoditelRoute: typeof RoditelRoute
   SchetRoute: typeof SchetRoute
+  ShulteRoute: typeof ShulteRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   UchenikRoute: typeof UchenikRoute
   VhodRoute: typeof VhodRoute
@@ -272,6 +285,13 @@ declare module '@tanstack/react-router' {
       path: '/sitemap.xml'
       fullPath: '/sitemap.xml'
       preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/shulte': {
+      id: '/shulte'
+      path: '/shulte'
+      fullPath: '/shulte'
+      preLoaderRoute: typeof ShulteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/schet': {
@@ -386,6 +406,7 @@ const rootRouteChildren: RootRouteChildren = {
   RobotsDottxtRoute: RobotsDottxtRoute,
   RoditelRoute: RoditelRoute,
   SchetRoute: SchetRoute,
+  ShulteRoute: ShulteRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   UchenikRoute: UchenikRoute,
   VhodRoute: VhodRoute,

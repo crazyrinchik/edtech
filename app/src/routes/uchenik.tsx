@@ -13,7 +13,7 @@ import { coinsLabel, SHOP } from "../lib/shop";
 import { AutoSpeakToggle, SpeakButton } from "../components/speak";
 import { getDiagnostic, getSkillMap, me, submitDiagnostic } from "../lib/api/app.functions";
 import { buyOwlItem, equipOwlItem } from "../lib/api/app.functions";
-import { childAssignments } from "../lib/api/tutor.functions";
+import { childAssignments, customTaskFile, submitCustomAnswer } from "../lib/api/tutor.functions";
 
 /** Уровень считается на сервере как звёзды/5 + 1 — держим шаг тем же. */
 const STARS_PER_LEVEL = 5;
@@ -67,6 +67,13 @@ function PupilPage() {
   const [adultRole, setAdultRole] = useState<string>("parent");
   const [homework, setHomework] = useState<Homework>([]);
   const [busy, setBusy] = useState(false);
+
+  const reload = async () => {
+    if (childId) {
+      const hw = await childAssignments({ data: { childId } });
+      setHomework(hw.assignments);
+    }
+  };
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -246,7 +253,9 @@ function PupilPage() {
             </span>
             <div className="sov-homework__items">
               {hw.items.map((item) =>
-                item.kind === "topic" ? (
+                item.kind === "custom" ? (
+                  <CustomItem key={item.id} item={item} onDone={reload} />
+                ) : item.kind === "topic" ? (
                   <div key={item.id} className="sov-homework__row">
                     <Link
                       to="/urok/$topicId"
@@ -273,7 +282,13 @@ function PupilPage() {
                 ) : (
                   <Link
                     key={item.id}
-                    to={item.refId === "chtenie" ? "/chtenie" : "/schet"}
+                    to={
+                      item.refId === "chtenie"
+                        ? "/chtenie"
+                        : item.refId === "shulte"
+                          ? "/shulte"
+                          : "/schet"
+                    }
                     className="sov-homework__item"
                     data-done={item.done}
                   >
@@ -295,6 +310,13 @@ function PupilPage() {
             <span>
               <strong>Устный счёт</strong>
               <em>Примеры на время, скорость и точность</em>
+            </span>
+          </Link>
+          <Link to="/shulte" className="sov-trainer">
+            <span className="sov-trainer__icon" aria-hidden="true">🔢</span>
+            <span>
+              <strong>Таблица Шульте</strong>
+              <em>Найти числа по порядку, тренируя поле зрения</em>
             </span>
           </Link>
           <Link to="/chtenie" className="sov-trainer">
@@ -614,6 +636,96 @@ function Diagnostic({ childId, onDone }: { childId: string; onDone: () => void }
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Своё задание от педагога: текст, файл и поле ответа.
+ *
+ * Проверяет его человек, а не платформа, поэтому здесь нет «верно» и
+ * «неверно» — есть отправленный ответ и оценка, когда педагог посмотрит.
+ */
+function CustomItem({
+  item,
+  onDone,
+}: {
+  item: {
+    id: string;
+    name: string;
+    body?: string | null;
+    fileName?: string | null;
+    answer?: string | null;
+    submittedAt?: string | null;
+    grade?: number | null;
+    comment?: string | null;
+  };
+  onDone: () => Promise<void>;
+}) {
+  const [answer, setAnswer] = useState(item.answer ?? "");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  return (
+    <div className="sov-homework__custom" data-done={!!item.grade}>
+      <strong>{item.name}</strong>
+      {item.body ? <p>{item.body}</p> : null}
+
+      {item.fileName ? (
+        <button
+          type="button"
+          className="sov-homework__file"
+          onClick={async () => {
+            const file = await customTaskFile({ data: { itemId: item.id } });
+            const bytes = Uint8Array.from(atob(file.data), (c) => c.charCodeAt(0));
+            const url = URL.createObjectURL(
+              new Blob([bytes], { type: file.type ?? "application/octet-stream" }),
+            );
+            window.open(url, "_blank", "noopener");
+            setTimeout(() => URL.revokeObjectURL(url), 60000);
+          }}
+        >
+          Открыть {item.fileName}
+        </button>
+      ) : null}
+
+      {item.grade ? (
+        <span className="sov-homework__grade">
+          Оценка {item.grade}
+          {item.comment ? ` · ${item.comment}` : ""}
+        </span>
+      ) : (
+        <>
+          <textarea
+            rows={3}
+            value={answer}
+            onChange={(e) => setAnswer(e.target.value)}
+            placeholder="Напиши ответ или что сделал"
+          />
+          {error ? <span className="sov-homework__grade">{error}</span> : null}
+          <button
+            type="button"
+            className="sov-act-child"
+            disabled={pending || !answer.trim()}
+            onClick={async () => {
+              setPending(true);
+              setError(null);
+              try {
+                await submitCustomAnswer({ data: { itemId: item.id, answer } });
+                await onDone();
+              } catch (e) {
+                setError(e instanceof Error ? e.message : "Не получилось отправить");
+              }
+              setPending(false);
+            }}
+          >
+            {item.submittedAt ? "Отправить ещё раз" : "Отправить педагогу"}
+          </button>
+          {item.submittedAt ? (
+            <span className="sov-homework__grade">Отправлено, ждём проверки</span>
+          ) : null}
+        </>
+      )}
     </div>
   );
 }

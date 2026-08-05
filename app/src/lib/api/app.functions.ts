@@ -842,7 +842,7 @@ export const readingResult = createServerFn({ method: "POST" })
  */
 async function saveDrillRow(opts: {
   childId: string | null;
-  kind: "mental" | "reading";
+  kind: "mental" | "reading" | "shulte";
   settings: unknown;
   correct: number;
   total: number;
@@ -1170,4 +1170,33 @@ export const equipOwlItem = createServerFn({ method: "POST" })
     await requireChildAccess(data.childId, user.id);
     await equipOwlItemFor(data.childId, data.item);
     return { ok: true };
+  });
+
+/**
+ * Таблица Шульте: ребёнок находит числа по порядку, тренируя поле зрения.
+ * Правильных и неправильных ответов тут нет — есть время, поэтому в
+ * drills пишется оно, а score это среднее число секунд на клетку ×10:
+ * целые числа сравнивать между заходами проще, чем дробные.
+ */
+export const saveShulteDrill = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      childId: z.string().nullable(),
+      size: z.number().int().min(3).max(5),
+      seconds: z.number().int().min(1).max(3600),
+      misses: z.number().int().min(0),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const cells = data.size * data.size;
+    const saved = await saveDrillRow({
+      childId: data.childId,
+      kind: "shulte",
+      settings: { size: data.size, misses: data.misses },
+      correct: cells,
+      total: cells + data.misses,
+      seconds: data.seconds,
+      score: Math.round((data.seconds / cells) * 10),
+    });
+    return { saved, cells };
   });

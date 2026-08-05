@@ -36,6 +36,10 @@ async function doneAssignmentItems(childId: string): Promise<{ id: string }[]> {
                   AND l.started_at >= a.created_at AND l.total > 0
                   AND ROUND(100.0 * l.correct / l.total) >= ai.target_percent))
             OR
+            (ai.kind = 'custom' AND EXISTS (
+               SELECT 1 FROM custom_submissions cs
+                WHERE cs.item_id = ai.id AND cs.grade IS NOT NULL))
+            OR
             (ai.kind = 'drill' AND EXISTS (
                SELECT 1 FROM drills d
                 WHERE d.child_id = a.child_id AND d.kind = ai.ref_id

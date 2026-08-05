@@ -97,6 +97,13 @@ export type AssignmentItemView = {
   targetPercent: number;
   done: boolean;
   bestPercent: number | null;
+  /** Заполняется только у своих заданий репетитора. */
+  body?: string | null;
+  fileName?: string | null;
+  answer?: string | null;
+  submittedAt?: string | null;
+  grade?: number | null;
+  comment?: string | null;
 };
 
 export type AssignmentView = {
@@ -153,10 +160,57 @@ async function buildAssignments(childId: string, rows: AssignmentRow[]): Promise
     .bind(childId)
     .all<{ kind: string; created_at: string }>();
 
+  // Свои задания проверяет педагог, поэтому «сделано» здесь означает
+  // «оценено», а не «доля верных выше порога».
+  const custom = await db()
+    .prepare(
+      // item_id берётся из самого пункта, а не из ответа: ответа может не
+      // быть, тогда LEFT JOIN отдаёт NULL — и строка становится ненаходимой,
+      // а задание показывается безымянным «заданием от педагога».
+      `SELECT ai.id AS item_id, s.answer, s.submitted_at, s.grade, s.comment,
+              t.title, t.body, t.file_name
+         FROM assignment_items ai
+         JOIN assignments a ON a.id = ai.assignment_id
+         LEFT JOIN custom_submissions s ON s.item_id = ai.id
+         LEFT JOIN custom_tasks t ON t.id = ai.ref_id
+        WHERE a.child_id = ? AND ai.kind = 'custom'`,
+    )
+    .bind(childId)
+    .all<{
+      item_id: string | null;
+      answer: string | null;
+      submitted_at: string | null;
+      grade: number | null;
+      comment: string | null;
+      title: string | null;
+      body: string | null;
+      file_name: string | null;
+    }>();
+
   const now = nowIso();
   return rows.map((row) => {
     const own = (items.results ?? []).filter((i) => i.assignment_id === row.id);
     const views: AssignmentItemView[] = own.map((item) => {
+      if (item.kind === "custom") {
+        // Одна строка на пункт: и текст задания, и ответ приходят вместе,
+        // потому что запрос идёт от assignment_items, а не от ответа.
+        const row = (custom.results ?? []).find((c) => c.item_id === item.id);
+        return {
+          id: item.id,
+          kind: item.kind,
+          refId: item.ref_id,
+          name: row?.title ?? "Задание от педагога",
+          targetPercent: item.target_percent,
+          done: row?.grade !== null && row?.grade !== undefined,
+          bestPercent: null,
+          body: row?.body ?? null,
+          fileName: row?.file_name ?? null,
+          answer: row?.answer ?? null,
+          submittedAt: row?.submitted_at ?? null,
+          grade: row?.grade ?? null,
+          comment: row?.comment ?? null,
+        };
+      }
       if (item.kind === "drill") {
         const hit = (drills.results ?? []).some(
           (d) => d.kind === item.ref_id && d.created_at >= row.created_at,
@@ -165,7 +219,12 @@ async function buildAssignments(childId: string, rows: AssignmentRow[]): Promise
           id: item.id,
           kind: item.kind,
           refId: item.ref_id,
-          name: item.ref_id === "chtenie" ? "Скорочтение" : "Устный счёт",
+          name:
+            item.ref_id === "chtenie"
+              ? "Скорочтение"
+              : item.ref_id === "shulte"
+                ? "Таблица Шульте"
+                : "Устный счёт",
           targetPercent: item.target_percent,
           done: hit,
           bestPercent: null,
@@ -756,4 +815,172 @@ export const assignTopic = createServerFn({ method: "POST" })
       props: { topic: topic.id, students: data.childIds.length },
     });
     return { count: data.childIds.length };
+  });
+
+/* --------------------------------------------- свои задания репетитора
+
+   Готовые темы закрывают программу, но у педагога всегда есть своё:
+   карточка из учебника, страница прописей, задача с занятия. Такое
+   задание проверяет он сам, поэтому здесь появляются ответ ученика и
+   оценка — у обычных пунктов домашки их нет и быть не может. */
+
+/** Предел размера вложения. Файл лежит в базе, а её каждую ночь дампят. */
+const MAX_FILE_BYTES = 1_500_000;
+
+export const createCustomAssignment = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      childIds: z.array(z.string()).min(1, "Выберите хотя бы одного ученика"),
+      title: z.string().trim().min(1, "Назовите задание"),
+      body: z.string().trim().nullable(),
+      dueAt: z.string().nullable(),
+      file: z
+        .object({
+          name: z.string().min(1),
+          type: z.string().min(1),
+          data: z.string().min(1),
+        })
+        .nullable(),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const user = await requireTutor();
+    if (!data.body && !data.file) throw new Error("Добавьте текст задания или файл");
+    if (data.file) {
+      // base64 раздувает вес примерно на треть — считаем исходный размер.
+      const bytes = Math.floor((data.file.data.length * 3) / 4);
+      if (bytes > MAX_FILE_BYTES) throw new Error("Файл больше 1,5 МБ — приложите файл поменьше");
+    }
+
+    const taskId = uid("ctk");
+    await db()
+      .prepare(
+        `INSERT INTO custom_tasks (id, tutor_id, title, body, file_name, file_type, file_data, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .bind(
+        taskId,
+        user.id,
+        data.title.trim(),
+        data.body?.trim() || null,
+        data.file?.name ?? null,
+        data.file?.type ?? null,
+        data.file?.data ?? null,
+        nowIso(),
+      )
+      .run();
+
+    for (const childId of data.childIds) {
+      await requireStudent(childId, user.id);
+      const id = uid("asg");
+      await db().batch([
+        db()
+          .prepare(
+            `INSERT INTO assignments (id, child_id, tutor_id, title, comment, due_at, created_at)
+             VALUES (?, ?, ?, ?, NULL, ?, ?)`,
+          )
+          .bind(id, childId, user.id, data.title.trim(), data.dueAt, nowIso()),
+        db()
+          .prepare(
+            `INSERT INTO assignment_items (id, assignment_id, kind, ref_id, target_percent, sort_order)
+             VALUES (?, ?, 'custom', ?, 0, 0)`,
+          )
+          .bind(uid("ai"), id, taskId),
+      ]);
+    }
+
+    await track("custom_assignment", {
+      userId: user.id,
+      props: { students: data.childIds.length, withFile: !!data.file },
+    });
+    return { count: data.childIds.length };
+  });
+
+/** Вложение отдаётся отдельным запросом: в списке заданий оно ни к чему. */
+export const customTaskFile = createServerFn({ method: "GET" })
+  .inputValidator(z.object({ itemId: z.string() }))
+  .handler(async ({ data }) => {
+    const user = await requireUser();
+    const row = await db()
+      .prepare(
+        `SELECT a.child_id, t.file_name, t.file_type, t.file_data
+           FROM assignment_items ai
+           JOIN assignments a ON a.id = ai.assignment_id
+           JOIN custom_tasks t ON t.id = ai.ref_id
+          WHERE ai.id = ?`,
+      )
+      .bind(data.itemId)
+      .first<{ child_id: string; file_name: string | null; file_type: string | null; file_data: string | null }>();
+    if (!row?.file_data) throw new Error("Файла нет");
+    await requireChildAccess(row.child_id, user.id);
+    return { name: row.file_name, type: row.file_type, data: row.file_data };
+  });
+
+/** Ответ ученика. Отправить может любой взрослый рядом с ним — обычно сам ребёнок из своего экрана. */
+export const submitCustomAnswer = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ itemId: z.string(), answer: z.string().trim().min(1, "Напиши ответ") }))
+  .handler(async ({ data }) => {
+    const user = await requireUser();
+    const row = await db()
+      .prepare(
+        `SELECT a.child_id FROM assignment_items ai
+           JOIN assignments a ON a.id = ai.assignment_id
+          WHERE ai.id = ? AND ai.kind = 'custom'`,
+      )
+      .bind(data.itemId)
+      .first<{ child_id: string }>();
+    if (!row) throw new Error("Задание не найдено");
+    await requireChildAccess(row.child_id, user.id);
+
+    await db()
+      .prepare(
+        `INSERT INTO custom_submissions (item_id, child_id, answer, submitted_at)
+         VALUES (?, ?, ?, ?)
+         ON CONFLICT (item_id) DO UPDATE SET answer = ?, submitted_at = ?, grade = NULL, comment = NULL, graded_at = NULL`,
+      )
+      .bind(data.itemId, row.child_id, data.answer, nowIso(), data.answer, nowIso())
+      .run();
+    return { ok: true };
+  });
+
+export const gradeCustomAnswer = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      itemId: z.string(),
+      grade: z.number().int().min(2).max(5),
+      comment: z.string().trim().nullable(),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const user = await requireTutor();
+    const row = await db()
+      .prepare(
+        `SELECT a.child_id FROM assignment_items ai
+           JOIN assignments a ON a.id = ai.assignment_id
+          WHERE ai.id = ? AND ai.kind = 'custom'`,
+      )
+      .bind(data.itemId)
+      .first<{ child_id: string }>();
+    if (!row) throw new Error("Задание не найдено");
+    await requireStudent(row.child_id, user.id);
+
+    await db()
+      .prepare(
+        `INSERT INTO custom_submissions (item_id, child_id, grade, comment, graded_at)
+         VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT (item_id) DO UPDATE SET grade = ?, comment = ?, graded_at = ?`,
+      )
+      .bind(
+        data.itemId,
+        row.child_id,
+        data.grade,
+        data.comment,
+        nowIso(),
+        data.grade,
+        data.comment,
+        nowIso(),
+      )
+      .run();
+    await track("custom_graded", { userId: user.id, childId: row.child_id, props: { grade: data.grade } });
+    return { ok: true };
   });

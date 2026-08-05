@@ -2,7 +2,13 @@ import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-r
 import { useEffect, useState } from "react";
 
 import { ChildAvatar, QuietAction, SiteFooter, SiteHeader } from "../components/brand";
-import { cancelAssignment, createAssignment, studentCard } from "../lib/api/tutor.functions";
+import {
+  cancelAssignment,
+  createAssignment,
+  createCustomAssignment,
+  gradeCustomAnswer,
+  studentCard,
+} from "../lib/api/tutor.functions";
 
 export const Route = createFileRoute("/repetitor/uchenik/$childId")({
   head: () => ({ meta: [{ title: "Ученик, Совёнок" }] }),
@@ -131,6 +137,10 @@ function StudentPage() {
           </div>
         ) : null}
 
+        {/* Своё задание стоит над списком выданного: в самом низу страницы,
+            под длинным перечнем тем, кнопку просто не находили. */}
+        <CustomForm childId={childId} onDone={load} />
+
         <section style={{ marginTop: 34 }}>
           <h2 style={{ fontSize: "1.5rem" }}>Домашняя работа</h2>
           {data.assignments.length === 0 ? (
@@ -159,6 +169,9 @@ function StudentPage() {
                               ? " — не начато"
                               : ` — ${item.bestPercent}% из ${item.targetPercent}%`}
                           </em>
+                        ) : null}
+                        {item.kind === "custom" ? (
+                          <CustomAnswer item={item} onDone={load} />
                         ) : null}
                       </li>
                     ))}
@@ -227,6 +240,7 @@ function StudentPage() {
               {[
                 { id: "schet", name: "Устный счёт" },
                 { id: "chtenie", name: "Скорочтение" },
+                { id: "shulte", name: "Таблица Шульте" },
               ].map((d) => (
                 <button
                   key={d.id}
@@ -311,6 +325,201 @@ function StudentPage() {
         </p>
       </main>
       <SiteFooter />
+    </div>
+  );
+}
+
+/**
+ * Своё задание: текст руками и, если нужно, файл.
+ *
+ * Файл уходит в base64 вместе с формой — объектного хранилища на своём
+ * сервере нет, а приложение живёт в workerd и не имеет файловой системы.
+ * Отсюда и жёсткий предел размера: вложения лежат в базе, которую дампят.
+ */
+function CustomForm({ childId, onDone }: { childId: string; onDone: () => Promise<void> }) {
+  const [open, setOpen] = useState(false);
+  const [file, setFile] = useState<{ name: string; type: string; data: string } | null>(null);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [ok, setOk] = useState(false);
+
+  if (!open) {
+    return (
+      <div style={{ marginTop: 30 }}>
+        <button type="button" className="sov-act-ghost" onClick={() => setOpen(true)}>
+          Своё задание: текст или файл
+        </button>
+        {ok ? <p className="sov-prog__ok" style={{ marginTop: 10 }}>Задание отправлено ученику.</p> : null}
+      </div>
+    );
+  }
+
+  return (
+    <form
+      className="sov-panel sov-form"
+      style={{ marginTop: 30 }}
+      onSubmit={async (event) => {
+        event.preventDefault();
+        const form = new FormData(event.currentTarget);
+        setPending(true);
+        setError(null);
+        try {
+          await createCustomAssignment({
+            data: {
+              childIds: [childId],
+              title: String(form.get("title") ?? "").trim(),
+              body: String(form.get("body") ?? "").trim() || null,
+              dueAt: form.get("due") ? new Date(String(form.get("due"))).toISOString() : null,
+              file,
+            },
+          });
+          setOk(true);
+          setOpen(false);
+          setFile(null);
+          await onDone();
+        } catch (e) {
+          setError(e instanceof Error ? e.message : "Не получилось отправить");
+        }
+        setPending(false);
+      }}
+    >
+      <h3>Своё задание</h3>
+      <p style={{ color: "var(--sov-ink-soft)", fontSize: ".95rem" }}>
+        Ученик увидит его в домашке и ответит текстом, а вы поставите оценку. Платформа такие
+        задания не проверяет.
+      </p>
+
+      {error ? <div className="sov-alert">{error}</div> : null}
+
+      <div className="sov-field">
+        <label htmlFor="ctitle">Название</label>
+        <input id="ctitle" name="title" required placeholder="Прописи, страница 14" />
+      </div>
+
+      <div className="sov-field">
+        <label htmlFor="cbody">Что сделать</label>
+        <textarea id="cbody" name="body" rows={4} placeholder="Спиши слова и подчеркни гласные" />
+      </div>
+
+      <div className="sov-field">
+        <label htmlFor="cfile">Файл, по желанию</label>
+        <input
+          id="cfile"
+          type="file"
+          accept=".pdf,image/*"
+          onChange={async (e) => {
+            const picked = e.target.files?.[0];
+            if (!picked) {
+              setFile(null);
+              return;
+            }
+            if (picked.size > 1_500_000) {
+              setError("Файл больше 1,5 МБ — приложите файл поменьше");
+              e.target.value = "";
+              return;
+            }
+            const buffer = await picked.arrayBuffer();
+            let binary = "";
+            const bytes = new Uint8Array(buffer);
+            for (let i = 0; i < bytes.length; i += 1) binary += String.fromCharCode(bytes[i]);
+            setFile({ name: picked.name, type: picked.type, data: btoa(binary) });
+            setError(null);
+          }}
+        />
+        <span className="sov-field__hint">PDF или картинка, до 1,5 МБ.</span>
+      </div>
+
+      <div className="sov-field">
+        <label htmlFor="cdue">Срок</label>
+        <input id="cdue" name="due" type="date" defaultValue={defaultDue()} />
+      </div>
+
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+        <button type="submit" className="sov-act-child" disabled={pending}>
+          {pending ? "Отправляем…" : "Отправить ученику"}
+        </button>
+        <button type="button" className="sov-act-ghost" onClick={() => setOpen(false)}>
+          Отмена
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/** Ответ ученика на своё задание и оценка за него. */
+function CustomAnswer({
+  item,
+  onDone,
+}: {
+  item: {
+    id: string;
+    answer?: string | null;
+    submittedAt?: string | null;
+    grade?: number | null;
+    comment?: string | null;
+    fileName?: string | null;
+  };
+  onDone: () => Promise<void>;
+}) {
+  const [grade, setGrade] = useState(5);
+  const [comment, setComment] = useState("");
+  const [pending, setPending] = useState(false);
+
+  if (!item.submittedAt) {
+    return (
+      <div className="sov-custom">
+        <span className="sov-custom__meta">
+          Ответа пока нет{item.fileName ? ` · приложен файл ${item.fileName}` : ""}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="sov-custom">
+      <span className="sov-custom__meta">Ответ ученика</span>
+      <p className="sov-custom__answer">{item.answer}</p>
+
+      {item.grade ? (
+        <span className="sov-custom__grade">
+          Оценка {item.grade}
+          {item.comment ? ` · ${item.comment}` : ""}
+        </span>
+      ) : (
+        <div className="sov-custom__grade-form">
+          <div className="sov-chips">
+            {[5, 4, 3, 2].map((g) => (
+              <button
+                key={g}
+                type="button"
+                className="sov-chip"
+                data-active={grade === g}
+                onClick={() => setGrade(g)}
+              >
+                {g}
+              </button>
+            ))}
+          </div>
+          <input
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            placeholder="Комментарий, по желанию"
+          />
+          <button
+            type="button"
+            className="sov-act-ghost"
+            disabled={pending}
+            onClick={async () => {
+              setPending(true);
+              await gradeCustomAnswer({ data: { itemId: item.id, grade, comment: comment || null } });
+              await onDone();
+              setPending(false);
+            }}
+          >
+            Поставить оценку
+          </button>
+        </div>
+      )}
     </div>
   );
 }

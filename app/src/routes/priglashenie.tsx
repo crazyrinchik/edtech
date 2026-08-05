@@ -22,6 +22,11 @@ function InvitePage() {
   const [info, setInfo] = useState<Info | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  // Согласия под контролем, чтобы кнопка гасла до их простановки: браузерный
+  // required показывает подсказку только после нажатия, и человек жмёт в
+  // неактивное на вид действие, не понимая, чего от него хотят.
+  const [consentPd, setConsentPd] = useState(false);
+  const [consentChildPd, setConsentChildPd] = useState(false);
 
   async function check(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -53,7 +58,9 @@ function InvitePage() {
           consentChildPd: form.get("consentChildPd") === "on",
         },
       });
-      await navigate({ to: "/roditel" });
+      // Родитель только что подключился — ему интереснее увидеть, чем
+      // занимается ребёнок, а не пустой кабинет с просьбой придумать код.
+      await navigate({ to: "/uchenik" });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Не получилось подключиться");
       setPending(false);
@@ -96,17 +103,31 @@ function InvitePage() {
                 </span>
               </div>
               <label className="sov-check">
-                <input type="checkbox" name="consentPd" required />
+                <input
+                  type="checkbox"
+                  name="consentPd"
+                  checked={consentPd}
+                  onChange={(e) => setConsentPd(e.target.checked)}
+                  required
+                />
                 <span>Даю согласие на обработку моих персональных данных по 152-ФЗ.</span>
               </label>
               <label className="sov-check">
-                <input type="checkbox" name="consentChildPd" required />
+                <input
+                  type="checkbox"
+                  name="consentChildPd"
+                  checked={consentChildPd}
+                  onChange={(e) => setConsentChildPd(e.target.checked)}
+                  required
+                />
                 <span>
                   Как законный представитель даю согласие на обработку данных моего ребёнка: имя,
                   класс, ответы на задания и время занятий.
                 </span>
               </label>
-              <FormAction pending={pending}>Подключиться</FormAction>
+              <FormAction pending={pending} disabled={!consentPd || !consentChildPd}>
+                Подключиться
+              </FormAction>
             </form>
           </>
         ) : (

@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, useParams, useSearch } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { ChildAction, Owl, Stars } from "../components/brand";
 import { AutoSpeakToggle, SpeakButton, useAutoSpeak } from "../components/speak";
@@ -188,6 +188,8 @@ function LessonPage() {
 
   const task = session.tasks[index];
   const options = ((task.payload as { options?: string[] }).options ?? []) as string[];
+  const left = ((task.payload as { left?: string[] }).left ?? []) as string[];
+  const right = ((task.payload as { right?: string[] }).right ?? []) as string[];
   const overtime = elapsed > SOFT_LIMIT_SEC;
   // Совёнок реагирует на ответ: радуется верному и сочувствует неверному.
   const owlMood = verdict ? (verdict.correct ? "happy" : "concerned") : "idle";
@@ -221,6 +223,39 @@ function LessonPage() {
     }
     setVerdict(res);
     setPending(false);
+  }
+
+  /**
+   * Выход посреди занятия. Ответы уже записаны каждый по отдельности, а вот
+   * строка занятия закрывается только в конце — без этого она осталась бы
+   * пустой, и в истории у взрослого висело бы «0 из 0».
+   *
+   * Знаменатель при этом остаётся полным, из базы: если считать процент
+   * только от отвеченного, ребёнок закрывал бы домашку одним верным
+   * ответом и выходом.
+   */
+  async function leave() {
+    if (!childId || !session) {
+      await navigate({ to: "/uchenik" });
+      return;
+    }
+    setPending(true);
+    try {
+      await finishTopic({
+        data: {
+          childId,
+          lessonId: session.lessonId,
+          topicId,
+          mode,
+          correct: correctCount,
+          total: session.tasks.length,
+          seconds: Math.min(7200, Math.floor((Date.now() - startedAt.current) / 1000)),
+        },
+      });
+    } catch {
+      // Выйти важнее, чем записать: ответы уже сохранены по одному.
+    }
+    await navigate({ to: "/uchenik" });
   }
 
   async function next() {
@@ -289,7 +324,28 @@ function LessonPage() {
             <SpeakButton text={task.prompt} />
           </div>
 
-          {task.kind === "choice" ? (
+          <button
+            type="button"
+            className="sov-leave"
+            disabled={pending}
+            onClick={() => void leave()}
+          >
+            Выйти и сохранить
+          </button>
+
+          {task.kind === "match" ? (
+            <MatchTask
+              taskId={task.id}
+              left={left}
+              right={right}
+              locked={pending || !!verdict}
+              verdict={verdict}
+              onReady={(answer) => {
+                setValue(answer);
+                void check(answer);
+              }}
+            />
+          ) : task.kind === "choice" ? (
             <div className="sov-options">
               {options.map((option) => (
                 <button
@@ -384,6 +440,116 @@ function LessonPage() {
           </div>
         ) : null}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Сопоставление: «соедини число и количество».
+ *
+ * Раньше такие задания проваливались в ветку ввода ответа — на экране не
+ * было ни пар, ни вариантов, только пустое поле. Здесь пары показываются
+ * столбиком, а варианты справа перемешаны: в payload они лежат в том же
+ * порядке, что и левая колонка, и без перемешивания ответ был бы виден.
+ *
+ * Взаимодействие сделано последовательным, а не «перетащи к нужному»:
+ * подсвечена текущая строка, ребёнок жмёт вариант — он встаёт на место и
+ * подсветка уходит к следующей. Это работает пальцем на телефоне и не
+ * требует объяснять, что куда тянуть.
+ */
+function MatchTask({
+  taskId,
+  left,
+  right,
+  locked,
+  verdict,
+  onReady,
+}: {
+  taskId: string;
+  left: string[];
+  right: string[];
+  locked: boolean;
+  verdict: { correct: boolean } | null;
+  onReady: (answer: string) => void;
+}) {
+  const [chosen, setChosen] = useState<(string | null)[]>(() => left.map(() => null));
+
+  // Порядок вариантов фиксируется на задание: пересборка компонента не
+  // должна перетасовывать кнопки под пальцем.
+  const shuffled = useMemo(() => {
+    // Ключ считается от самого значения, а не от его позиции: на трёх
+    // вариантах позиционная формула слишком часто возвращала исходный
+    // порядок, то есть готовый ответ.
+    const hash = (str: string) => {
+      let h = 2166136261;
+      for (let i = 0; i < str.length; i += 1) {
+        h ^= str.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+      }
+      return h >>> 0;
+    };
+    return right
+      .map((value) => ({ value, key: hash(`${taskId}|${value}`) }))
+      .sort((a, b) => a.key - b.key)
+      .map((x) => x.value);
+  }, [taskId, right]);
+
+  useEffect(() => {
+    setChosen(left.map(() => null));
+  }, [taskId, left]);
+
+  const nextEmpty = chosen.findIndex((c) => c === null);
+  const used = new Set(chosen.filter(Boolean) as string[]);
+
+  function pick(value: string) {
+    if (locked || nextEmpty === -1) return;
+    const next = [...chosen];
+    next[nextEmpty] = value;
+    setChosen(next);
+    if (!next.includes(null)) onReady(next.join("|"));
+  }
+
+  return (
+    <div className="sov-match">
+      <ol className="sov-match__rows">
+        {left.map((item, i) => (
+          <li
+            key={item}
+            className="sov-match__row"
+            data-active={i === nextEmpty && !locked}
+            data-filled={chosen[i] !== null}
+            data-state={verdict ? (verdict.correct ? "right" : "wrong") : undefined}
+          >
+            <span className="sov-match__left">{item}</span>
+            <span className="sov-match__dots" aria-hidden="true" />
+            <span className="sov-match__right">{chosen[i] ?? "?"}</span>
+          </li>
+        ))}
+      </ol>
+
+      <div className="sov-match__pool">
+        {shuffled.map((value) => (
+          <button
+            key={value}
+            type="button"
+            className="sov-match__chip"
+            disabled={locked || used.has(value)}
+            onClick={() => pick(value)}
+          >
+            {value}
+          </button>
+        ))}
+      </div>
+
+      {chosen.some((c) => c !== null) && !verdict ? (
+        <button
+          type="button"
+          className="sov-act-ghost"
+          onClick={() => setChosen(left.map(() => null))}
+        >
+          Начать заново
+        </button>
+      ) : null}
     </div>
   );
 }

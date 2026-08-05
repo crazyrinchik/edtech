@@ -98,9 +98,18 @@ export function ChildAction({
   );
 }
 
-export function FormAction({ children, pending }: { children: ReactNode; pending?: boolean }) {
+export function FormAction({
+  children,
+  pending,
+  disabled,
+}: {
+  children: ReactNode;
+  pending?: boolean;
+  /** Отдельно от pending: заблокированная кнопка не должна врать «Секунду…». */
+  disabled?: boolean;
+}) {
   return (
-    <button type="submit" disabled={pending} className="sov-act-form">
+    <button type="submit" disabled={pending || disabled} className="sov-act-form">
       {pending ? "Секунду…" : children}
     </button>
   );

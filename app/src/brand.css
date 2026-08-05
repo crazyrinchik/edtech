@@ -225,8 +225,21 @@
 }
 .sov-field__hint { font-size: .84rem; color: var(--sov-ink-soft); font-weight: 500; }
 .sov-field__error { font-size: .86rem; color: var(--sov-bad); font-weight: 600; }
-.sov-check { display: flex; gap: 10px; align-items: flex-start; font-size: .9rem; color: var(--sov-ink-soft); font-weight: 500; }
-.sov-check input { margin-top: 3px; width: 18px; height: 18px; accent-color: var(--sov-cobalt); }
+/* Флажок и текст согласия. flex: none обязателен: без него длинный текст
+   сжимал сам квадрат, и два согласия рядом получались разного размера.
+   Высота строки задана явно, чтобы квадрат вставал ровно по первой строке. */
+.sov-check {
+  display: flex; gap: 12px; align-items: flex-start;
+  font-size: .95rem; line-height: 1.5; color: var(--sov-ink-soft); font-weight: 500;
+  cursor: pointer;
+}
+.sov-check input {
+  flex: none; width: 22px; height: 22px; margin: 0;
+  accent-color: var(--sov-cobalt); cursor: pointer;
+  /* Центр квадрата совпадает с серединой первой строки: (1.5em − 22px) / 2. */
+  transform: translateY(calc((1.5em - 22px) / 2));
+}
+.sov-check span { flex: 1; min-width: 0; }
 .sov-alert { border-radius: 12px; padding: 13px 16px; font-size: .92rem; font-weight: 600; background: var(--sov-bad-bg); color: var(--sov-bad); }
 
 /* ---------------------------------------------------- детский интерфейс
@@ -999,3 +1012,101 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
    «верно», тот же, что в разборе ответа. */
 .sov-homework[data-status="done"] { background: var(--sov-ok); box-shadow: 0 4px 0 var(--sov-ok-deep); }
 .sov-homework[data-status="done"] .sov-homework__item { border-bottom-color: rgba(0,0,0,.1); }
+
+/* Выход из занятия. Стоит рядом с вопросом, но подчёркнуто тихий: это
+   отступление, а не действие урока. */
+.sov-leave {
+  margin-top: 14px; background: none; border: none; cursor: pointer;
+  font-family: var(--sov-font); font-size: .85rem; font-weight: 700;
+  color: var(--sov-ink-soft); text-decoration: underline;
+  text-decoration-color: var(--sov-line); text-underline-offset: 4px; padding: 0;
+}
+.sov-leave:hover { color: var(--sov-cobalt); text-decoration-color: var(--sov-cobalt); }
+
+/* ── сопоставление: соедини число и количество ──────────────────── */
+
+.sov-match { margin-top: 24px; display: grid; gap: 18px; justify-items: start; }
+.sov-match__rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; width: 100%; }
+.sov-match__row {
+  display: flex; align-items: center; gap: 12px; padding: 14px 18px;
+  border: 2px solid var(--sov-line); border-bottom-width: 4px; border-radius: var(--sov-radius);
+  background: #fff; font-size: 1.1rem; font-weight: 700;
+}
+.sov-match__row[data-active="true"] { border-color: var(--sov-cobalt); background: var(--sov-cobalt-soft); }
+.sov-match__row[data-state="right"] { border-color: var(--sov-ok); background: var(--sov-ok-bg); }
+.sov-match__row[data-state="wrong"] { border-color: var(--sov-warn); background: var(--sov-warn-bg); }
+.sov-match__left { flex: none; }
+.sov-match__dots { flex: 1; border-bottom: 3px dotted var(--sov-line); }
+.sov-match__right {
+  flex: none; min-width: 64px; text-align: center; padding: 6px 14px;
+  border-radius: 10px; background: var(--sov-paper-2); color: var(--sov-ink-soft);
+}
+.sov-match__row[data-filled="true"] .sov-match__right { background: var(--sov-cobalt); color: #fff; }
+.sov-match__pool { display: flex; flex-wrap: wrap; gap: 10px; }
+.sov-match__chip {
+  font-family: var(--sov-font); font-size: 1.1rem; font-weight: 800; cursor: pointer;
+  padding: 12px 22px; border-radius: 999px; background: #fff; color: var(--sov-ink);
+  border: 2px solid var(--sov-line); border-bottom-width: 4px;
+}
+.sov-match__chip:hover:not(:disabled) { border-color: var(--sov-cobalt); background: var(--sov-cobalt-soft); }
+.sov-match__chip:disabled { opacity: .35; cursor: default; }
+
+/* ── таблица Шульте ─────────────────────────────────────────────────
+   Клетки крупные и квадратные: ребёнок ищет числа боковым зрением, и
+   мелкая сетка заставляла бы водить по ней глазами вместо поиска. */
+.sov-shulte { display: grid; gap: 10px; margin-top: 24px; }
+.sov-shulte__cell {
+  aspect-ratio: 1; display: grid; place-items: center; cursor: pointer;
+  font-family: var(--sov-font); font-weight: 800; color: var(--sov-ink);
+  background: #fff; border: 2px solid var(--sov-line); border-bottom-width: 4px;
+  border-radius: var(--sov-radius); transition: background .1s, border-color .1s;
+}
+.sov-shulte[data-size="3"] .sov-shulte__cell { font-size: 2.4rem; }
+.sov-shulte[data-size="4"] .sov-shulte__cell { font-size: 2rem; }
+.sov-shulte[data-size="5"] .sov-shulte__cell { font-size: 1.6rem; }
+.sov-shulte__cell[data-done="true"] {
+  background: var(--sov-cobalt-soft); color: var(--sov-cobalt); border-color: var(--sov-cobalt-soft);
+}
+.sov-shulte__cell[data-wrong="true"] { background: var(--sov-warn-bg); border-color: var(--sov-warn); }
+.sov-shulte__status { display: grid; gap: 2px; }
+.sov-shulte__status strong { font-size: 1.3rem; font-weight: 800; }
+.sov-shulte__status span { color: var(--sov-ink-soft); }
+
+/* ── свои задания репетитора ────────────────────────────────────────
+   Их проверяет человек, поэтому «верно/неверно» тут нет: есть ответ
+   ученика и оценка, когда педагог посмотрел. */
+
+.sov-homework__custom {
+  display: grid; gap: 10px; justify-items: start;
+  background: #fff; border-radius: 12px; padding: 16px 18px; color: var(--sov-ink);
+}
+.sov-homework__custom strong { font-size: 1.05rem; font-weight: 800; }
+.sov-homework__custom p { font-size: .98rem; font-weight: 500; color: var(--sov-ink-soft); }
+.sov-homework__custom textarea {
+  width: 100%; font-family: var(--sov-font); font-size: 1rem; font-weight: 500;
+  padding: 12px 14px; border: 2px solid var(--sov-line); border-radius: 12px;
+  background: #fff; color: var(--sov-ink); resize: vertical;
+}
+.sov-homework__file {
+  background: var(--sov-cobalt-soft); border: none; border-radius: 999px; cursor: pointer;
+  padding: 9px 18px; font-family: var(--sov-font); font-size: .88rem; font-weight: 800;
+  color: var(--sov-cobalt);
+}
+.sov-homework__grade { font-size: .9rem; font-weight: 700; color: var(--sov-ok); }
+.sov-homework__custom[data-done="true"] { background: var(--sov-ok-bg); }
+
+.sov-custom { display: grid; gap: 8px; margin-top: 8px; justify-items: start; }
+.sov-custom__meta {
+  font-size: .72rem; font-weight: 800; text-transform: uppercase;
+  letter-spacing: .05em; color: var(--sov-ink-soft);
+}
+.sov-custom__answer {
+  font-size: .95rem; font-weight: 500; color: var(--sov-ink);
+  background: var(--sov-paper); border-radius: 10px; padding: 10px 14px; width: 100%;
+}
+.sov-custom__grade { font-size: .9rem; font-weight: 800; color: var(--sov-ok); }
+.sov-custom__grade-form { display: grid; gap: 8px; width: 100%; }
+.sov-custom__grade-form input {
+  font-family: var(--sov-font); font-size: .95rem; padding: 10px 13px;
+  border: 2px solid var(--sov-line); border-radius: 12px; background: #fff;
+}
