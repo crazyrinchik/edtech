@@ -13,20 +13,54 @@ const SESSION_DAYS = 30;
 export const PARENT_COOKIE = "sov_parent";
 const PARENT_UNLOCK_MIN = 120;
 
+export type DbKind = "postgres" | "d1";
+
+/**
+ * Какая база выбрана — читается из SOVENOK_DB, а не угадывается по наличию
+ * переменных шлюза.
+ *
+ * Раньше выбор был неявным: есть DB_GATEWAY_URL с токеном — PostgreSQL, нет —
+ * биндинг DB. Опечатка в .env на сервере или потерянный GATEWAY_TOKEN не роняли
+ * приложение, а тихо переводили его на пустой локальный SQLite: сайт открывался,
+ * но без аккаунтов и прогресса, а новые регистрации уходили в базу, которую
+ * никто не бэкапит. Теперь режим называется вслух, а несовпадение — ошибка.
+ *
+ * Умолчание — postgres, самый строгий вариант: прод, оставшийся без переменных,
+ * не поднимется вовсе. Единственный рантайм у приложения свой (workerd под
+ * miniflare, deploy/serve.mjs), и SOVENOK_DB там задаётся всегда — послаблений
+ * ни для какой площадки не требуется.
+ *
+ * Откат на D1 никуда не делся, но включается осознанно (SOVENOK_DB=d1) — см.
+ * комментарий к тому d1-data в docker-compose.yml.
+ */
+export function dbKind(): DbKind {
+  const raw = (bindings().SOVENOK_DB ?? "").trim().toLowerCase();
+  if (!raw || raw === "postgres") return "postgres";
+  if (raw === "d1") return "d1";
+  throw new Error(`SOVENOK_DB=${raw}: допустимы только "postgres" и "d1"`);
+}
+
 /**
  * Единственная точка доступа к базе — весь остальной код ходит только сюда.
  *
- * На своём сервере это PostgreSQL через db-gateway (в workerd нет TCP,
- * подробности в pg-gateway.server.ts), в Cloudflare — настоящий биндинг D1.
- * Шлюз повторяет интерфейс D1 один в один, поэтому приводится к его типу:
- * так ни один вызов prepare()/batch() выше по коду не меняется.
+ * Обычный режим — PostgreSQL через db-gateway (в workerd нет TCP, подробности
+ * в pg-gateway.server.ts), откат — биндинг D1. Шлюз повторяет интерфейс D1 один
+ * в один, поэтому приводится к его типу: так ни один вызов prepare()/batch()
+ * выше по коду не меняется.
  */
 export function db(): D1Database {
   const { DB, DB_GATEWAY_URL, DB_GATEWAY_TOKEN } = bindings();
-  if (DB_GATEWAY_URL && DB_GATEWAY_TOKEN) {
+  if (dbKind() === "postgres") {
+    if (!DB_GATEWAY_URL || !DB_GATEWAY_TOKEN) {
+      throw new Error(
+        "SOVENOK_DB=postgres, но DB_GATEWAY_URL и DB_GATEWAY_TOKEN не заданы. " +
+          "Проверьте .env на сервере (GATEWAY_TOKEN) — на локальный D1 приложение " +
+          "само не переключится, для этого есть SOVENOK_DB=d1",
+      );
+    }
     return createPgGateway(DB_GATEWAY_URL, DB_GATEWAY_TOKEN) as unknown as D1Database;
   }
-  if (!DB) throw new Error("База данных недоступна");
+  if (!DB) throw new Error("SOVENOK_DB=d1, но биндинг DB недоступен");
   return DB;
 }
 

@@ -2,6 +2,7 @@ import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
+import { handleHealth, HEALTH_PATH } from "./lib/health.server";
 import { handleNotifyWebhook, NOTIFY_WEBHOOK_PREFIX } from "./lib/notify-webhook.server";
 
 type ServerEntry = {
@@ -43,8 +44,14 @@ export default {
     try {
       // Вебхуки ботов перехватываются до роутера: это не страница и не
       // серверная функция, а внешний POST от мессенджера.
-      if (new URL(request.url).pathname.startsWith(NOTIFY_WEBHOOK_PREFIX)) {
+      const { pathname } = new URL(request.url);
+      if (pathname.startsWith(NOTIFY_WEBHOOK_PREFIX)) {
         return await handleNotifyWebhook(request);
+      }
+      // Живость для выкладки — тоже мимо роутера: ручка должна отвечать даже
+      // тогда, когда со страницами что-то не так.
+      if (pathname === HEALTH_PATH) {
+        return await handleHealth(request);
       }
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);

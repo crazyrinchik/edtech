@@ -16,6 +16,34 @@ const D1_PERSIST = process.env.D1_PERSIST ?? "/data/d1";
 const SERVER_DIR = path.join(ROOT, "dist", "server");
 const MIGRATIONS_DIR = path.join(ROOT, "migrations");
 
+// Какая база заказана — явно, а не по наличию переменных шлюза. Умолчание
+// строгое (postgres): прод, у которого из .env пропал GATEWAY_TOKEN, обязан
+// не подняться, а не уехать молча на пустой локальный SQLite. Тот же разбор
+// живёт в dbKind() (app/src/lib/core.server.ts) — воркеру он тоже нужен.
+const SOVENOK_DB = (process.env.SOVENOK_DB ?? "postgres").trim().toLowerCase() || "postgres";
+const GATEWAY_URL = process.env.DB_GATEWAY_URL ?? "";
+const GATEWAY_TOKEN = process.env.DB_GATEWAY_TOKEN ?? "";
+
+function die(message) {
+  console.error(`[sovenok] ${message}`);
+  process.exit(1);
+}
+
+if (SOVENOK_DB !== "postgres" && SOVENOK_DB !== "d1") {
+  die(`SOVENOK_DB=${SOVENOK_DB}: допустимы только "postgres" и "d1"`);
+}
+
+// Падаем здесь, до прослушивания порта: контейнер уйдёт в перезапуск, ручка
+// живости не ответит, и выкладка откатится на прошлый тег вместо того, чтобы
+// показать людям рабочий сайт с пустой базой.
+if (SOVENOK_DB === "postgres" && !(GATEWAY_URL && GATEWAY_TOKEN)) {
+  die(
+    "SOVENOK_DB=postgres, но DB_GATEWAY_URL и DB_GATEWAY_TOKEN не заданы. " +
+      "Проверьте .env на сервере (GATEWAY_TOKEN). Откат на локальный D1 — " +
+      "осознанный: SOVENOK_DB=d1.",
+  );
+}
+
 await mkdir(D1_PERSIST, { recursive: true });
 
 const mf = new Miniflare({
@@ -36,10 +64,12 @@ const mf = new Miniflare({
   bindings: {
     HF_ENV: process.env.HF_ENV ?? "production",
     APP_SLUG: process.env.APP_SLUG ?? "sovenok",
-    // Если заданы обе — db() в приложении идёт в PostgreSQL через шлюз,
-    // а не в биндинг DB. Биндинг D1 при этом остаётся: он путь отката.
-    DB_GATEWAY_URL: process.env.DB_GATEWAY_URL ?? "",
-    DB_GATEWAY_TOKEN: process.env.DB_GATEWAY_TOKEN ?? "",
+    // Режим базы передаётся воркеру уже разобранным: db() в приложении сверяет
+    // его с тем, что реально настроено, и падает при расхождении.
+    SOVENOK_DB,
+    // Биндинг D1 остаётся смонтированным и при postgres: он путь отката.
+    DB_GATEWAY_URL: GATEWAY_URL,
+    DB_GATEWAY_TOKEN: GATEWAY_TOKEN,
   },
   host: "0.0.0.0",
   port: PORT,
@@ -66,12 +96,11 @@ async function applyMigrations() {
 
 // С PostgreSQL схему накатывает db-gateway, здесь это было бы лишней работой
 // над базой, в которую приложение всё равно не ходит.
-const usePostgres = Boolean(process.env.DB_GATEWAY_URL && process.env.DB_GATEWAY_TOKEN);
-if (usePostgres) {
-  console.log("[sovenok] база: PostgreSQL через db-gateway");
+if (SOVENOK_DB === "postgres") {
+  console.log("[sovenok] база: PostgreSQL через db-gateway (SOVENOK_DB=postgres)");
 } else {
   await applyMigrations();
-  console.log(`[sovenok] база: D1/SQLite → ${D1_PERSIST}`);
+  console.log(`[sovenok] база: D1/SQLite → ${D1_PERSIST} (SOVENOK_DB=d1)`);
 }
 
 const url = await mf.ready;

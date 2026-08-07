@@ -52,17 +52,22 @@ services:
       PORT: "8080"
       HF_ENV: production
       APP_SLUG: sovenok
-      # Заданы обе — db() идёт в PostgreSQL; убрать их значит вернуться на D1.
+      # Какая база — сказано вслух, а не выведено из наличия переменных ниже.
+      # postgres: без DB_GATEWAY_URL и DB_GATEWAY_TOKEN контейнер не стартует
+      # (раньше он в этом случае молча поднимался на пустой локальной SQLite).
+      # Откат на D1 — поменять на d1 и перезапустить, см. том d1-data ниже.
+      SOVENOK_DB: ${SOVENOK_DB:-postgres}
       DB_GATEWAY_URL: http://db-gateway:8787
-      DB_GATEWAY_TOKEN: ${GATEWAY_TOKEN}
+      DB_GATEWAY_TOKEN: ${GATEWAY_TOKEN:?нужен GATEWAY_TOKEN в .env на сервере}
       # Напоминания родителю. Пустой токен просто прячет канал в кабинете,
       # остальное приложение работает как раньше.
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       MAX_BOT_TOKEN: ${MAX_BOT_TOKEN:-}
       NOTIFY_WEBHOOK_SECRET: ${NOTIFY_WEBHOOK_SECRET:-}
     volumes:
-      # Старая база D1 (SQLite). Больше не используется, но том оставлен:
-      # это путь отката, если с PostgreSQL что-то пойдёт не так.
+      # Старая база D1 (SQLite). При SOVENOK_DB=postgres не используется, но том
+      # оставлен: это путь отката, если с PostgreSQL что-то пойдёт не так.
+      # Включается только явным SOVENOK_DB=d1 — сам по себе больше не подхватится.
       - d1-data:/data/d1
     expose:
       - "8080"

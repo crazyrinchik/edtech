@@ -30,8 +30,13 @@ type AppEnv = {
   CONTAINER?: DurableObjectNamespace;
   HF_ENV?: string;
   APP_SLUG?: string;
+  /**
+   * Какую базу использовать: "postgres" (PostgreSQL через шлюз) или "d1"
+   * (биндинг DB, путь отката). Разбор и умолчание — в dbKind() (core.server.ts).
+   */
+  SOVENOK_DB?: string;
   // Развёртывание на своём сервере: PostgreSQL за внутренним HTTP-шлюзом.
-  // Если заданы обе переменные, db() идёт туда вместо биндинга DB.
+  // Обе переменные обязательны при SOVENOK_DB=postgres.
   DB_GATEWAY_URL?: string;
   DB_GATEWAY_TOKEN?: string;
   // Напоминания родителю. Без токена канал просто не предлагается в кабинете,

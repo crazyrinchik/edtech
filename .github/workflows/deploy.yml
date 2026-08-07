@@ -21,6 +21,9 @@ env:
   DEPLOY_USER: sovenok
   DEPLOY_DIR: /home/sovenok/edtech
   HEALTHCHECK_HOST: sovenok.space
+  # Служебная ручка: отвечает, к какой базе подключено приложение
+  # (app/src/lib/health.server.ts).
+  HEALTHCHECK_DB_PATH: /api/zdorovie
 
 jobs:
   # ── 1. Проверки: до сборки образов, чтобы не гонять её зря ───────────────
@@ -188,18 +191,38 @@ jobs:
 
           # Проверка живости через тот же TLS-путь, которым ходят пользователи,
           # но резолвом в петлю — не зависим от внешней сети.
+          #
+          # Одного 200 с "/" мало: приложение, потерявшее переменные шлюза,
+          # раньше поднималось на пустой локальной SQLite и отвечало ровно так
+          # же — сайт живой, аккаунтов и прогресса нет, регистрации уходят мимо
+          # бэкапов. Поэтому вторым запросом спрашиваем /api/zdorovie: ручка
+          # отдаёт 200 и {"ok":true,"db":"postgres"} только если приложение
+          # действительно разговаривает с PostgreSQL (проверено запросом к самой
+          # базе, а не чтением переменной). Данных ручка не раскрывает.
           healthy=0
           for i in \$(seq 1 20); do
             code="\$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 \\
               --resolve "$HEALTHCHECK_HOST:443:127.0.0.1" \\
               "https://$HEALTHCHECK_HOST/" || true)"
-            if [ "\$code" = "200" ]; then healthy=1; echo "здоров на попытке \$i"; break; fi
-            echo "попытка \$i: код \$code"
+            if [ "\$code" != "200" ]; then
+              echo "попытка \$i: страница отдала \$code"
+              sleep 3
+              continue
+            fi
+
+            db="\$(curl -s --max-time 10 \\
+              --resolve "$HEALTHCHECK_HOST:443:127.0.0.1" \\
+              "https://$HEALTHCHECK_HOST$HEALTHCHECK_DB_PATH" || true)"
+            case "\$db" in
+              *'"ok":true'*'"db":"postgres"'*)
+                healthy=1; echo "здоров на попытке \$i: \$db"; break ;;
+            esac
+            echo "попытка \$i: страница 200, но база — \${db:-<ручка не ответила>}"
             sleep 3
           done
 
           if [ "\$healthy" != "1" ]; then
-            echo "::error::прод не отвечает 200 после выкладки"
+            echo "::error::после выкладки прод либо не отвечает, либо подключён не к PostgreSQL"
             if [ -n "\$PREV_TAG" ]; then
               echo "откатываюсь на \$PREV_TAG"
               set_tag "\$PREV_TAG"
