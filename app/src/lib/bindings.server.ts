@@ -1,9 +1,15 @@
-// Server-only access to this app's Cloudflare bindings. Each is present ONLY if
-// opted into via app.manifest.json (D1 `DB`, R2 `STORAGE`, KV `KV`, and the
-// container `CONTAINER`) — so the accessors are optional; guard before use.
-// `cloudflare:workers` is the Workers-runtime module that exposes the Worker
-// env (bindings) — usable inside any server-side code (server functions,
-// server routes). It is NOT bundled; the runtime provides it.
+// Доступ к биндингам воркера, только на сервере.
+//
+// Рантайм — workerd, но поднимает его miniflare на нашей машине
+// (deploy/serve.mjs), а не Cloudflare: в Cloudflare это приложение не
+// выкладывается, данные детей должны лежать в базе на территории РФ.
+// Поэтому из всего списка реально существует только DB — локальный D1
+// поверх SQLite, и тот лишь как путь отката с PostgreSQL. STORAGE, KV и
+// CONTAINER не провижинятся ничем и всегда undefined; они оставлены в типе,
+// чтобы обращение к ним не компилировалось молча в `any`. Guard перед use.
+//
+// `cloudflare:workers` — модуль рантайма, отдающий env воркера. Он не
+// бандлится (см. ssr.external в vite.config.ts), его даёт workerd.
 import { env } from "cloudflare:workers";
 // Import the binding types directly — NOT via the global tsconfig `types` list,
 // which would clobber the DOM globals the client/SSR React code relies on.

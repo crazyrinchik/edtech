@@ -1,11 +1,14 @@
--- D1 schema. Applied by the platform on deploy (only when app.manifest.json
--- sets "db": true). ONE database is shared by preview + prod — keep every
--- change additive (CREATE TABLE IF NOT EXISTS / ADD COLUMN); a destructive
--- change hits production data. Bound as env.DB (see src/lib/bindings.server.ts).
+-- Схема базы. Накатывается на каждом старте db-gateway (deploy/db-gateway),
+-- а на пути отката через D1 — из deploy/serve.mjs. Отдельной таблицы версий
+-- нет, поэтому каждая миграция обязана быть идемпотентной и аддитивной
+-- (CREATE TABLE IF NOT EXISTS / ADD COLUMN): разрушающее изменение уедет
+-- прямо в боевые данные. Схема пишется на общем подмножестве SQLite и
+-- PostgreSQL — без AUTOINCREMENT, INSERT OR IGNORE и datetime().
 --
--- Example:
+-- Образец в переносимом виде — идентификатор строкой из uid(), время из
+-- nowIso() в коде, а не из функций СУБД:
 -- CREATE TABLE IF NOT EXISTS items (
---   id INTEGER PRIMARY KEY AUTOINCREMENT,
+--   id TEXT PRIMARY KEY,
 --   title TEXT NOT NULL,
---   created_at TEXT NOT NULL DEFAULT (datetime('now'))
+--   created_at TEXT NOT NULL
 -- );

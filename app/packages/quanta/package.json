@@ -19,7 +19,6 @@
     "test:watch": "vitest",
     "storybook": "storybook dev -p 6007",
     "storybook:build": "storybook build",
-    "ci:deploy": "wrangler deploy",
     "typecheck": "tsc -p tsconfig.json && tsc -p scripts/tsconfig.json",
     "typecheck:native": "tsgo -p tsconfig.json && tsgo -p scripts/tsconfig.json"
   },

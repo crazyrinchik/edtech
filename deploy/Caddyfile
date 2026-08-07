@@ -25,7 +25,7 @@ sovenok.space {
 	}
 	header @cacheable Cache-Control "public, max-age=2592000"
 
-	# Asset-first, как в wrangler.jsonc: есть файл в dist/client — отдаём его,
+	# Asset-first: есть файл в dist/client — отдаём его,
 	# нет — запрос уходит в SSR-worker (index.html не собирается, "/" всегда SSR).
 	route {
 		file_server {
