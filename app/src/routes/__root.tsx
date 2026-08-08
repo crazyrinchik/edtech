@@ -95,7 +95,18 @@ function buildHead(meta: AppMeta) {
     ],
     links: [
       { rel: "stylesheet", href: appCss },
-      ...(favicon ? [{ rel: "icon", href: favicon }] : []),
+      // Фавикон — тот же совёнок, что и маскот, поэтому он векторный: на 16 px
+      // пух не должен превращаться в кашу. Порядок важен — браузер берёт
+      // последнюю иконку, которую понимает, так что PNG идёт первым запасным
+      // для тех, кто SVG в rel="icon" не умеет (Safari до 16.4).
+      ...(favicon
+        ? favicon.endsWith(".svg")
+          ? [
+              { rel: "icon", href: favicon.replace(/\.svg$/, ".png") },
+              { rel: "icon", type: "image/svg+xml", href: favicon },
+            ]
+          : [{ rel: "icon", href: favicon }]
+        : []),
     ],
   };
 }

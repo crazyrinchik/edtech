@@ -3,16 +3,94 @@ import { useId } from "react";
 /**
  * Совёнок и лес.
  *
- * Прежний маскот был собран из плоских геометрических фигур: сплошная заливка,
- * острые треугольные ушки, лес — два зелёных треугольника. Здесь совёнок
- * нарисован как мягкая мультяшная сова: объём даётся градиентами, перья —
- * фестонами, глаза — с радужкой и двумя бликами.
+ * Совёнок нарисован с натуры — с фотографии пухового птенца: круглый силуэт
+ * без острых ушек, тёмные глаза-бусины, крошечный клювик. Мохнатость даётся
+ * не штриховкой, а формой: по контуру раскладываются кружки того же цвета,
+ * поэтому силуэт остаётся мохнатым и на 20 px, где любая штриховка пропала бы.
+ * Отсюда же отказ от градиентов — плоская заливка читается в фавиконе.
  *
- * Совёнок растёт вместе с ребёнком: стадия 1 — пуховый птенец с большой
- * головой, стадия 5 — взрослая сова с ушками, хвостом и проработанным
- * оперением. Стадия считается из уровня (уровень = звёзды / 5 + 1),
- * поэтому никаких новых полей в базе не нужно.
+ * Знак живёт только на бежевой бумаге (--sov-paper): кобальт на тёмном фоне
+ * сливается, поэтому на синюю полосу лендинга совёнка не ставим.
+ *
+ * Совёнок растёт вместе с ребёнком: стадия 1 — голый пуховик, стадия 5 —
+ * сова с кисточками, крыльями и оперением. Силуэт при этом не меняется,
+ * меняются размер и детали — знак остаётся узнаваемым. Стадия считается из
+ * уровня (уровень = звёзды / 5 + 1), новых полей в базе не нужно.
  */
+
+/** Цвета совёнка. Держим рядом: они повторяются в фавиконе. */
+const OWL = {
+  body: "#2f5bd4",
+  belly: "#eef2ff",
+  dark: "#0f1b3c",
+  beak: "#ffb43f",
+  feet: "#ffb43f",
+  line: "#c3d2f6",
+  tuft: "#2247b4",
+} as const;
+
+/**
+ * Простой генератор с фиксированным семенем: Math.random() дал бы разный пух
+ * на сервере и в браузере, и React ругался бы на расхождение при гидратации.
+ */
+function seeded(seed: number) {
+  let s = seed;
+  return () => {
+    s = (s * 1664525 + 1013904223) % 4294967296;
+    return s / 4294967296;
+  };
+}
+
+/** Кружок пуха: x, y, радиус. */
+type Puff = [number, number, number];
+
+/**
+ * Раскладывает пух по овалу. Овал задан параметрически, а не путём, чтобы
+ * центры кружков считались точно; pear делает низ шире верха (форма груши).
+ */
+function puffs(o: {
+  cx: number;
+  cy: number;
+  a: number;
+  top: number;
+  bottom: number;
+  pear?: number;
+  n: number;
+  r: number;
+  seed: number;
+}): Puff[] {
+  const rnd = seeded(o.seed);
+  const list: Puff[] = [];
+  for (let i = 0; i < o.n; i++) {
+    const t = (i / o.n) * Math.PI * 2;
+    // Кружки сдвинуты внутрь на свой радиус, иначе контур раздувается.
+    const a = o.a * (1 - (o.pear ?? 0) * Math.cos(t)) - o.r * 0.78;
+    const b = (Math.cos(t) > 0 ? o.top : o.bottom) - o.r * 0.78;
+    list.push([
+      +(o.cx + a * Math.sin(t)).toFixed(1),
+      +(o.cy - b * Math.cos(t)).toFixed(1),
+      +(o.r * (0.74 + rnd() * 0.52)).toFixed(1),
+    ]);
+  }
+  return list;
+}
+
+/** Пух заливается один раз: многоугольник по центрам плюс сами кружки. */
+function Fluff({ points, fill }: { points: Puff[]; fill: string }) {
+  return (
+    <g fill={fill}>
+      <path d={`M${points.map(([x, y]) => `${x} ${y}`).join("L")}Z`} />
+      {points.map(([x, y, r], i) => (
+        <circle key={i} cx={x} cy={y} r={r} />
+      ))}
+    </g>
+  );
+}
+
+const OWL_BODY = puffs({ cx: 60, cy: 72, a: 40, top: 46, bottom: 44, pear: 0.1, n: 42, r: 7.5, seed: 4242 });
+// Кисточки — тоже пух, а не острые треугольники: иначе на голове вырастают рожки.
+const OWL_TUFT = puffs({ cx: 0, cy: 0, a: 7, top: 13, bottom: 9, n: 16, r: 4.5, seed: 5150 });
+const OWL_BELLY = puffs({ cx: 60, cy: 86, a: 26, top: 30, bottom: 22, pear: -0.06, n: 26, r: 6, seed: 991 });
 
 export type OwlMood = "idle" | "happy" | "concerned" | "sleepy";
 export type OwlItem = "none" | "scarf" | "glasses" | "cap" | "graduate";
@@ -33,7 +111,7 @@ export const OWL_UNLOCKS: { level: number; item: OwlItem; title: string; note: s
   { level: 1, item: "none", title: "Птенец", note: "Совсем маленький и пушистый" },
   { level: 2, item: "scarf", title: "Тёплый шарф", note: "Подрос и оброс пёрышками" },
   { level: 3, item: "glasses", title: "Очки умника", note: "Появились ушки-кисточки" },
-  { level: 4, item: "cap", title: "Колпак звездочёта", note: "Вырос хвост и крылья" },
+  { level: 4, item: "cap", title: "Колпак звездочёта", note: "Расправились крылья" },
   { level: 5, item: "graduate", title: "Шапочка выпускника", note: "Настоящая мудрая сова" },
 ];
 
@@ -55,29 +133,25 @@ export function Owl({
   className = "",
   animated = false,
 }: OwlProps) {
-  const raw = useId();
-  // useId отдаёт «:r1:» — двоеточия ломают ссылки url(#…) в части браузеров.
-  const uid = raw.replace(/[^a-zA-Z0-9]/g, "");
-
   const s = Math.max(1, Math.min(5, stage));
   const grow = (s - 1) / 4; // 0 → 1
-  // Рост читается размером: птенец мельче, взрослая сова крупнее. Масштаб
-  // берётся от лапок, чтобы сова «вырастала» вверх, а не расползалась от центра.
+
+  // Рост читается размером. Масштаб берётся от лапок, чтобы сова «вырастала»
+  // вверх, а не расползалась от центра.
   const overall = 0.88 + grow * 0.24;
-  // Взросление — это ещё и пропорции: у малыша глаза во всё лицо.
-  const eyeR = 12.6 - grow * 1.8;
-  const irisR = eyeR * 0.63;
-  const pupilR = eyeR * 0.34;
-  const discRx = 26.5 - grow * 1.5;
-  const tufts = s >= 3 ? 1 : s >= 2 ? 0.5 : 0;
-  // Пух исчезает к 3-й стадии, когда появляются ушки: иначе торчит между ними.
-  const downy = Math.max(0, 0.6 - grow * 1.2);
-  const showChestFeathers = s >= 3;
-  const wingSpread = 0.85 + grow * 0.3;
+  // Взросление — это ещё и пропорции: у птенца глаза заметно крупнее.
+  const eyeR = 11.2 - grow * 2.4;
+  const eyeX = 45.5 + grow * 1.4;
+  const eyeY = 62 - grow;
+  const mirrorX = 120 - eyeX;
+
+  const feathers = s >= 2;
+  const tufts = s >= 3;
+  const wings = s >= 4;
 
   const happy = mood === "happy";
-  const concerned = mood === "concerned";
   const sleepy = mood === "sleepy";
+  const concerned = mood === "concerned";
 
   return (
     <svg
@@ -88,179 +162,175 @@ export function Owl({
       role="img"
       aria-label="Совёнок"
     >
-      <defs>
-        <radialGradient id={`${uid}-body`} cx="38%" cy="28%" r="82%">
-          <stop offset="0%" stopColor="#6f95ef" />
-          <stop offset="52%" stopColor="#3f68d8" />
-          <stop offset="100%" stopColor="#26429b" />
-        </radialGradient>
-        <radialGradient id={`${uid}-belly`} cx="50%" cy="26%" r="76%">
-          <stop offset="0%" stopColor="#fffdf8" />
-          <stop offset="100%" stopColor="#ecdfc6" />
-        </radialGradient>
-        <radialGradient id={`${uid}-disc`} cx="50%" cy="34%" r="70%">
-          <stop offset="0%" stopColor="#fffefb" />
-          <stop offset="100%" stopColor="#e6dbc4" />
-        </radialGradient>
-        <linearGradient id={`${uid}-wing`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#3559bd" />
-          <stop offset="100%" stopColor="#1f3782" />
-        </linearGradient>
-        <linearGradient id={`${uid}-beak`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#ffc85c" />
-          <stop offset="100%" stopColor="#e8942a" />
-        </linearGradient>
-        <radialGradient id={`${uid}-iris`} cx="42%" cy="34%" r="70%">
-          <stop offset="0%" stopColor="#ffd98a" />
-          <stop offset="60%" stopColor="#f0a43a" />
-          <stop offset="100%" stopColor="#c9761c" />
-        </radialGradient>
-      </defs>
-
       <g className="sov-owl__all">
         {/* тень под совой — приземляет фигуру */}
-        <ellipse cx="60" cy="122" rx={22 + s * 1.6} ry="5" fill="#12203a" opacity="0.13" />
+        <ellipse cx="60" cy="124" rx={26 + grow * 5} ry="5" fill={OWL.dark} opacity="0.13" />
 
-        <g transform={`translate(60 110) scale(${overall}) translate(-60 -110)`}>
-          {/* ушки-кисточки: мягкие, скруглённые, а не острые треугольники */}
-          {tufts > 0 ? (
-            <g opacity={tufts}>
-              <path
-                d={`M37 29c-4-${7 + tufts * 7} -2-${12 + tufts * 9} 4-${14 + tufts * 10}c0 6 3 12 8 16Z`}
-                fill="#2a49a6"
-              />
-              <path
-                d={`M83 29c4-${7 + tufts * 7} 2-${12 + tufts * 9} -4-${14 + tufts * 10}c0 6-3 12-8 16Z`}
-                fill="#2a49a6"
-              />
-            </g>
-          ) : null}
-
-          {/* пуховые торчащие пёрышки — примета птенца */}
-          {downy > 0 ? (
-            <g stroke="#8fb0f5" strokeWidth="2.6" strokeLinecap="round" opacity={downy}>
-              <path d="M54 18c-1-5-3-8-6-10" />
-              <path d="M60 15v-9" />
-              <path d="M66 18c1-5 3-8 6-10" />
-            </g>
-          ) : null}
-
-          {/* тело: округлая капля, шире книзу */}
-          <path
-            d="M60 16c19 0 33 14 33 33v22c0 21-14 34-33 34S27 92 27 71V49c0-19 14-33 33-33Z"
-            fill={`url(#${uid}-body)`}
-          />
-
-          {/* мягкий блик по макушке — объём */}
-          <path
-            d="M42 24c4-6 10-9 18-9s14 3 18 9c-6-4-12-6-18-6s-12 2-18 6Z"
-            fill="#8fb0f5"
-            opacity="0.55"
-          />
-
-          {/* крылья с фестонами перьев */}
-          <g fill={`url(#${uid}-wing)`}>
-            <path
-              d={`M29 54c-6 3-9 10-9 18 0 ${10 + wingSpread * 8} 4 ${16 + wingSpread * 6} 10 ${19 + wingSpread * 4}c2-13 3-26 2-39Z`}
-            />
-            <path
-              d={`M91 54c6 3 9 10 9 18 0 ${10 + wingSpread * 8} -4 ${16 + wingSpread * 6} -10 ${19 + wingSpread * 4}c-2-13-3-26-2-39Z`}
-            />
-          </g>
-          <g stroke="#5b82e4" strokeWidth="1.6" strokeLinecap="round" fill="none" opacity="0.75">
-            <path d="M24 68c3 1 5 1 8 0M24 78c3 1 5 1 8 0M25 88c3 1 5 1 7 0" />
-            <path d="M96 68c-3 1-5 1-8 0M96 78c-3 1-5 1-8 0M95 88c-3 1-5 1-7 0" />
-          </g>
-
-          {/* грудка */}
-          <path
-            d="M60 52c13 0 22 9 22 21 0 15-10 26-22 26s-22-11-22-26c0-12 9-21 22-21Z"
-            fill={`url(#${uid}-belly)`}
-          />
-          {/* оперение груди — ниже клюва, чтобы не читалось как рот */}
-          {showChestFeathers ? (
-            <g stroke="#dccbaa" strokeWidth="1.4" fill="none" strokeLinecap="round" opacity="0.85">
-              <path d="M50 84c3-3 7-3 10 0 3-3 7-3 10 0" />
-              <path d="M48 92c4-3 8-3 12 0 4-3 8-3 12 0" />
-            </g>
-          ) : null}
-
-          {/* лицевой диск */}
-          <ellipse cx="60" cy="52" rx={discRx} ry={discRx * 0.83} fill={`url(#${uid}-disc)`} />
-
-          {/* глаза */}
-          {happy || sleepy ? (
-            <g stroke="#1b2b4d" strokeWidth="3.2" strokeLinecap="round" fill="none">
-              <path d="M39 53c4-6 10-6 14 0" />
-              <path d="M67 53c4-6 10-6 14 0" />
-            </g>
-          ) : (
-            <>
-              <circle cx="46" cy="51" r={eyeR} fill="#fffdf7" />
-              <circle cx="74" cy="51" r={eyeR} fill="#fffdf7" />
-              <circle cx="46" cy="51" r={irisR} fill={`url(#${uid}-iris)`} />
-              <circle cx="74" cy="51" r={irisR} fill={`url(#${uid}-iris)`} />
-              <circle cx="46" cy="51" r={pupilR} fill="#1a2947" />
-              <circle cx="74" cy="51" r={pupilR} fill="#1a2947" />
-              <circle cx={46 - eyeR * 0.2} cy={51 - eyeR * 0.24} r={eyeR * 0.19} fill="#fff" />
-              <circle cx={74 - eyeR * 0.2} cy={51 - eyeR * 0.24} r={eyeR * 0.19} fill="#fff" />
-              <circle cx={46 + eyeR * 0.22} cy={51 + eyeR * 0.28} r={eyeR * 0.09} fill="#fff" opacity="0.75" />
-              <circle cx={74 + eyeR * 0.22} cy={51 + eyeR * 0.28} r={eyeR * 0.09} fill="#fff" opacity="0.75" />
-            </>
-          )}
-
-          {/* встревоженные бровки: внутрь-вверх, а не сердито вниз */}
-          {concerned ? (
-            <g stroke="#1b2b4d" strokeWidth="2.4" strokeLinecap="round">
-              <path d="M38 40c5-3 10-4 14-3" />
-              <path d="M82 40c-5-3-10-4-14-3" />
-            </g>
-          ) : null}
-
-          {/* клюв */}
-          <path d="M60 58c3.4 0 6 2.6 6 5.6 0 3.4-2.8 6.4-6 8.4-3.2-2-6-5-6-8.4 0-3 2.6-5.6 6-5.6Z" fill={`url(#${uid}-beak)`} />
-          <path d="M60 66c1.8 1 3.4 2.2 4.6 3.6-1.4 1.2-3 2.2-4.6 3.2-1.6-1-3.2-2-4.6-3.2 1.2-1.4 2.8-2.6 4.6-3.6Z" fill="#c9761c" opacity="0.45" />
-
-          {/* румянец */}
-          <ellipse cx="35" cy="60" rx="6" ry="3.6" fill="#f0857f" opacity={happy ? 0.55 : 0.32} />
-          <ellipse cx="85" cy="60" rx="6" ry="3.6" fill="#f0857f" opacity={happy ? 0.55 : 0.32} />
-
+        <g transform={`translate(60 120) scale(${overall}) translate(-60 -120)`}>
           {/* лапки */}
-          <g fill="#f0a43a">
-            <path d="M48 103c0-2 1.6-3 3.4-3s3.4 1 3.4 3c0 1.6-1.4 2.6-3.4 2.6S48 104.6 48 103Z" />
-            <path d="M65 103c0-2 1.6-3 3.4-3s3.4 1 3.4 3c0 1.6-1.4 2.6-3.4 2.6s-3.4-1-3.4-2.6Z" />
-            <path d="M45 105h13v2.4H45zM62 105h13v2.4H62z" opacity="0.85" />
+          <g fill={OWL.feet}>
+            <circle cx="52.4" cy="112" r="4.4" />
+            <circle cx="67.6" cy="112" r="4.4" />
+            <path d="M44.5 115h10v3.2h-10zM52 115h4.6v4.4H52zM65.5 115h10v3.2h-10zM63.4 115h4.6v4.4h-4.6z" />
           </g>
 
-          {/* что совёнок заработал */}
-          {item === "scarf" ? (
-            <g>
-              <path d="M38 74c7 5 15 7 22 7s15-2 22-7v9c-7 5-15 7-22 7s-15-2-22-7Z" fill="#e0578c" />
-              <path d="M74 81c5 2 8 8 8 14l-9-2c1-4 1-8 1-12Z" fill="#c74d7c" />
-            </g>
-          ) : null}
-          {item === "glasses" ? (
-            <g stroke="#2b3f6b" strokeWidth="2.6" fill="none">
-              <circle cx="46" cy="51" r="13" fill="#cfe4ff" fillOpacity="0.35" />
-              <circle cx="74" cy="51" r="13" fill="#cfe4ff" fillOpacity="0.35" />
-              <path d="M59 51h2" />
-            </g>
-          ) : null}
-          {item === "cap" ? (
-            <g>
-              <path d="M60 4c10 6 16 14 18 24-6-4-12-6-18-6s-12 2-18 6c2-10 8-18 18-24Z" fill="#7c5cff" />
-              <circle cx="60" cy="4" r="4" fill="#ffd166" />
-              <path d="M50 20l3-5 3 5-3 2Zm14-3l2-4 2 4-2 2Z" fill="#ffd166" opacity="0.9" />
-            </g>
-          ) : null}
-          {item === "graduate" ? (
-            <g>
-              <path d="M60 6l26 11-26 11-26-11Z" fill="#22315c" />
-              <path d="M46 24v9c0 4 28 4 28 0v-9l-14 6Z" fill="#2c3f73" />
-              <path d="M86 17v14" stroke="#ffd166" strokeWidth="2.4" strokeLinecap="round" />
-              <circle cx="86" cy="33" r="3.4" fill="#ffd166" />
-            </g>
-          ) : null}
+          {/* лёгкий наклон головы: от него совёнок читается живым, а не штампом */}
+          <g transform="rotate(-4 60 108)">
+            {tufts ? (
+              <>
+                <g transform="translate(39 38) rotate(-24)">
+                  <Fluff points={OWL_TUFT} fill={OWL.tuft} />
+                </g>
+                <g transform="translate(81 38) rotate(24)">
+                  <Fluff points={OWL_TUFT} fill={OWL.tuft} />
+                </g>
+              </>
+            ) : null}
+
+            <Fluff points={OWL_BODY} fill={OWL.body} />
+
+            {wings ? (
+              <g fill={OWL.tuft} opacity="0.85">
+                <ellipse cx="30" cy="84" rx="8" ry="19" transform="rotate(-7 30 84)" />
+                <ellipse cx="90" cy="84" rx="8" ry="19" transform="rotate(7 90 84)" />
+              </g>
+            ) : null}
+
+            <Fluff points={OWL_BELLY} fill={OWL.belly} />
+
+            {/* оперение груди — ниже клюва, чтобы не читалось как рот */}
+            {feathers ? (
+              <g
+                stroke={OWL.line}
+                strokeWidth="1.5"
+                fill="none"
+                strokeLinecap="round"
+                opacity="0.7"
+              >
+                <path d="M49 94c3-3 6-3 9 0 3-3 6-3 9 0" />
+                <path d="M45 101c4-3 8-3 12 0 4-3 8-3 12 0" />
+                <path d="M47 108c4-3 7-3 11 0 4-3 7-3 11 0" />
+              </g>
+            ) : null}
+
+            {happy ? (
+              <g fill="#f0857f" opacity="0.4">
+                <ellipse cx="30" cy="74" rx="6" ry="3.8" />
+                <ellipse cx="90" cy="74" rx="6" ry="3.8" />
+              </g>
+            ) : null}
+
+            {/* глаза */}
+            {happy || sleepy ? (
+              <g stroke={OWL.dark} strokeWidth="3.4" fill="none" strokeLinecap="round">
+                {happy ? (
+                  <>
+                    <path d={`M${eyeX - 8} ${eyeY + 3}q8 -9 16 0`} />
+                    <path d={`M${mirrorX - 8} ${eyeY + 3}q8 -9 16 0`} />
+                  </>
+                ) : (
+                  <>
+                    <path d={`M${eyeX - 8} ${eyeY - 1}q8 7 16 0`} />
+                    <path d={`M${mirrorX - 8} ${eyeY - 1}q8 7 16 0`} />
+                  </>
+                )}
+              </g>
+            ) : (
+              <>
+                {/* светлый ободок вокруг глаза — как у птенца на фотографии */}
+                <circle cx={eyeX} cy={eyeY} r={eyeR + 1.6} fill={OWL.belly} opacity="0.35" />
+                <circle cx={mirrorX} cy={eyeY} r={eyeR + 1.6} fill={OWL.belly} opacity="0.35" />
+                <circle cx={eyeX} cy={eyeY} r={eyeR} fill={OWL.dark} />
+                <circle cx={mirrorX} cy={eyeY} r={eyeR} fill={OWL.dark} />
+                <circle
+                  cx={eyeX - eyeR * 0.32}
+                  cy={eyeY - eyeR * 0.34}
+                  r={eyeR * 0.35}
+                  fill="#fff"
+                />
+                <circle
+                  cx={mirrorX - eyeR * 0.32}
+                  cy={eyeY - eyeR * 0.34}
+                  r={eyeR * 0.35}
+                  fill="#fff"
+                />
+                <circle
+                  cx={eyeX + eyeR * 0.4}
+                  cy={eyeY + eyeR * 0.42}
+                  r={eyeR * 0.17}
+                  fill="#fff"
+                  opacity="0.45"
+                />
+                <circle
+                  cx={mirrorX + eyeR * 0.4}
+                  cy={eyeY + eyeR * 0.42}
+                  r={eyeR * 0.17}
+                  fill="#fff"
+                  opacity="0.45"
+                />
+              </>
+            )}
+
+            {/* встревоженные бровки: внутрь-вверх, а не сердито вниз */}
+            {concerned ? (
+              <g stroke={OWL.dark} strokeWidth="2.4" strokeLinecap="round">
+                <path d="M36 48c5-3 10-4 14-3" />
+                <path d="M84 48c-5-3-10-4-14-3" />
+              </g>
+            ) : null}
+
+            {/* клювик: крошечный, как у пуховика */}
+            <path
+              d="M60 67c2.6 0 4.4 1.6 4.4 3.7 0 3-2.1 7-4.4 9.2-2.3-2.2-4.4-6.2-4.4-9.2 0-2.1 1.8-3.7 4.4-3.7Z"
+              fill={OWL.beak}
+            />
+            <path
+              d="M60 73.4c1.3.7 2.4 1.6 3.2 2.5-.9 1.1-2 2.1-3.2 3-1.2-.9-2.3-1.9-3.2-3 .8-.9 1.9-1.8 3.2-2.5Z"
+              fill="#000"
+              opacity="0.16"
+            />
+
+            {/* что совёнок заработал */}
+            {item === "scarf" ? (
+              <g>
+                {/* концы шарфа заходят на синее — иначе розовая полоса на белой
+                    грудке читается не как шарф, а как рот */}
+                <path
+                  d="M33 87c8 5 17 7 27 7s19-2 27-7v9c-8 5-17 7-27 7s-19-2-27-7Z"
+                  fill="#e0578c"
+                />
+                <path d="M76 95c5 2 8 7 8 13l-9-2c1-4 1-7 1-11Z" fill="#c74d7c" />
+                <g stroke="#f4a0be" strokeWidth="1.6" strokeLinecap="round" opacity="0.75">
+                  <path d="M45 90.5v9M60 92.5v9M75 90.5v9" />
+                </g>
+              </g>
+            ) : null}
+            {item === "glasses" ? (
+              <g stroke="#2b3f6b" strokeWidth="2.6" fill="none">
+                <circle cx={eyeX} cy={eyeY} r="13.6" fill="#cfe4ff" fillOpacity="0.3" />
+                <circle cx={mirrorX} cy={eyeY} r="13.6" fill="#cfe4ff" fillOpacity="0.3" />
+                <path d={`M${eyeX + 13.6} ${eyeY}h${mirrorX - eyeX - 27.2}`} />
+              </g>
+            ) : null}
+            {item === "cap" ? (
+              <g>
+                <path
+                  d="M60 12c11 7 17 17 19 28-7-5-13-8-19-8s-12 3-19 8c2-11 8-21 19-28Z"
+                  fill="#7c5cff"
+                />
+                <circle cx="60" cy="12" r="4" fill="#ffd166" />
+                <path d="M50 30l3-5 3 5-3 2Zm14-3l2-4 2 4-2 2Z" fill="#ffd166" opacity="0.9" />
+              </g>
+            ) : null}
+            {item === "graduate" ? (
+              <g>
+                <path d="M60 16l27 11-27 11-27-11Z" fill="#22315c" />
+                <path d="M47 35v9c0 4 26 4 26 0v-9l-13 5Z" fill="#2c3f73" />
+                <path d="M87 27v14" stroke="#ffd166" strokeWidth="2.4" strokeLinecap="round" />
+                <circle cx="87" cy="41" r="3.4" fill="#ffd166" />
+              </g>
+            ) : null}
+          </g>
         </g>
       </g>
     </svg>
@@ -327,18 +397,9 @@ function Mushroom({ x, y, scale = 1 }: { x: number; y: number; scale?: number })
  * поэтому тёмная полоса на лендинге не просто «тёмная для контраста», а
  * ночь над тем же лесом.
  *
- * Координаты считаются один раз при загрузке модуля простым генератором с
- * фиксированным семенем: Math.random() дал бы разные звёзды на сервере и в
- * браузере, и React ругался бы на расхождение разметки при гидратации.
+ * Координаты считаются один раз при загрузке модуля тем же seeded, что и пух
+ * совёнка: Math.random() дал бы разные звёзды на сервере и в браузере.
  */
-function seeded(seed: number) {
-  let s = seed;
-  return () => {
-    s = (s * 1664525 + 1013904223) % 4294967296;
-    return s / 4294967296;
-  };
-}
-
 const NIGHT_STARS = (() => {
   const rnd = seeded(20260804);
   return Array.from({ length: 68 }, (_, i) => ({
