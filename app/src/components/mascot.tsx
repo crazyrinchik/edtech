@@ -33,7 +33,7 @@ const OWL = {
  * Простой генератор с фиксированным семенем: Math.random() дал бы разный пух
  * на сервере и в браузере, и React ругался бы на расхождение при гидратации.
  */
-export function seeded(seed: number) {
+function seeded(seed: number) {
   let s = seed;
   return () => {
     s = (s * 1664525 + 1013904223) % 4294967296;

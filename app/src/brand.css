@@ -146,10 +146,6 @@
   background: var(--sov-cobalt-soft);
 }
 .sov-hero__art img { width: 100%; height: 100%; object-fit: cover; display: block; }
-/* Сцены витрины рисуются вектором и уже сделаны в пропорции 4:3, поэтому
-   заполняют рамку целиком и ничего не теряют по краям — в отличие от прежних
-   кадров 16:9, у которых object-fit срезал верх и низ. */
-.sov-hero__art .sov-scene { width: 100%; height: 100%; display: block; }
 
 /* Пилюли-факты под кнопками: то же, что теги в путешествии, только на бумаге. */
 .sov-journey__tags { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 30px; }

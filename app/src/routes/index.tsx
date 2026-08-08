@@ -7,7 +7,6 @@ import {
   SiteHeader,
   StartAction,
 } from "../components/brand";
-import { SceneDesk, SceneForest, SceneTags, SceneTasks, SceneTower } from "../components/scenes";
 
 export const Route = createFileRoute("/")({ component: Landing });
 
@@ -23,28 +22,28 @@ export const Route = createFileRoute("/")({ component: Landing });
 const STEPS = [
   {
     id: "uchenik",
-    Art: SceneForest,
+    image: "/assets/scene-1.webp",
     title: "Ученик заводится за минуту",
     text: "Имя и класс — всё. Заниматься можно сразу, ждать родителя не нужно: он подключится позже и увидит ту же картину.",
     tags: ["Без почты ученика", "Сразу к занятиям", "Сколько угодно учеников"],
   },
   {
     id: "domashka",
-    Art: SceneTasks,
+    image: "/assets/scene-2.webp",
     title: "Домашка задаётся в два клика",
     text: "Отмечаете темы и тренажёры, ставите срок и порог: тема засчитывается, когда ребёнок сделает её на 70% верных. Проверять руками нечего.",
     tags: ["Темы и тренажёры", "Срок и порог", "Проверяется само"],
   },
   {
     id: "kontrol",
-    Art: SceneTags,
+    image: "/assets/scene-3.webp",
     title: "К занятию видно, что просело",
     text: "В списке учеников — кто сделал домашку, кто не открывал, и темы, где доля верных ниже 70%. Занятие начинается не с «ну как дела», а с конкретной темы.",
     tags: ["Статус домашки", "Зоны риска", "История занятий"],
   },
   {
     id: "roditel",
-    Art: SceneTower,
+    image: "/assets/scene-4.webp",
     title: "Родитель подключается кодом",
     text: "Вы диктуете шесть цифр, родитель заводит себе пароль и видит прогресс. Платить ему не нужно, и вашего аккаунта он не касается.",
     tags: ["Шесть цифр", "Родитель не платит", "Согласие подписывает сам"],
@@ -103,7 +102,12 @@ function Hero() {
           </p>
         </div>
         <div className="sov-hero__art">
-          <SceneDesk />
+          <img
+            src="/assets/hero.webp"
+            alt="Бумажная аппликация: совёнок ведёт ребёнка по тропинке через лес заданий"
+            width={1200}
+            height={900}
+          />
         </div>
       </div>
     </section>
@@ -126,7 +130,13 @@ function Steps() {
               </div>
             </div>
             <div className="sov-hero__art">
-              <step.Art />
+              <img
+                src={step.image}
+                alt=""
+                width={1600}
+                height={900}
+                loading={i === 0 ? "eager" : "lazy"}
+              />
             </div>
           </div>
         </div>
