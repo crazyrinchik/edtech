@@ -12,7 +12,10 @@ export const Route = createFileRoute('/sitemap.xml')({
           ['/', '1.0'],
           ['/demo', '0.9'],
           ['/schet', '0.8'],
+          ['/tablica-umnozheniya', '0.8'],
+          ['/pravopisanie', '0.8'],
           ['/chtenie', '0.8'],
+          ['/shulte', '0.7'],
         ]
         const xml = [
           '<?xml version="1.0" encoding="UTF-8"?>',

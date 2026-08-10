@@ -666,21 +666,41 @@ export const parentReport = createServerFn({ method: "GET" })
     // перечислены явно: SQLite разрешает выбирать их «мимо» GROUP BY,
     // PostgreSQL это запрещает. Имена однозначны для topic_id, поэтому
     // выборка не меняется, и запрос остаётся верным для обоих движков.
+    // Вместе с просевшей темой отдаём признак «педагог её задавал».
+    //
+    // Без него родитель видел процент и не видел вывода: «52%» — это его
+    // забота или педагога? Теперь на вопрос отвечает сама строка.
+    //
+    // Окно — месяц по дате выдачи, а не «срок ещё не прошёл». Срок лежит
+    // в базе как полная метка времени от полуночи (`new Date("2026-08-14")
+    // .toISOString()`), поэтому домашка «на сегодня» после полуночи уже
+    // считалась бы просроченной и тема мгновенно становилась бы «не
+    // заданной». Просроченная домашка педагогом всё равно выдана — она
+    // висит у него в списке, и родителю в неё лезть незачем. А выдача
+    // трёхмесячной давности перестаёт отвечать за сегодняшний провал.
     const risk = await db()
       .prepare(
         `SELECT t.name AS topic, s.name AS subject,
-                COUNT(*) AS total, SUM(a.is_correct) AS correct
+                COUNT(*) AS total, SUM(a.is_correct) AS correct,
+                EXISTS (
+                  SELECT 1 FROM assignment_items ai
+                    JOIN assignments asg ON asg.id = ai.assignment_id
+                   WHERE ai.kind = 'topic' AND ai.ref_id = a.topic_id
+                     AND asg.child_id = a.child_id
+                     AND asg.canceled_at IS NULL
+                     AND asg.created_at >= ?
+                ) AS assigned
            FROM attempts a
            JOIN topics t ON t.id = a.topic_id
            JOIN subjects s ON s.id = t.subject_id
           WHERE a.child_id = ?
-          GROUP BY a.topic_id, t.name, s.name
+          GROUP BY a.topic_id, t.name, s.name, a.child_id
          HAVING COUNT(*) >= 4 AND (CAST(SUM(a.is_correct) AS REAL) / COUNT(*)) < 0.7
           ORDER BY (CAST(SUM(a.is_correct) AS REAL) / COUNT(*)) ASC
           LIMIT 5`,
       )
-      .bind(data.childId)
-      .all<{ topic: string; subject: string; total: number; correct: number }>();
+      .bind(new Date(Date.now() - 30 * 864e5).toISOString(), data.childId)
+      .all<{ topic: string; subject: string; total: number; correct: number; assigned: number }>();
 
     const history = await db()
       .prepare(
@@ -781,6 +801,7 @@ export const parentReport = createServerFn({ method: "GET" })
         subject: r.subject,
         percent: Math.round((r.correct / r.total) * 100),
         total: r.total,
+        assigned: Number(r.assigned) === 1,
       })),
       mastery: (mastery.results ?? []).map((m) => ({
         topic: m.topic,
@@ -933,7 +954,7 @@ export const readingResult = createServerFn({ method: "POST" })
  */
 async function saveDrillRow(opts: {
   childId: string | null;
-  kind: "mental" | "reading" | "shulte";
+  kind: "mental" | "reading" | "shulte" | "spelling" | "table";
   settings: unknown;
   correct: number;
   total: number;
@@ -1251,7 +1272,11 @@ export const buyOwlItem = createServerFn({ method: "POST" })
     const level = Math.floor(Number(stars?.n ?? 0) / 5) + 1;
     await buyOwlItemFor(data.childId, data.item, level);
     await track("owl_item_bought", { childId: data.childId, props: { item: data.item } });
-    return { ok: true };
+    // Возвращаем состояние лавки целиком, а не { ok: true }: экран ребёнка
+    // раньше отвечал на покупку перезагрузкой страницы — она гасила экран
+    // и уносила прокрутку наверх, хотя менялись три числа. Пересчитывать
+    // их на клиенте нельзя: пёрышки капают и за домашку тоже.
+    return await owlState(data.childId);
   });
 
 export const equipOwlItem = createServerFn({ method: "POST" })
@@ -1260,7 +1285,7 @@ export const equipOwlItem = createServerFn({ method: "POST" })
     const user = await requireUser();
     await requireChildAccess(data.childId, user.id);
     await equipOwlItemFor(data.childId, data.item);
-    return { ok: true };
+    return await owlState(data.childId);
   });
 
 /**
@@ -1290,4 +1315,57 @@ export const saveShulteDrill = createServerFn({ method: "POST" })
       score: Math.round((data.seconds / cells) * 10),
     });
     return { saved, cells };
+  });
+
+/**
+ * Правописание: какие правила брали, столько и верных. Список правил
+ * ложится в settings — по нему в кабинете видно не «78% за русский», а
+ * что просело именно правописание безударных гласных.
+ */
+export const saveSpellingDrill = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      childId: z.string().nullable(),
+      correct: z.number().int().min(0),
+      total: z.number().int().min(1).max(200),
+      seconds: z.number().int().min(0).max(7200),
+      rules: z.array(z.string().max(40)).min(1).max(40),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const saved = await saveDrillRow({
+      childId: data.childId,
+      kind: "spelling",
+      settings: { rules: data.rules },
+      correct: data.correct,
+      total: data.total,
+      seconds: data.seconds,
+      score: Math.round((data.correct / data.total) * 100),
+    });
+    return { saved };
+  });
+
+/** Таблица умножения: уровень и то, в какую сторону спрашивали. */
+export const saveTableDrill = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      childId: z.string().nullable(),
+      correct: z.number().int().min(0),
+      total: z.number().int().min(1).max(200),
+      seconds: z.number().int().min(0).max(7200),
+      level: z.enum(["ten", "hundred", "beyond"]),
+      directions: z.array(z.enum(["mul", "div", "factor"])).min(1),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const saved = await saveDrillRow({
+      childId: data.childId,
+      kind: "table",
+      settings: { level: data.level, directions: data.directions },
+      correct: data.correct,
+      total: data.total,
+      seconds: data.seconds,
+      score: Math.round((data.correct / data.total) * 100),
+    });
+    return { saved };
   });

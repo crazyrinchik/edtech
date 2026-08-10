@@ -60,6 +60,27 @@
 .sov-narrow { max-width: 620px; margin: 0 auto; padding: 0 var(--sov-gutter); }
 .sov-mono { font-family: var(--sov-mono); font-size: .88rem; letter-spacing: 0.02em; }
 
+/* ------------------------------------------------------------- фокус
+
+   Одно правило на весь интерфейс. Системная обводка в один пиксель на
+   бежевой бумаге под синей кнопкой почти не видна, а на детском экране
+   клавиатура — не редкость: часть детей отвечает с неё, не трогая мышь.
+
+   Именно :focus-visible, а не :focus: рамка нужна тому, кто идёт табом,
+   и не должна вспыхивать под каждым щелчком мыши. Отступ в 2 px держит
+   её снаружи кнопки, не наезжая на нижнюю грань. */
+.sov :focus-visible {
+  outline: 3px solid var(--sov-cobalt);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+/* У кнопок радиус свой, и квадратная рамка вокруг круглой кнопки
+   выглядит ошибкой — повторяем форму. */
+.sov .sov-act-child:focus-visible,
+.sov .sov-act-start:focus-visible,
+.sov .sov-act-quiet:focus-visible,
+.sov .sov-act-form:focus-visible { border-radius: inherit; }
+
 /* ------------------------------------------------------------- шапка */
 
 .sov-header {
@@ -68,9 +89,13 @@
   min-height: 72px;
 }
 .sov-header__right { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+/* Логотип — тоже ссылка на главную, и по ней промахиваются так же, как по
+   любой другой. Отрицательное поле слева возвращает букву на место: цель
+   растёт внутрь, а не сдвигает шапку. */
 .sov-wordmark {
   display: inline-flex; align-items: center; gap: 10px;
   font-weight: 800; font-size: 1.2rem; color: var(--sov-ink); text-decoration: none;
+  min-height: 44px; padding: 0 8px; margin-left: -8px;
 }
 
 /* ------------------------------------------------------------ кнопки
@@ -148,6 +173,27 @@
   margin-top: clamp(18px, 2.4vw, 26px);
 }
 .sov-hero__actions { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin-top: 32px; }
+
+/* Подпись под парой кнопок: короткая пометка, а не абзац. Моноширинным
+   здесь набрано ровно то, для чего он и заведён, — служебная строка в
+   пять слов, а не два предложения подряд. */
+.sov .sov-hero__hint {
+  font-family: var(--sov-mono); font-size: .88rem; letter-spacing: .02em;
+  color: var(--sov-ink-soft); margin-top: 14px;
+}
+
+/* Дверь родителя. Стоит отдельной строкой под чертой: аудитория другая,
+   и мешать её с кнопками репетитора на одном ярусе больше нечем. */
+.sov-hero__parent {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  margin-top: 26px; padding-top: 22px; border-top: 2px solid var(--sov-line);
+}
+.sov-hero__parent > span { color: var(--sov-ink-soft); font-weight: 600; font-size: .98rem; }
+
+/* Действие в тарифе. Была ссылка в 19 px внутри моноширинного абзаца —
+   единственный переход на карточке и самый мелкий элемент страницы. */
+.sov-plan__action { margin-top: 24px; }
+.sov .sov-plan__note { margin-top: 20px; font-size: .95rem; color: var(--sov-ink-soft); font-weight: 500; }
 /* Колонка растянулась во всю ширину, и пропорция 4:3 превращала рисунок
    в картину на пол-экрана. Потолок по высоте держит его в росте человека,
    а object-fit подрезает акварель сверху и снизу, а не по совёнку. */
@@ -233,8 +279,11 @@
   font-family: var(--sov-font); font-size: 1rem; font-weight: 500; padding: 13px 15px;
   border: 2px solid var(--sov-line); border-radius: 12px; background: #fff; color: var(--sov-ink);
 }
+/* Обводку с поля больше не снимаем: рамку рисует общее правило фокуса
+   выше. Здесь остаётся только смена цвета границы — она отмечает
+   активное поле и при щелчке мышью, когда рамки фокуса нет. */
 .sov-field input:focus, .sov-field select:focus, .sov-field textarea:focus {
-  outline: none; border-color: var(--sov-cobalt); box-shadow: 0 0 0 3px var(--sov-cobalt-soft);
+  border-color: var(--sov-cobalt);
 }
 .sov-field__hint { font-size: .92rem; color: var(--sov-ink-soft); font-weight: 500; }
 .sov-field__error { font-size: .94rem; color: var(--sov-bad); font-weight: 600; }
@@ -305,12 +354,6 @@
   display: grid; place-items: center;
   background: #fff; color: var(--sov-cobalt); font-weight: 800; font-size: .9rem;
   border-radius: 999px;
-}
-.sov-hollow__info { flex: 1; min-width: 240px; }
-.sov-hollow__hi { display: block; font-size: clamp(1.25rem, 3vw, 1.6rem); font-weight: 800; line-height: 1.15; }
-.sov-hollow__grade {
-  display: block; margin-top: 4px; font-size: .88rem; font-weight: 800;
-  text-transform: uppercase; letter-spacing: .05em; color: rgba(255,255,255,.72);
 }
 
 .sov-xp { margin-top: 14px; }
@@ -469,7 +512,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
   text-align: center; padding: 18px; border: 2px solid var(--sov-line);
   border-bottom-width: 4px; border-radius: var(--sov-radius); background: #fff; color: var(--sov-ink);
 }
-.sov-answer-input:focus { outline: none; border-color: var(--sov-cobalt); }
+.sov-answer-input:focus { border-color: var(--sov-cobalt); }
 
 /* Разбор ответа: цветной текст со знаком, без коробки внутри коробки. */
 .sov-feedback {
@@ -621,7 +664,14 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
   border-radius: var(--sov-radius); padding: 16px 20px; transition: border-color .14s;
 }
 .sov-trainer:hover { border-color: var(--sov-cobalt); }
-.sov-trainer__icon { font-size: 1.8rem; line-height: 1; flex: none; }
+/* Иконка тренажёра теперь SVG, а не эмодзи: размер задаёт сам рисунок,
+   кегль тут больше ни при чём. Кружок бумаги под ним отделяет иконку от
+   названия и повторяет форму аватара. */
+.sov-trainer__icon {
+  flex: none; width: 44px; height: 44px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--sov-cobalt-soft); color: var(--sov-cobalt);
+}
 .sov-trainer strong { display: block; font-size: 1.05rem; font-weight: 800; }
 .sov-trainer em { display: block; font-style: normal; font-size: .95rem; color: var(--sov-ink-soft); font-weight: 600; margin-top: 2px; }
 
@@ -695,6 +745,30 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
   font-family: var(--sov-font); color: var(--sov-ink-soft);
 }
 .sov-chip[data-active="true"] { border-color: var(--sov-cobalt); background: var(--sov-cobalt); color: #fff; }
+/* Просевшая тема в подборе. Охра здесь несёт тот же смысл, что в разборе
+   ответа, — «подумай ещё», — и отличает провал от просто невыбранной темы.
+   Отмеченная тема всё равно становится синей: выбор важнее диагноза. */
+.sov-chip[data-risk="true"] { border-color: var(--sov-warn); color: var(--sov-warn); background: var(--sov-warn-bg); }
+.sov-chip[data-risk="true"][data-active="true"] {
+  border-color: var(--sov-cobalt); background: var(--sov-cobalt); color: #fff;
+}
+
+/* Поиск по темам. Рамка та же, что у полей формы, — это и есть поле. */
+.sov-search {
+  display: flex; align-items: center; gap: 9px; margin-top: 12px;
+  border: 2px solid var(--sov-line); border-radius: 12px;
+  padding: 0 14px; background: #fff; color: var(--sov-ink-soft);
+}
+.sov-search:focus-within { border-color: var(--sov-cobalt); }
+.sov-search svg { flex: none; }
+.sov-search input {
+  flex: 1; min-width: 0; border: none; outline: none; background: none;
+  font-family: var(--sov-font); font-size: 1rem; font-weight: 500;
+  padding: 12px 0; color: var(--sov-ink);
+}
+
+/* Вкладки внутри формы: те же, но без верхнего отступа во весь раздел. */
+.sov-tabs--inline { margin-top: 12px; gap: 18px; }
 
 .sov-risk { border-radius: var(--sov-radius); padding: 15px 18px; background: var(--sov-warn-bg); color: var(--sov-warn); font-weight: 600; }
 .sov-risk + .sov-risk { margin-top: 10px; }
@@ -795,7 +869,6 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 
 @media (max-width: 640px) {
   .sov-hollow { gap: 16px; padding: 18px 20px; }
-  .sov-hollow__info { min-width: 0; }
   .sov-level { gap: 14px; }
   .sov-level__num { width: 60px; height: 56px; font-size: 1.25rem; }
 }
@@ -902,6 +975,45 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
    уровнем — она отвечала на вопрос «как меня зовут». Цвет действия
    отдан домашке: первым делом ребёнок видит, что задал педагог. */
 
+/* Имя одной строкой. Класс ребёнка отсюда убран: он знает, в каком он
+   классе, а на экране это было третье слово до первого действия. */
+.sov .sov-kid__hi {
+  font-size: clamp(1.2rem, 3vw, 1.5rem); font-weight: 800;
+  letter-spacing: -.02em; margin: 4px 0 0;
+}
+
+/* Карточка «что делать сейчас».
+
+   Одно название темы и одна кнопка. Полоса-подпись сверху отвечает на
+   «кто задал и до когда», название набрано крупно, потому что ребёнок
+   ищет глазами именно его, а кнопка — единственная синяя заливка в
+   верхней части экрана, мимо неё не пройти. */
+.sov-next {
+  margin-top: 16px; padding: 20px 22px;
+  background: #fff; border: 3px solid var(--sov-cobalt); border-radius: 22px;
+  display: grid; gap: 4px; justify-items: start;
+}
+.sov-next__cap {
+  font-family: var(--sov-mono); font-size: .82rem; letter-spacing: .02em;
+  color: var(--sov-cobalt); font-weight: 500;
+}
+.sov-next__what {
+  font-size: clamp(1.5rem, 4vw, 2rem); font-weight: 800;
+  letter-spacing: -.02em; line-height: 1.12;
+}
+/* Кнопка-ссылка: .sov-act-child рассчитан на <button>, ссылке нужно лишь
+   вернуть выравнивание содержимого и убрать подчёркивание. */
+.sov-next__go {
+  display: inline-flex; align-items: center; justify-content: center;
+  text-decoration: none; margin-top: 12px;
+}
+@media (max-width: 560px) {
+  /* На телефоне кнопка растягивается во всю карточку: промахнуться
+     мимо неё невозможно, а других действий здесь нет. */
+  .sov-next { justify-items: stretch; }
+  .sov-next__go { width: 100%; }
+}
+
 .sov-hollow {
   background: #fff; color: var(--sov-ink);
   border: 2px solid var(--sov-line); box-shadow: none;
@@ -912,9 +1024,6 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
   right: -6px; bottom: -4px; min-width: 24px; height: 24px; font-size: .88rem;
   background: var(--sov-cobalt); color: #fff; border: 2px solid #fff;
 }
-.sov-hollow__info { flex: none; min-width: 0; }
-.sov-hollow__hi { font-size: 1.15rem; }
-.sov-hollow__grade { color: var(--sov-ink-soft); margin-top: 0; }
 .sov-hollow__xp { flex: 1; min-width: 220px; }
 .sov-hollow__xp .sov-xp { margin-top: 0; }
 .sov-xp__row { color: var(--sov-ink); }
@@ -922,26 +1031,35 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 .sov-xp__fill { background: var(--sov-cobalt); }
 .sov-xp__hint { color: var(--sov-ink-soft); }
 
-/* Домашка забирает себе синий: это единственная заливка в верхней части
-   экрана, поэтому взгляд идёт туда и никуда больше. */
+/* Домашка больше не заливается синим.
+
+   Заливка была здесь, пока домашка была первым и главным блоком экрана.
+   Теперь впереди стоит карточка «что делать сейчас», и синим залита её
+   кнопка — а два насыщенных пятна подряд спорят друг с другом, и глаз
+   идёт к нижнему, к более крупному, то есть к списку, а не к действию.
+
+   Домашка остаётся списком: белая карточка с синей рамкой. Правило
+   системы соблюдено буквально — заливка на экране одна, и она значит
+   «нажми сюда». */
 .sov-homework {
-  background: var(--sov-cobalt); border: none;
-  box-shadow: 0 4px 0 var(--sov-cobalt-deep); color: #fff;
+  background: #fff; border: 2px solid var(--sov-cobalt);
+  box-shadow: none; color: var(--sov-ink);
   padding: 20px 24px; gap: 12px;
 }
-.sov-homework__head strong { color: #fff; font-size: 1.2rem; }
-.sov-homework__due { color: #fff; }
+.sov-homework__head strong { font-size: 1.2rem; }
 .sov-homework__count {
   font-size: .9rem; font-weight: 800; text-transform: uppercase;
-  letter-spacing: .05em; color: rgba(255,255,255,.75);
+  letter-spacing: .05em; color: var(--sov-ink-soft);
 }
 .sov-homework__item {
-  background: #fff; border-radius: 12px; padding: 13px 16px;
-  color: var(--sov-ink); border-bottom: 4px solid rgba(0,0,0,.08);
+  background: var(--sov-paper); border-radius: 12px; padding: 13px 16px;
+  color: var(--sov-ink); border: 2px solid var(--sov-line);
 }
-.sov-homework__item[data-done="true"] { color: var(--sov-ok); background: var(--sov-ok-bg); }
+.sov-homework__item[data-done="true"] {
+  color: var(--sov-ok); background: var(--sov-ok-bg); border-color: transparent;
+}
 .sov-homework__mark { background: var(--sov-paper-2); }
-.sov-homework__comment { color: rgba(255,255,255,.85); }
+.sov-homework__comment { color: var(--sov-ink-soft); }
 
 /* Нет задания — не пустое место, а разрешение выбрать самому. */
 .sov-kid__free {
@@ -1020,6 +1138,10 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 .sov-prog__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .sov-prog__title { display: grid; gap: 3px; min-width: 0; }
 .sov-prog__title strong { font-size: 1.08rem; font-weight: 800; }
+/* Название тренажёра с иконкой: раньше эмодзи отодвигался отступом справа,
+   теперь строка выравнивает рисунок по тексту сама. */
+.sov-prog__name { display: inline-flex; align-items: center; gap: 9px; }
+.sov-prog__name svg { flex: none; color: var(--sov-cobalt); }
 .sov-prog__meta { font-size: .92rem; font-weight: 600; color: var(--sov-ink-soft); }
 .sov-prog__actions { display: flex; gap: 8px; flex: none; }
 .sov-prog__summary { font-size: .93rem; font-weight: 500; color: var(--sov-ink-soft); }
@@ -1059,14 +1181,16 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
    засчитывает только вторая, и без карты тем другого пути к ней нет. */
 .sov-homework__row { display: flex; align-items: stretch; gap: 8px; }
 .sov-homework__row .sov-homework__item { flex: 1; min-width: 0; }
+/* Проверочная — второй вход, и на белой карточке он держится обводкой,
+   а не заливкой: заливка на экране осталась одна, у кнопки «Начать». */
 .sov-homework__check {
   display: grid; place-items: center; flex: none; padding: 0 16px;
-  background: rgba(255,255,255,.16); border-radius: 12px; color: #fff;
+  background: transparent; border: 2px solid var(--sov-line); border-radius: 12px;
+  color: var(--sov-cobalt);
   font-size: .86rem; font-weight: 800; text-transform: uppercase;
   letter-spacing: .04em; text-decoration: none; text-align: center;
-  border-bottom: 4px solid rgba(0,0,0,.12);
 }
-.sov-homework__check:hover { background: rgba(255,255,255,.26); }
+.sov-homework__check:hover { border-color: var(--sov-cobalt); background: var(--sov-cobalt-soft); }
 @media (max-width: 560px) {
   .sov-homework__row { flex-direction: column; }
   .sov-homework__check { padding: 10px 16px; }
@@ -1087,10 +1211,12 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 .sov-shelf__item button { margin-top: 8px; }
 .sov-shelf__item button:disabled { opacity: .5; cursor: default; }
 
-/* Домашка сделана: та же плашка, но зелёная — цвет здесь несёт смысл
-   «верно», тот же, что в разборе ответа. */
-.sov-homework[data-status="done"] { background: var(--sov-ok); box-shadow: 0 4px 0 var(--sov-ok-deep); }
-.sov-homework[data-status="done"] .sov-homework__item { border-bottom-color: rgba(0,0,0,.1); }
+/* Домашка сделана: та же карточка, но зелёная — цвет здесь несёт смысл
+   «верно», тот же, что в разборе ответа. Заливки нет и здесь: сделанная
+   работа не должна кричать громче той, которую ещё делать. */
+.sov-homework[data-status="done"] { border-color: var(--sov-ok); background: var(--sov-ok-bg); }
+.sov-homework[data-status="done"] .sov-homework__head strong { color: var(--sov-ok-deep); }
+.sov-homework[data-status="done"] .sov-homework__due { color: var(--sov-ok); }
 
 /* Выход из занятия. Стоит рядом с вопросом, но подчёркнуто тихий: это
    отступление, а не действие урока. */
@@ -1409,8 +1535,30 @@ button.sov-stone:disabled { cursor: default; }
 /* Тема ниже порога: кольцо, название, из чего сложилась цифра. Раньше
    это была охряная плашка во всю ширину — четыре подряд превращались
    в сплошное тревожное поле. */
+/* Вывод словами над плитками. Полоса слева, а не заливка: это первая
+   строка отчёта, а не тревога — цвет полосы отличает «всё в порядке» от
+   «есть тема, которую никто не взял». */
+.sov-verdict {
+  display: grid; gap: 5px; margin-top: 22px;
+  padding: 16px 20px; background: #fff;
+  border: 2px solid var(--sov-line); border-left-width: 5px;
+  border-radius: 0 var(--sov-radius) var(--sov-radius) 0;
+}
+.sov-verdict[data-tone="ok"] { border-left-color: var(--sov-ok); }
+.sov-verdict[data-tone="warn"] { border-left-color: var(--sov-warn); }
+.sov-verdict strong { font-size: 1.08rem; font-weight: 800; line-height: 1.35; }
+.sov-verdict span { font-size: .97rem; font-weight: 500; color: var(--sov-ink-soft); }
+
 .sov-risks { display: grid; gap: 14px; margin-top: 14px; }
 .sov-risks__row { display: flex; align-items: center; gap: 14px; }
+/* Чья это забота: тема уже в домашке или её никто не задавал. */
+.sov-risks__state {
+  margin-left: auto; flex: none;
+  font-size: .82rem; font-weight: 800; text-transform: uppercase; letter-spacing: .04em;
+  padding: 5px 11px; border-radius: 999px; white-space: nowrap;
+}
+.sov-risks__state[data-tone="ok"] { color: var(--sov-ok); background: var(--sov-ok-bg); }
+.sov-risks__state[data-tone="warn"] { color: var(--sov-warn); background: var(--sov-warn-bg); }
 .sov-risks__row strong { display: block; font-size: 1rem; font-weight: 800; }
 .sov-risks__row span { font-size: .9rem; font-weight: 600; color: var(--sov-ink-soft); }
 
@@ -1447,3 +1595,98 @@ button.sov-stone:disabled { cursor: default; }
   font-family: var(--sov-mono); font-size: .95rem; font-weight: 500;
   color: var(--sov-ink-soft); margin-bottom: 12px;
 }
+
+/* ── тренажёры правописания и таблицы умножения ──────────────────────
+   Общее у них одно: рядом с упражнением лежит то, что обычно прячут в
+   учебник, — правило или сама таблица. Поэтому «раскрывашка» здесь не
+   украшение, а главный элемент, и выглядит она как вложенный лист: та
+   же бумага, пунктирная рамка, чтобы не спорить с карточкой задания. */
+
+/* Название правила над словом: подпись, а не заголовок. */
+.sov-card__tag {
+  display: inline-block; margin-bottom: 12px;
+  font: 800 .78rem/1 var(--sov-font); text-transform: uppercase; letter-spacing: .06em;
+  color: var(--sov-cobalt); background: var(--sov-cobalt-soft);
+  border-radius: 999px; padding: 7px 13px;
+}
+
+/* Слово с пропуском. Одно слово идёт крупно, предложение — мельче:
+   «Наступила тёмная ночь» кеглем в три сантиметра не помещается ни в
+   один телефон. */
+.sov-word { font-size: clamp(2.1rem, 7vw, 3rem); font-weight: 800; letter-spacing: -.01em; line-height: 1.25; }
+.sov-word[data-long="true"] { font-size: clamp(1.35rem, 4vw, 1.9rem); font-weight: 700; line-height: 1.4; }
+.sov-gap {
+  display: inline-block; min-width: 1.5em; padding: .04em .1em; text-align: center; line-height: 1.05;
+  border-bottom: 4px solid var(--sov-cobalt); background: var(--sov-cobalt-soft);
+  border-radius: 8px 8px 0 0; color: var(--sov-cobalt);
+}
+.sov-gap[data-state="right"] { background: var(--sov-ok-bg); border-color: var(--sov-ok); color: var(--sov-ok); }
+.sov-gap[data-state="wrong"] { background: var(--sov-warn-bg); border-color: var(--sov-warn); color: var(--sov-warn); }
+
+/* Ряд коротких вариантов: буква, две буквы, знак. Тянуть такую кнопку на
+   треть экрана незачем — ряд собирается по содержимому и остаётся слева,
+   под словом, а не расползается по карточке. */
+.sov-options[data-tight="true"] { grid-template-columns: repeat(auto-fit, minmax(140px, 200px)); justify-content: start; }
+.sov-options[data-tight="true"] .sov-option { font-size: 1.5rem; }
+
+/* Раскрывашка: правило под упражнением, таблица под примером. */
+.sov-reveal { margin-top: 22px; border: 2px dashed var(--sov-line); border-radius: var(--sov-radius); background: var(--sov-paper); }
+.sov-reveal[data-open="true"] { border-style: solid; border-color: var(--sov-cobalt-soft); }
+.sov-reveal + .sov-reveal { margin-top: 10px; }
+.sov-reveal__btn {
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  background: none; border: none; cursor: pointer; padding: 15px 18px; text-align: left;
+  font: 800 1rem/1.3 var(--sov-font); color: var(--sov-ink);
+}
+.sov-reveal__btn:hover { color: var(--sov-cobalt); }
+.sov-reveal__sign { flex: none; font: 700 .88rem/1 var(--sov-font); color: var(--sov-cobalt); }
+.sov-reveal__grade { display: block; margin-top: 3px; font: 600 .85rem/1 var(--sov-font); font-style: normal; color: var(--sov-ink-soft); }
+.sov-reveal__body { padding: 0 18px 18px; }
+
+/* Текст правила. Ширина в знаках, а не в пикселях: правило читают, а не
+   просматривают, и строка в сто знаков разваливается. */
+.sov-rule { display: grid; gap: 10px; max-width: 68ch; }
+.sov-rule p { font-size: .98rem; font-weight: 500; color: var(--sov-ink-soft); line-height: 1.55; }
+.sov-rule__hint { font-weight: 800 !important; color: var(--sov-ink) !important; font-size: 1.02rem !important; }
+.sov-rule__ex { display: grid; gap: 6px; margin: 2px 0 0; padding: 14px 16px; list-style: none; background: #fff; border-radius: 12px; }
+.sov-rule__ex li { font-family: var(--sov-mono); font-size: .95rem; color: var(--sov-ink); }
+.sov-rule__caution { border-left: 4px solid var(--sov-warn); padding-left: 12px; color: var(--sov-warn) !important; font-weight: 600 !important; }
+/* Разбор итога: слова и примеры, на которых споткнулись. */
+.sov-missed { margin-top: 22px; padding: 18px 20px; background: var(--sov-paper-2); border-radius: var(--sov-radius); }
+.sov-missed h3 { font-size: 1.05rem; font-weight: 800; }
+.sov-missed__row { display: grid; gap: 2px; margin-top: 12px; }
+.sov-missed__row strong { font-size: 1.1rem; font-weight: 800; }
+.sov-missed__row span { font-size: .93rem; font-weight: 500; color: var(--sov-ink-soft); line-height: 1.5; }
+.sov-missed__grid { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 12px; font-size: 1rem; }
+
+/* Таблица Пифагора. На телефоне она шире экрана — прокручивается сама,
+   а не жмётся до нечитаемых цифр. */
+.sov-pifagor { margin-top: 16px; }
+.sov-pifagor__scroll { overflow-x: auto; }
+.sov-pifagor table { border-collapse: collapse; font-family: var(--sov-mono); }
+.sov-pifagor th, .sov-pifagor td {
+  border: 1px solid var(--sov-line); padding: 0; text-align: center;
+  min-width: 42px; height: 38px; font-size: .95rem; color: var(--sov-ink-soft);
+}
+.sov-pifagor th { background: var(--sov-paper-2); color: var(--sov-ink); font-weight: 800; }
+.sov-pifagor th button {
+  width: 100%; height: 38px; background: none; border: none; cursor: pointer;
+  font: 800 .95rem/1 var(--sov-mono); color: inherit;
+}
+.sov-pifagor td[data-lit="true"] { background: var(--sov-cobalt-soft); color: var(--sov-cobalt); font-weight: 700; }
+.sov-pifagor td[data-hit="true"] { background: var(--sov-cobalt); color: #fff; font-weight: 800; }
+.sov-pifagor td[data-off="true"] { color: var(--sov-paper-3); }
+.sov-pifagor__column { margin-top: 16px; }
+.sov-pifagor__column strong { font-size: 1rem; font-weight: 800; }
+.sov-pifagor__list { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 8px; color: var(--sov-ink-soft); }
+
+/* Мелочи настройки: пояснение под рядом чипов и ссылки «выбрать все». */
+.sov-setup__note { font-size: .92rem; font-weight: 500; color: var(--sov-ink-soft); }
+.sov-setup__aside { display: flex; gap: 16px; }
+.sov-linkish {
+  background: none; border: none; padding: 0; cursor: pointer;
+  font: 700 .9rem/1 var(--sov-font); color: var(--sov-cobalt); text-decoration: underline;
+}
+
+/* Шапка тренажёра: пять названий в строку не встают даже на ноутбуке. */
+.sov-trainer-nav { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }

@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as VhodRouteImport } from './routes/vhod'
 import { Route as UchenikRouteImport } from './routes/uchenik'
+import { Route as TablicaUmnozheniyaRouteImport } from './routes/tablica-umnozheniya'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as ShulteRouteImport } from './routes/shulte'
 import { Route as SchetRouteImport } from './routes/schet'
@@ -18,6 +19,7 @@ import { Route as RoditelRouteImport } from './routes/roditel'
 import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as RegistraciyaRouteImport } from './routes/registraciya'
 import { Route as PriglashenieRouteImport } from './routes/priglashenie'
+import { Route as PravopisanieRouteImport } from './routes/pravopisanie'
 import { Route as KtoRouteImport } from './routes/kto'
 import { Route as DemoRouteImport } from './routes/demo'
 import { Route as ChtenieRouteImport } from './routes/chtenie'
@@ -38,6 +40,11 @@ const VhodRoute = VhodRouteImport.update({
 const UchenikRoute = UchenikRouteImport.update({
   id: '/uchenik',
   path: '/uchenik',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TablicaUmnozheniyaRoute = TablicaUmnozheniyaRouteImport.update({
+  id: '/tablica-umnozheniya',
+  path: '/tablica-umnozheniya',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
@@ -73,6 +80,11 @@ const RegistraciyaRoute = RegistraciyaRouteImport.update({
 const PriglashenieRoute = PriglashenieRouteImport.update({
   id: '/priglashenie',
   path: '/priglashenie',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PravopisanieRoute = PravopisanieRouteImport.update({
+  id: '/pravopisanie',
+  path: '/pravopisanie',
   getParentRoute: () => rootRouteImport,
 } as any)
 const KtoRoute = KtoRouteImport.update({
@@ -137,6 +149,7 @@ export interface FileRoutesByFullPath {
   '/chtenie': typeof ChtenieRoute
   '/demo': typeof DemoRoute
   '/kto': typeof KtoRoute
+  '/pravopisanie': typeof PravopisanieRoute
   '/priglashenie': typeof PriglashenieRoute
   '/registraciya': typeof RegistraciyaRoute
   '/robots.txt': typeof RobotsDottxtRoute
@@ -144,6 +157,7 @@ export interface FileRoutesByFullPath {
   '/schet': typeof SchetRoute
   '/shulte': typeof ShulteRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/tablica-umnozheniya': typeof TablicaUmnozheniyaRoute
   '/uchenik': typeof UchenikRoute
   '/vhod': typeof VhodRoute
   '/repetitor/podpiska': typeof RepetitorPodpiskaRoute
@@ -159,6 +173,7 @@ export interface FileRoutesByTo {
   '/chtenie': typeof ChtenieRoute
   '/demo': typeof DemoRoute
   '/kto': typeof KtoRoute
+  '/pravopisanie': typeof PravopisanieRoute
   '/priglashenie': typeof PriglashenieRoute
   '/registraciya': typeof RegistraciyaRoute
   '/robots.txt': typeof RobotsDottxtRoute
@@ -166,6 +181,7 @@ export interface FileRoutesByTo {
   '/schet': typeof SchetRoute
   '/shulte': typeof ShulteRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/tablica-umnozheniya': typeof TablicaUmnozheniyaRoute
   '/uchenik': typeof UchenikRoute
   '/vhod': typeof VhodRoute
   '/repetitor/podpiska': typeof RepetitorPodpiskaRoute
@@ -182,6 +198,7 @@ export interface FileRoutesById {
   '/chtenie': typeof ChtenieRoute
   '/demo': typeof DemoRoute
   '/kto': typeof KtoRoute
+  '/pravopisanie': typeof PravopisanieRoute
   '/priglashenie': typeof PriglashenieRoute
   '/registraciya': typeof RegistraciyaRoute
   '/robots.txt': typeof RobotsDottxtRoute
@@ -189,6 +206,7 @@ export interface FileRoutesById {
   '/schet': typeof SchetRoute
   '/shulte': typeof ShulteRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/tablica-umnozheniya': typeof TablicaUmnozheniyaRoute
   '/uchenik': typeof UchenikRoute
   '/vhod': typeof VhodRoute
   '/repetitor/podpiska': typeof RepetitorPodpiskaRoute
@@ -206,6 +224,7 @@ export interface FileRouteTypes {
     | '/chtenie'
     | '/demo'
     | '/kto'
+    | '/pravopisanie'
     | '/priglashenie'
     | '/registraciya'
     | '/robots.txt'
@@ -213,6 +232,7 @@ export interface FileRouteTypes {
     | '/schet'
     | '/shulte'
     | '/sitemap.xml'
+    | '/tablica-umnozheniya'
     | '/uchenik'
     | '/vhod'
     | '/repetitor/podpiska'
@@ -228,6 +248,7 @@ export interface FileRouteTypes {
     | '/chtenie'
     | '/demo'
     | '/kto'
+    | '/pravopisanie'
     | '/priglashenie'
     | '/registraciya'
     | '/robots.txt'
@@ -235,6 +256,7 @@ export interface FileRouteTypes {
     | '/schet'
     | '/shulte'
     | '/sitemap.xml'
+    | '/tablica-umnozheniya'
     | '/uchenik'
     | '/vhod'
     | '/repetitor/podpiska'
@@ -250,6 +272,7 @@ export interface FileRouteTypes {
     | '/chtenie'
     | '/demo'
     | '/kto'
+    | '/pravopisanie'
     | '/priglashenie'
     | '/registraciya'
     | '/robots.txt'
@@ -257,6 +280,7 @@ export interface FileRouteTypes {
     | '/schet'
     | '/shulte'
     | '/sitemap.xml'
+    | '/tablica-umnozheniya'
     | '/uchenik'
     | '/vhod'
     | '/repetitor/podpiska'
@@ -273,6 +297,7 @@ export interface RootRouteChildren {
   ChtenieRoute: typeof ChtenieRoute
   DemoRoute: typeof DemoRoute
   KtoRoute: typeof KtoRoute
+  PravopisanieRoute: typeof PravopisanieRoute
   PriglashenieRoute: typeof PriglashenieRoute
   RegistraciyaRoute: typeof RegistraciyaRoute
   RobotsDottxtRoute: typeof RobotsDottxtRoute
@@ -280,6 +305,7 @@ export interface RootRouteChildren {
   SchetRoute: typeof SchetRoute
   ShulteRoute: typeof ShulteRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  TablicaUmnozheniyaRoute: typeof TablicaUmnozheniyaRoute
   UchenikRoute: typeof UchenikRoute
   VhodRoute: typeof VhodRoute
   RepetitorPodpiskaRoute: typeof RepetitorPodpiskaRoute
@@ -304,6 +330,13 @@ declare module '@tanstack/react-router' {
       path: '/uchenik'
       fullPath: '/uchenik'
       preLoaderRoute: typeof UchenikRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tablica-umnozheniya': {
+      id: '/tablica-umnozheniya'
+      path: '/tablica-umnozheniya'
+      fullPath: '/tablica-umnozheniya'
+      preLoaderRoute: typeof TablicaUmnozheniyaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sitemap.xml': {
@@ -353,6 +386,13 @@ declare module '@tanstack/react-router' {
       path: '/priglashenie'
       fullPath: '/priglashenie'
       preLoaderRoute: typeof PriglashenieRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pravopisanie': {
+      id: '/pravopisanie'
+      path: '/pravopisanie'
+      fullPath: '/pravopisanie'
+      preLoaderRoute: typeof PravopisanieRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/kto': {
@@ -441,6 +481,7 @@ const rootRouteChildren: RootRouteChildren = {
   ChtenieRoute: ChtenieRoute,
   DemoRoute: DemoRoute,
   KtoRoute: KtoRoute,
+  PravopisanieRoute: PravopisanieRoute,
   PriglashenieRoute: PriglashenieRoute,
   RegistraciyaRoute: RegistraciyaRoute,
   RobotsDottxtRoute: RobotsDottxtRoute,
@@ -448,6 +489,7 @@ const rootRouteChildren: RootRouteChildren = {
   SchetRoute: SchetRoute,
   ShulteRoute: ShulteRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  TablicaUmnozheniyaRoute: TablicaUmnozheniyaRoute,
   UchenikRoute: UchenikRoute,
   VhodRoute: VhodRoute,
   RepetitorPodpiskaRoute: RepetitorPodpiskaRoute,

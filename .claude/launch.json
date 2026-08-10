@@ -1,0 +1,18 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "app",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "app", "run", "dev"],
+      "port": 5173,
+      "autoPort": true
+    },
+    {
+      "name": "stand",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["deploy/stand.mjs"],
+      "port": 8788
+    }
+  ]
+}

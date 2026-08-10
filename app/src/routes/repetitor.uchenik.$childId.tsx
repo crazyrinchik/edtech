@@ -2,6 +2,9 @@ import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-r
 import { useEffect, useState } from "react";
 
 import { ChildAvatar, QuietAction, SiteFooter, SiteHeader } from "../components/brand";
+import { SearchIcon } from "../components/icons";
+import { TRAINERS } from "../components/trainers";
+import { plural } from "../lib/shop";
 import {
   cancelAssignment,
   createAssignment,
@@ -27,6 +30,9 @@ const STATUS_LABEL: Record<string, string> = {
   new: "не начато",
 };
 
+/** Порог зоны риска. Тот же, что в кабинете родителя и в зачёте темы. */
+const RISK_PERCENT = 70;
+
 /** Срок по умолчанию — неделя: типичный шаг между занятиями с репетитором. */
 function defaultDue(): string {
   return new Date(Date.now() + 7 * 864e5).toISOString().slice(0, 10);
@@ -39,6 +45,9 @@ function StudentPage() {
   const [error, setError] = useState<string | null>(null);
   const [picked, setPicked] = useState<string[]>([]);
   const [drills, setDrills] = useState<string[]>([]);
+  const [alsoFor, setAlsoFor] = useState<string[]>([]);
+  const [tab, setTab] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
   const [pending, setPending] = useState(false);
 
   async function load() {
@@ -50,8 +59,43 @@ function StudentPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [childId]);
 
+  // Переход к другому ученику по ссылке из списка не размонтирует страницу:
+  // без сброса выбор тем и отметки «отправить ещё» переехали бы на чужую
+  // карточку и выдались бы не тому.
+  useEffect(() => {
+    setPicked([]);
+    setDrills([]);
+    setAlsoFor([]);
+    setQuery("");
+    setTab(null);
+  }, [childId]);
+
   const chosen = picked.length + drills.length;
   const empty = chosen === 0;
+
+  const toggleTopic = (id: string) =>
+    setPicked((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+
+  // Вкладка по умолчанию — первый предмет, но только когда карточка уже
+  // приехала: до этого предметов ещё нет.
+  const activeTab = tab ?? data?.subjects[0]?.id ?? null;
+  const search = query.trim().toLowerCase();
+  const risky = (data?.topics ?? [])
+    .filter((t) => t.percent !== null && t.percent < RISK_PERCENT)
+    .sort((a, b) => (a.percent ?? 0) - (b.percent ?? 0));
+  const riskyIds = new Set(risky.map((t) => t.id));
+  // Просевшие темы уже стоят наверху — во втором списке они не повторяются,
+  // пока педагог не ищет их поиском по имени.
+  const shownTopics = (data?.topics ?? []).filter(
+    (t) =>
+      (search
+        ? t.name.toLowerCase().includes(search)
+        : t.subject_id === activeTab && !riskyIds.has(t.id)),
+  );
+  const shownIds = new Set([...shownTopics.map((t) => t.id), ...risky.map((t) => t.id)]);
+  const pickedElsewhere = (data?.topics ?? []).filter(
+    (t) => picked.includes(t.id) && !shownIds.has(t.id),
+  );
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -61,7 +105,7 @@ function StudentPage() {
     try {
       await createAssignment({
         data: {
-          childId,
+          childIds: [childId, ...alsoFor],
           title: String(form.get("title") ?? "").trim() || "Домашняя работа",
           comment: String(form.get("comment") ?? "").trim() || null,
           dueAt: form.get("due") ? new Date(String(form.get("due"))).toISOString() : null,
@@ -77,6 +121,7 @@ function StudentPage() {
       });
       setPicked([]);
       setDrills([]);
+      setAlsoFor([]);
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Не получилось выдать задание");
@@ -201,48 +246,113 @@ function StudentPage() {
             <input id="title" name="title" defaultValue="Домашняя работа" required />
           </div>
 
+          {/* Просевшие темы — первыми и отдельно.
+
+              Педагог открывает форму, уже зная, что задавать: на занятии
+              он видел, где ученик плывёт. Раньше это знание приходилось
+              заново искать глазами в ровном поле из двух десятков чипов,
+              где провал ничем не отличался от пройденного. Теперь темы
+              ниже порога вынесены наверх со своей долей верных, и выбор
+              начинается с них. */}
+          {risky.length > 0 ? (
+            <div className="sov-field">
+              <label>Просело у ученика</label>
+              <span className="sov-field__hint">
+                Темы, где верных меньше {RISK_PERCENT}%. Считается по всем ответам, а не по
+                последнему занятию.
+              </span>
+              <div className="sov-chips">
+                {risky.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    className="sov-chip"
+                    data-risk="true"
+                    data-active={picked.includes(t.id)}
+                    onClick={() => toggleTopic(t.id)}
+                  >
+                    {t.name}
+                    <em style={{ fontStyle: "normal", opacity: 0.75 }}> · {t.percent}%</em>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
           <div className="sov-field">
             <label>Темы</label>
             <span className="sov-field__hint">
               Доступны темы обоих классов: программу выбираете вы, а не поле в профиле ученика.
               Весь список с заданиями — в разделе «Темы и задания».
             </span>
-            {data.subjects.map((subject) => (
-              <div key={subject.id} style={{ marginTop: 10 }}>
-                <b className="sov-mono">{subject.name}</b>
-                <div className="sov-chips">
-                  {data.topics
-                    .filter((t) => t.subject_id === subject.id)
-                    .map((t) => (
-                      <button
-                        key={t.id}
-                        type="button"
-                        className="sov-chip"
-                        data-active={picked.includes(t.id)}
-                        onClick={() =>
-                          setPicked((prev) =>
-                            prev.includes(t.id) ? prev.filter((x) => x !== t.id) : [...prev, t.id],
-                          )
-                        }
-                      >
-                        {t.name}
-                        <em style={{ fontStyle: "normal", opacity: 0.6 }}> · {t.grade} кл.</em>
-                        {t.status === "completed" ? " ✓" : ""}
-                      </button>
-                    ))}
-                </div>
-              </div>
-            ))}
+
+            {/* Вкладка на предмет и поиск. Двадцать два чипа первого класса
+                плюс второй — это стена, по которой глаз идёт медленнее, чем
+                пальцы набирают «вычит». */}
+            <div className="sov-tabs sov-tabs--inline">
+              {data.subjects.map((subject) => (
+                <button
+                  key={subject.id}
+                  type="button"
+                  data-active={tab === subject.id}
+                  onClick={() => setTab(subject.id)}
+                >
+                  {subject.name}
+                </button>
+              ))}
+            </div>
+
+            <label className="sov-search">
+              <SearchIcon size={17} />
+              <input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Найти тему"
+                aria-label="Найти тему"
+              />
+            </label>
+
+            <div className="sov-chips">
+              {shownTopics.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  className="sov-chip"
+                  data-active={picked.includes(t.id)}
+                  onClick={() => toggleTopic(t.id)}
+                >
+                  {t.name}
+                  <em style={{ fontStyle: "normal", opacity: 0.6 }}> · {t.grade} кл.</em>
+                  {t.status === "completed" ? " ✓" : ""}
+                </button>
+              ))}
+              {/* Пустой список — это два разных случая, и валить их в одну
+                  подпись нельзя: «ничего не нашлось по запросу «»» на чистой
+                  базе выглядит поломкой, а не ответом. */}
+              {shownTopics.length === 0 ? (
+                <span className="sov-field__hint">
+                  {search
+                    ? `Ничего не нашлось по запросу «${query}».`
+                    : "Тем пока нет — учебный контент создаётся при первом обращении к приложению."}
+                </span>
+              ) : null}
+            </div>
+
+            {/* Выбранное из других вкладок не должно исчезать из виду:
+                иначе педагог отмечает математику, переключается на русский
+                и не понимает, задалась первая тема или нет. */}
+            {pickedElsewhere.length > 0 ? (
+              <span className="sov-field__hint">
+                Ещё выбрано в другом предмете: {pickedElsewhere.map((t) => t.name).join(", ")}.
+              </span>
+            ) : null}
           </div>
 
           <div className="sov-field">
             <label>Тренажёры</label>
             <div className="sov-chips">
-              {[
-                { id: "schet", name: "Устный счёт" },
-                { id: "chtenie", name: "Скорочтение" },
-                { id: "shulte", name: "Таблица Шульте" },
-              ].map((d) => (
+              {TRAINERS.map((d) => (
                 <button
                   key={d.id}
                   type="button"
@@ -254,7 +364,7 @@ function StudentPage() {
                     )
                   }
                 >
-                  {d.name}
+                  {d.title}
                 </button>
               ))}
             </div>
@@ -282,10 +392,51 @@ function StudentPage() {
             <input id="comment" name="comment" placeholder="Начни со счёта, потом темы" />
           </div>
 
+          {/* Та же домашка — сразу нескольким.
+
+              Педагог, который ведёт группу по одной программе, проходил эту
+              форму по разу на ученика. Каждый получает свою домашку со своим
+              сроком и своим прогрессом — общей записи «на группу» не
+              появляется, снять можно по отдельности. */}
+          {data.classmates.length > 0 ? (
+            <div className="sov-field">
+              <label>Отправить ещё</label>
+              <span className="sov-field__hint">
+                Каждый получит свою домашку с этим же составом и сроком.
+              </span>
+              <div className="sov-chips">
+                {data.classmates.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    className="sov-chip"
+                    data-active={alsoFor.includes(c.id)}
+                    onClick={() =>
+                      setAlsoFor((prev) =>
+                        prev.includes(c.id) ? prev.filter((x) => x !== c.id) : [...prev, c.id],
+                      )
+                    }
+                  >
+                    {c.name}
+                    <em style={{ fontStyle: "normal", opacity: 0.6 }}> · {c.grade} кл.</em>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
           {/* Своя кнопка, а не FormAction: тот подменяет подпись на «Секунду…»
-              по признаку pending, и пустой выбор выглядел бы как отправка. */}
+              по признаку pending, и пустой выбор выглядел бы как отправка.
+              Подпись называет результат целиком — сколько пунктов и скольким
+              ученикам, — чтобы массовая выдача не случилась незаметно. */}
           <button type="submit" className="sov-act-child" disabled={pending || empty}>
-            {pending ? "Секунду…" : empty ? "Выберите хотя бы один пункт" : `Задать: ${chosen}`}
+            {pending
+              ? "Секунду…"
+              : empty
+                ? "Выберите хотя бы один пункт"
+                : alsoFor.length > 0
+                  ? `Задать ${chosen} ${plural(chosen, "пункт", "пункта", "пунктов")} ${alsoFor.length + 1} ученикам`
+                  : `Задать: ${chosen}`}
           </button>
         </form>
 

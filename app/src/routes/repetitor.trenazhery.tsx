@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
 import { QuietAction, SiteFooter, SiteHeader } from "../components/brand";
+import { AbacusIcon, BookIcon, GridIcon, MultiplyIcon, PencilIcon } from "../components/icons";
 import { me } from "../lib/api/app.functions";
 import { assignDrill, tutorStudents } from "../lib/api/tutor.functions";
 
@@ -22,12 +23,13 @@ function defaultDue(): string {
  * Раньше задать их можно было только из карточки ученика, вперемешку с
  * темами, и что именно тренирует каждый — нигде не написано. Здесь они
  * описаны и выдаются сразу группе, как и темы: на занятии тренажёр
- * назначают всем, а не по одному.
+ * назначают всем, а не по одному. Порядок тот же, что у ребёнка в
+ * занятиях: сначала счёт и таблица, потом русский, потом чтение.
  */
 const TRAINERS = [
   {
     id: "schet" as const,
-    icon: "🧮",
+    Icon: AbacusIcon,
     title: "Устный счёт",
     what: "Скорость и точность вычислений",
     detail:
@@ -35,8 +37,26 @@ const TRAINERS = [
     when: "Когда счёт правильный, но медленный, и на задачах ребёнок теряет мысль, пока считает.",
   },
   {
+    id: "tablica" as const,
+    Icon: MultiplyIcon,
+    title: "Таблица умножения",
+    what: "Таблица в обе стороны",
+    detail:
+      "Спрашивается и умножение, и деление, и пропущенный множитель. Три уровня: ответы до десяти, вся таблица до сотни и второй десяток. Саму таблицу ученик открывает прямо на примере, нужная клетка подсвечена.",
+    when: "Когда таблица выучена строчками и «пятью восемь» ребёнок считает от начала строки, а деление не узнаёт вовсе.",
+  },
+  {
+    id: "pravopisanie" as const,
+    Icon: PencilIcon,
+    title: "Правописание",
+    what: "Орфография с правилом под рукой",
+    detail:
+      "Тринадцать правил 1–4 класса: безударные гласные, парные согласные, жи-ши, разделительные знаки, -тся и -ться, словарные слова. Правило раскрывается рядом с упражнением, а после ошибки открывается само.",
+    when: "Когда в диктанте ошибки на правило, которое ребёнок «знает»: назвать может, а применить в слове — нет.",
+  },
+  {
     id: "chtenie" as const,
-    icon: "📖",
+    Icon: BookIcon,
     title: "Скорочтение",
     what: "Скорость чтения и понимание",
     detail:
@@ -45,7 +65,7 @@ const TRAINERS = [
   },
   {
     id: "shulte" as const,
-    icon: "🔢",
+    Icon: GridIcon,
     title: "Таблица Шульте",
     what: "Поле зрения и внимание",
     detail:
@@ -95,8 +115,8 @@ function TrainersPage() {
         <p
           style={{ marginTop: 12, color: "var(--sov-ink-soft)", fontWeight: 500, maxWidth: "62ch" }}
         >
-          Три тренажёра поверх программы: они не привязаны к темам и работают без подписки. Задать
-          можно сразу нескольким ученикам — так же, как тему.
+          Пять тренажёров поверх программы: они не привязаны к темам и работают без подписки.
+          Задать можно сразу нескольким ученикам — так же, как тему.
         </p>
 
         {error ? (
@@ -110,10 +130,8 @@ function TrainersPage() {
             <article key={t.id} className="sov-prog__item">
               <div className="sov-prog__head">
                 <div className="sov-prog__title">
-                  <strong>
-                    <span aria-hidden="true" style={{ marginRight: 8 }}>
-                      {t.icon}
-                    </span>
+                  <strong className="sov-prog__name">
+                    <t.Icon size={20} />
                     {t.title}
                   </strong>
                   <span className="sov-prog__meta">{t.what} · без подписки</span>
@@ -159,7 +177,7 @@ function AssignDrillPanel({
   students,
   onDone,
 }: {
-  kind: "schet" | "chtenie" | "shulte";
+  kind: "schet" | "tablica" | "pravopisanie" | "chtenie" | "shulte";
   students: Students;
   onDone: () => void;
 }) {

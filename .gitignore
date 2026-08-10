@@ -1,1 +1,15 @@
 node_modules
+
+# База локального стенда (deploy/stand.mjs): SQLite поверх D1.
+# Удалить папку — начать с чистой базы, миграции накатятся заново.
+deploy/.stand
+
+# Кеш workerd: miniflare заводит его рядом с рабочей папкой при каждом запуске
+# стенда. В .dockerignore он уже есть — здесь по той же причине.
+.wrangler
+
+# Рабочие папки Claude Code. launch.json общий и лежит в репозитории, а
+# worktrees — это отдельные рабочие копии с node_modules внутри (сотни
+# мегабайт), и settings.local.json описывает разрешения конкретной машины.
+.claude/worktrees/
+.claude/settings.local.json

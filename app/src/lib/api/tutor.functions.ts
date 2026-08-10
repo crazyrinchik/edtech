@@ -28,6 +28,7 @@ import { PRACTICE_SIZE } from "../content/practice.core";
 import {
   childHasPaidAccess,
   db,
+  ensureSeeded,
   grantChildAccess,
   hashPassword,
   nowIso,
@@ -37,6 +38,32 @@ import {
   track,
   uid,
 } from "../core.server";
+
+/**
+ * Названия тренажёров для домашнего задания. Ключ — тот же код, что уходит
+ * в assignment_items.ref_id и по которому ребёнок открывает страницу.
+ */
+const DRILL_TITLES: Record<string, string> = {
+  schet: "Устный счёт",
+  tablica: "Таблица умножения",
+  pravopisanie: "Правописание",
+  chtenie: "Скорочтение",
+  shulte: "Таблица Шульте",
+};
+
+/**
+ * Тот же тренажёр в таблице drills зовётся иначе: там kind описывает вид
+ * упражнения («mental»), а в задании стоит адрес страницы («schet»). Пока
+ * сравнивали напрямую, выполнение засчитывалось только у Шульте — у неё
+ * одной оба имени совпадали. Перевод живёт здесь.
+ */
+const DRILL_ROWS: Record<string, string> = {
+  schet: "mental",
+  tablica: "table",
+  pravopisanie: "spelling",
+  chtenie: "reading",
+  shulte: "shulte",
+};
 
 const INVITE_DAYS = 14;
 const INVITE_DIGITS = 6;
@@ -232,18 +259,13 @@ async function buildAssignments(childId: string, rows: AssignmentRow[]): Promise
       }
       if (item.kind === "drill") {
         const hit = (drills.results ?? []).some(
-          (d) => d.kind === item.ref_id && d.created_at >= row.created_at,
+          (d) => d.kind === DRILL_ROWS[item.ref_id] && d.created_at >= row.created_at,
         );
         return {
           id: item.id,
           kind: item.kind,
           refId: item.ref_id,
-          name:
-            item.ref_id === "chtenie"
-              ? "Скорочтение"
-              : item.ref_id === "shulte"
-                ? "Таблица Шульте"
-                : "Устный счёт",
+          name: DRILL_TITLES[item.ref_id] ?? "Устный счёт",
           targetPercent: item.target_percent,
           done: hit,
           bestPercent: null,
@@ -530,6 +552,12 @@ export const studentCard = createServerFn({ method: "GET" })
   .inputValidator(z.object({ childId: z.string() }))
   .handler(async ({ data }) => {
     const user = await requireTutor();
+    // Контент создаётся лениво, при первом обращении. Раньше это делали только
+    // ручки из app.functions — и на чистой базе педагог, пришедший по прямой
+    // ссылке на карточку ученика (а не через список), видел форму выдачи без
+    // единой темы: ни вкладок предметов, ни чипов. Сеяли за него /repetitor
+    // и /uchenik, но полагаться на порядок захода тут нечего.
+    await ensureSeeded();
     const child = (await requireStudent(data.childId, user.id)) as unknown as {
       id: string;
       name: string;
@@ -549,16 +577,33 @@ export const studentCard = createServerFn({ method: "GET" })
     // темы до класса ученика. Программу выбирает педагог, а не поле в
     // профиле — второклассник может добирать первый класс, а сильный
     // первоклассник уходить вперёд. Класс темы теперь просто подписан.
+    // Вместе с темой отдаём долю верных по ней.
+    //
+    // Педагог приходит в форму с готовым решением — «этому вычитание, оно
+    // просело», — а список тем был ровным алфавитным полем из двух десятков
+    // чипов, где просевшая ничем не отличалась от пройденной. Зоны риска
+    // при этом уже считались, но на другом экране. Теперь цифра приезжает
+    // вместе с темой, и подбор может поставить провалы первыми.
+    //
+    // attempts агрегируется подзапросом, а не JOIN-ом с GROUP BY: тем
+    // много, попыток на порядок больше, и группировать всю таблицу ради
+    // двух чисел на тему незачем.
     const topics = await db()
       .prepare(
         `SELECT t.id, t.subject_id, t.name, t.summary, t.grade, t.is_free,
                 COALESCE(p.status, 'new') AS status,
-                COALESCE(p.best_percent, 0) AS best_percent
+                COALESCE(p.best_percent, 0) AS best_percent,
+                COALESCE(a.total, 0) AS attempts,
+                COALESCE(a.correct, 0) AS correct
            FROM topics t
            LEFT JOIN progress p ON p.topic_id = t.id AND p.child_id = ?
+           LEFT JOIN (
+             SELECT topic_id, COUNT(*) AS total, SUM(is_correct) AS correct
+               FROM attempts WHERE child_id = ? GROUP BY topic_id
+           ) a ON a.topic_id = t.id
           ORDER BY t.subject_id, t.grade, t.sort_order`,
       )
-      .bind(child.id)
+      .bind(child.id, child.id)
       .all<{
         id: string;
         subject_id: string;
@@ -568,7 +613,22 @@ export const studentCard = createServerFn({ method: "GET" })
         is_free: number;
         status: string;
         best_percent: number;
+        attempts: number;
+        correct: number;
       }>();
+
+    // Остальные ученики педагога — для выдачи одной домашки сразу группе.
+    // Только имя и аватар: список нужен, чтобы отметить галочками, а не
+    // чтобы читать в нём статистику.
+    const classmates = await db()
+      .prepare(
+        `SELECT c.id, c.name, c.grade, c.avatar
+           FROM child_access ca JOIN children c ON c.id = ca.child_id
+          WHERE ca.user_id = ? AND ca.role = 'tutor' AND c.id <> ?
+          ORDER BY c.grade, c.name`,
+      )
+      .bind(user.id, child.id)
+      .all<{ id: string; name: string; grade: number; avatar: string }>();
 
     const lessons = await db()
       .prepare(
@@ -595,16 +655,35 @@ export const studentCard = createServerFn({ method: "GET" })
       },
       paid: await childHasPaidAccess(child.id),
       subjects: subjects.results ?? [],
-      topics: topics.results ?? [],
+      topics: (topics.results ?? []).map((t) => ({
+        ...t,
+        // Доля верных считается тут, а не в SQL: делить на ноль в запросе
+        // пришлось бы через CASE, а «попыток не было» — это не 0%, это
+        // «нечего показывать», и на клиенте отличать null от нуля проще.
+        percent: t.attempts >= 4 ? Math.round((t.correct / t.attempts) * 100) : null,
+      })),
+      classmates: classmates.results ?? [],
       lessons: lessons.results ?? [],
       assignments: await buildAssignments(child.id, await activeAssignments(child.id)),
     };
   });
 
+/**
+ * Выдача домашней работы — одному ученику или сразу нескольким.
+ *
+ * Раньше ручка принимала один childId, и педагог с пятнадцатью учениками
+ * на одной программе проходил форму пятнадцать раз подряд. Теперь список:
+ * на каждого заводится своя домашка (свой срок, свой прогресс, снять можно
+ * по отдельности) — общей записи «на группу» не появляется, потому что
+ * группы в модели нет и заводить её ради формы неправильно.
+ *
+ * Права проверяются по каждому ученику отдельно: requireStudent для всех
+ * до единой вставки, чтобы чужой ребёнок не проехал в списке зайцем.
+ */
 export const createAssignment = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
-      childId: z.string(),
+      childIds: z.array(z.string().min(1)).min(1, "Выберите хотя бы одного ученика"),
       title: z.string().trim().min(1, "Назовите задание"),
       comment: z.string().trim().nullable(),
       dueAt: z.string().nullable(),
@@ -621,40 +700,50 @@ export const createAssignment = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const user = await requireTutor();
-    await requireStudent(data.childId, user.id);
+    // Дубли в списке убираем до проверки прав: иначе один и тот же ученик
+    // получил бы две одинаковые домашки за один клик.
+    const childIds = [...new Set(data.childIds)];
+    for (const childId of childIds) await requireStudent(childId, user.id);
 
-    const id = uid("asg");
-    const statements = [
-      db()
-        .prepare(
-          `INSERT INTO assignments (id, child_id, tutor_id, title, comment, due_at, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        )
-        .bind(
-          id,
-          data.childId,
-          user.id,
-          data.title.trim(),
-          data.comment?.trim() || null,
-          data.dueAt,
-          nowIso(),
-        ),
-      ...data.items.map((item, index) =>
+    const now = nowIso();
+    const ids: string[] = [];
+    const statements = childIds.flatMap((childId) => {
+      const id = uid("asg");
+      ids.push(id);
+      return [
         db()
           .prepare(
-            `INSERT INTO assignment_items (id, assignment_id, kind, ref_id, target_percent, sort_order)
-             VALUES (?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO assignments (id, child_id, tutor_id, title, comment, due_at, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
           )
-          .bind(uid("ai"), id, item.kind, item.refId, item.targetPercent, index),
-      ),
-    ];
-    await db().batch(statements);
-    await track("assignment_created", {
-      userId: user.id,
-      childId: data.childId,
-      props: { items: data.items.length },
+          .bind(
+            id,
+            childId,
+            user.id,
+            data.title.trim(),
+            data.comment?.trim() || null,
+            data.dueAt,
+            now,
+          ),
+        ...data.items.map((item, index) =>
+          db()
+            .prepare(
+              `INSERT INTO assignment_items (id, assignment_id, kind, ref_id, target_percent, sort_order)
+               VALUES (?, ?, ?, ?, ?, ?)`,
+            )
+            .bind(uid("ai"), id, item.kind, item.refId, item.targetPercent, index),
+        ),
+      ];
     });
-    return { id };
+    await db().batch(statements);
+    for (const childId of childIds) {
+      await track("assignment_created", {
+        userId: user.id,
+        childId,
+        props: { items: data.items.length, students: childIds.length },
+      });
+    }
+    return { ids };
   });
 
 export const cancelAssignment = createServerFn({ method: "POST" })
@@ -1222,19 +1311,14 @@ export const tutorCancelSubscription = createServerFn({ method: "POST" }).handle
 export const assignDrill = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
-      kind: z.enum(["schet", "chtenie", "shulte"]),
+      kind: z.enum(["schet", "tablica", "pravopisanie", "chtenie", "shulte"]),
       childIds: z.array(z.string()).min(1, "Выберите хотя бы одного ученика"),
       dueAt: z.string().nullable(),
     }),
   )
   .handler(async ({ data }) => {
     const user = await requireTutor();
-    const title =
-      data.kind === "chtenie"
-        ? "Скорочтение"
-        : data.kind === "shulte"
-          ? "Таблица Шульте"
-          : "Устный счёт";
+    const title = DRILL_TITLES[data.kind] ?? "Устный счёт";
 
     for (const childId of data.childIds) {
       await requireStudent(childId, user.id);
