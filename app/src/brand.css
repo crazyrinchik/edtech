@@ -165,8 +165,14 @@
 /* --------------------------------------------------- витрина: герой */
 
 .sov-hero { padding: 30px 0 70px; }
-.sov-hero__grid { display: grid; gap: 48px; align-items: center; grid-template-columns: 1fr; }
-@media (min-width: 900px) { .sov-hero__grid { grid-template-columns: 1.05fr .95fr; } }
+/* Сетка героя повторяет сетку шагов — те же 1fr 1fr и тот же зазор 44.
+   Было 1.05fr / .95fr при зазоре 48, и правая колонка выходила у́же той,
+   в которой стоят картинки шагов: 620 px против 655. Правые края при этом
+   совпадали, а левые — нет, и вертикаль из пяти картинок ломалась на
+   первой же. Разница в тридцать пикселей на глаз не читается как замысел,
+   только как съехавшая вёрстка. */
+.sov-hero__grid { display: grid; gap: 44px; align-items: center; grid-template-columns: 1fr; }
+@media (min-width: 900px) { .sov-hero__grid { grid-template-columns: 1fr 1fr; } }
 .sov-hero h1 { font-size: clamp(2.5rem, 5.6vw, 3.9rem); line-height: 1.08; }
 .sov-hero p {
   font-size: 1.12rem; color: var(--sov-ink-soft); max-width: 46ch; font-weight: 500;
@@ -222,10 +228,15 @@
   color: var(--sov-ink-soft); max-width: 56ch; font-size: 1.08rem; font-weight: 500;
 }
 
+/* Перелом тот же, что у героя (900), а не 860. При 860 герой уже складывался
+   в одну колонку, а шаги ещё стояли в две: в полосе шириной сорок пикселей
+   картинка героя выходила 672 px против 392 у остальных. Складываться они
+   должны одновременно — это одна вертикаль картинок, а не два независимых
+   блока. */
 .sov-split { display: grid; gap: 44px; margin-top: 40px; grid-template-columns: 1fr; align-items: center; }
-@media (min-width: 860px) { .sov-split { grid-template-columns: 1fr 1fr; } }
+@media (min-width: 900px) { .sov-split { grid-template-columns: 1fr 1fr; } }
 .sov-split--flip > :first-child { order: 2; }
-@media (max-width: 859px) { .sov-split--flip > :first-child { order: 0; } }
+@media (max-width: 899px) { .sov-split--flip > :first-child { order: 0; } }
 
 .sov-rows { margin-top: 36px; border-top: 2px solid var(--sov-line); }
 .sov-row {
