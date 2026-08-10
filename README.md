@@ -62,6 +62,10 @@ app/
       notify.server.ts     отправка напоминаний в Telegram и MAX
       notify-webhook.server.ts приём сообщений от ботов (вызов из server.ts)
       content/seed.ts      учебный контент, нулевой урок, тексты для скорочтения
+      content/curriculum.source.json  каталог тем 1-4 класса и порядок в УМК
+      content/curriculum.data.ts      он же в коде (генерируется скриптом ниже)
+      content/curriculum.ts           порядок тем: общий список или конкретная программа
+      content/practice*.ts            генераторы заданий, по 30 тренировочных на тему
       api/app.functions.ts все серверные функции
     routes/
       index.tsx            витрина со скролл-путешествием
@@ -75,6 +79,8 @@ app/
       chtenie.tsx          тренировка скорочтения
       roditel.tsx          кабинет родителя
       admin.tsx            админ-панель
+  scripts/
+    build-curriculum.py    curriculum.source.json -> curriculum.data.ts
   public/assets/           иллюстрации, обложка, фавиконка
 ```
 

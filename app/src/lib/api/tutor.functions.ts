@@ -12,6 +12,19 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
+import { SUBJECTS } from "../content/curriculum.data";
+import {
+  catalogIndex,
+  deltasFor,
+  isFreeTopic,
+  programById,
+  programList,
+  topicByCode,
+  topicsFor,
+} from "../content/curriculum";
+import { CHECK_SIZE, topicTasks as catalogTasks } from "../content/practice";
+import { PRACTICE_SIZE } from "../content/practice.core";
+
 import {
   childHasPaidAccess,
   db,
@@ -138,7 +151,9 @@ async function buildAssignments(childId: string, rows: AssignmentRow[]): Promise
     .bind(...ids)
     .all<ItemRow>();
 
-  const topicIds = [...new Set((items.results ?? []).filter((i) => i.kind === "topic").map((i) => i.ref_id))];
+  const topicIds = [
+    ...new Set((items.results ?? []).filter((i) => i.kind === "topic").map((i) => i.ref_id)),
+  ];
   const names = new Map<string, string>();
   if (topicIds.length) {
     const topics = await db()
@@ -480,7 +495,14 @@ export const acceptInvite = createServerFn({ method: "POST" })
           `INSERT INTO users (id, email, password_hash, name, role, subscription_status, consent_pd, consent_child_pd, consent_at, created_at)
            VALUES (?, ?, ?, ?, 'parent', 'free', 1, 1, ?, ?)`,
         )
-        .bind(userId, email, await hashPassword(data.password), data.name.trim(), nowIso(), nowIso())
+        .bind(
+          userId,
+          email,
+          await hashPassword(data.password),
+          data.name.trim(),
+          nowIso(),
+          nowIso(),
+        )
         .run();
     }
 
@@ -555,7 +577,13 @@ export const studentCard = createServerFn({ method: "GET" })
           WHERE l.child_id = ? ORDER BY l.started_at DESC LIMIT 10`,
       )
       .bind(child.id)
-      .all<{ started_at: string; correct: number; total: number; seconds: number; topic: string }>();
+      .all<{
+        started_at: string;
+        correct: number;
+        total: number;
+        seconds: number;
+        topic: string;
+      }>();
 
     return {
       child: {
@@ -666,109 +694,179 @@ export const childAssignments = createServerFn({ method: "GET" })
    давать дальше. Содержимое заданий открывает подписка — это и есть то,
    за что он платит; без неё видны названия тем и бесплатные темы. */
 
-export const curriculum = createServerFn({ method: "GET" }).handler(async () => {
-  const user = await requireTutor();
-  const paid = user.subscriptionStatus === "active";
-
-  const subjects = await db()
-    .prepare("SELECT id, name FROM subjects ORDER BY sort_order")
-    .all<{ id: string; name: string }>();
-
-  const topics = await db()
-    .prepare(
-      `SELECT t.id, t.subject_id, t.grade, t.name, t.summary, t.is_free,
-              (SELECT COUNT(*) FROM tasks k WHERE k.topic_id = t.id AND k.is_check = 0) AS practice,
-              (SELECT COUNT(*) FROM tasks k WHERE k.topic_id = t.id AND k.is_check = 1) AS check_tasks
-         FROM topics t
-        ORDER BY t.subject_id, t.grade, t.sort_order`,
-    )
-    .all<{
-      id: string;
-      subject_id: string;
-      grade: number;
-      name: string;
-      summary: string | null;
-      is_free: number;
-      practice: number;
-      check_tasks: number;
-    }>();
-
-  const students = await db()
-    .prepare(
-      `SELECT c.id, c.name, c.grade FROM children c
-         JOIN child_access a ON a.child_id = c.id
-        WHERE a.user_id = ? AND a.role = 'tutor'
-        ORDER BY c.created_at`,
-    )
-    .bind(user.id)
-    .all<{ id: string; name: string; grade: number }>();
-
+/**
+ * Список программ для выбора: репетитор узнаёт учебник по названию и авторам.
+ *
+ * Базовая программа в список не попадает: её порядок и есть общий список тем,
+ * и вторая карточка с тем же содержимым только заставляла бы выбирать между
+ * одинаковыми вариантами.
+ */
+export const programs = createServerFn({ method: "GET" }).handler(async () => {
+  await requireTutor();
   return {
-    paid,
-    subjects: subjects.results ?? [],
-    topics: (topics.results ?? []).map((t) => ({
-      id: t.id,
-      subjectId: t.subject_id,
-      grade: t.grade,
-      name: t.name,
-      summary: t.summary,
-      free: !!t.is_free,
-      practice: Number(t.practice),
-      check: Number(t.check_tasks),
-      // Без подписки открыты только бесплатные темы — ровно то же правило,
-      // по которому тема открывается ученику.
-      locked: !paid && !t.is_free,
-    })),
-    students: students.results ?? [],
+    programs: programList()
+      .filter((p) => !p.isDefault)
+      .map((p) => ({
+        id: p.id,
+        name: p.name,
+        short: p.short,
+        share: p.share,
+        authors: p.authors,
+        note: p.note,
+        subjects: p.subjects,
+        warning: p.warning,
+      })),
   };
 });
+
+/**
+ * Тема каталога появляется в базе при первом обращении к ней.
+ *
+ * Сидить весь каталог на старте не нужно: это семьдесят девять тем и две с
+ * половиной тысячи заданий, которые в большинстве своём не понадобятся
+ * конкретному репетитору. Строки создаются в тот момент, когда тему выдают
+ * ученику, — тогда же они и нужны, потому что попытки ссылаются на task_id.
+ */
+async function materializeTopic(code: string): Promise<void> {
+  const topic = topicByCode(code);
+  if (!topic) throw new Error("Тема не найдена");
+  const existing = await db()
+    .prepare("SELECT id FROM topics WHERE id = ?")
+    .bind(code)
+    .first<{ id: string }>();
+  if (existing) return;
+
+  const tasks = catalogTasks(code);
+  await db().batch([
+    db()
+      .prepare(
+        `INSERT INTO topics (id, subject_id, grade, sort_order, name, summary, is_free)
+         VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
+      )
+      .bind(
+        code,
+        topic.subject,
+        topic.grade,
+        // Сид ложится в начало дорожки, каталог — следом за ним.
+        1000 + catalogIndex(code),
+        topic.title,
+        topic.hours ? `${topic.hours} ч по федеральной рабочей программе` : null,
+        isFreeTopic(code) ? 1 : 0,
+      ),
+    ...tasks.map((task, index) =>
+      db()
+        .prepare(
+          `INSERT INTO tasks (id, topic_id, kind, sort_order, prompt, payload, answer, explanation, is_check)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
+        )
+        .bind(
+          `${code}#${index}`,
+          code,
+          task.kind,
+          index,
+          task.prompt,
+          JSON.stringify(task.payload),
+          task.answer,
+          task.explanation,
+          task.isCheck ? 1 : 0,
+        ),
+    ),
+  ]);
+}
+
+/**
+ * Программа класса: темы в порядке выбранного учебника или общий список.
+ *
+ * Класс спрашивается всегда, программа — по желанию. Так и работает
+ * подготовка к занятию: сначала «третий класс», потом уже «а учебник у нас
+ * Петерсон».
+ */
+export const curriculum = createServerFn({ method: "GET" })
+  .inputValidator(
+    z.object({
+      programId: z.string().nullable().default(null),
+      grade: z.number().int().min(1).max(4).default(1),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const user = await requireTutor();
+    const paid = user.subscriptionStatus === "active";
+    const program = programById(data.programId);
+
+    const students = await db()
+      .prepare(
+        `SELECT c.id, c.name, c.grade FROM children c
+           JOIN child_access a ON a.child_id = c.id
+          WHERE a.user_id = ? AND a.role = 'tutor'
+          ORDER BY c.created_at`,
+      )
+      .bind(user.id)
+      .all<{ id: string; name: string; grade: number }>();
+
+    const subjects = SUBJECTS.filter((s) => !program || program.subjects.includes(s.id)).map(
+      (subject) => ({
+        id: subject.id,
+        name: subject.name,
+        topics: topicsFor(program?.id ?? null, subject.id, data.grade).map((topic) => ({
+          code: topic.code,
+          title: topic.title,
+          hours: topic.hours,
+          chapters: topic.chapters,
+          inProgram: topic.inProgram,
+          practice: PRACTICE_SIZE,
+          check: CHECK_SIZE,
+          free: isFreeTopic(topic.code),
+          // Без подписки открыты только бесплатные темы — ровно то же правило,
+          // по которому тема открывается ученику.
+          locked: !paid && !isFreeTopic(topic.code),
+        })),
+      }),
+    );
+
+    return {
+      paid,
+      grade: data.grade,
+      program: program
+        ? {
+            id: program.id,
+            name: program.name,
+            short: program.short,
+            note: program.note,
+            warning: program.warning,
+          }
+        : null,
+      // Предметы, которых нет у программы, репетитор всё равно ведёт: у
+      // Петерсон это русский, и его показываем по общему списку.
+      missingSubjects: SUBJECTS.filter((s) => program && !program.subjects.includes(s.id)).map(
+        (s) => s.name,
+      ),
+      deltas: deltasFor(program?.id ?? null, data.grade),
+      subjects,
+      students: students.results ?? [],
+    };
+  });
 
 /** Задания темы целиком: тренировка, проверочная, ответы и разборы. */
 export const topicTasks = createServerFn({ method: "GET" })
   .inputValidator(z.object({ topicId: z.string() }))
   .handler(async ({ data }) => {
     const user = await requireTutor();
-    const topic = await db()
-      .prepare("SELECT id, name, is_free FROM topics WHERE id = ?")
-      .bind(data.topicId)
-      .first<{ id: string; name: string; is_free: number }>();
+    const topic = topicByCode(data.topicId);
     if (!topic) throw new Error("Тема не найдена");
-    if (!topic.is_free && user.subscriptionStatus !== "active") {
+    if (!isFreeTopic(topic.code) && user.subscriptionStatus !== "active") {
       throw new Error("Задания этой темы открывает подписка");
     }
 
-    const tasks = await db()
-      .prepare(
-        `SELECT id, kind, prompt, payload, answer, explanation, is_check
-           FROM tasks WHERE topic_id = ? ORDER BY is_check, sort_order`,
-      )
-      .bind(data.topicId)
-      .all<{
-        id: string;
-        kind: string;
-        prompt: string;
-        payload: string;
-        answer: string;
-        explanation: string;
-        is_check: number;
-      }>();
-
     return {
-      topic: { id: topic.id, name: topic.name },
-      tasks: (tasks.results ?? []).map((t) => ({
-        id: t.id,
-        kind: t.kind,
-        prompt: t.prompt,
-        options: ((): string[] => {
-          try {
-            return (JSON.parse(t.payload) as { options?: string[] }).options ?? [];
-          } catch {
-            return [];
-          }
-        })(),
-        answer: t.answer,
-        explanation: t.explanation,
-        check: !!t.is_check,
+      topic: { id: topic.code, name: topic.title },
+      tasks: catalogTasks(topic.code).map((task, index) => ({
+        id: `${topic.code}#${index}`,
+        kind: task.kind,
+        prompt: task.prompt,
+        options: task.payload.options ?? [],
+        answer: task.answer,
+        explanation: task.explanation,
+        check: task.isCheck,
       })),
     };
   });
@@ -789,6 +887,9 @@ export const assignTopic = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const user = await requireTutor();
+    // Тема каталога до первой выдачи в базе не существует — создаём её вместе
+    // с заданиями, иначе ученику будет некуда зайти.
+    if (topicByCode(data.topicId)) await materializeTopic(data.topicId);
     const topic = await db()
       .prepare("SELECT id, name FROM topics WHERE id = ?")
       .bind(data.topicId)
@@ -902,7 +1003,9 @@ export const createCustomAssignment = createServerFn({ method: "POST" })
 
 /** Вложение отдаётся отдельным запросом: в списке заданий оно ни к чему. */
 export const customTaskFile = createServerFn({ method: "GET" })
-  .inputValidator(z.object({ itemId: z.string(), which: z.enum(["task", "answer"]).default("task") }))
+  .inputValidator(
+    z.object({ itemId: z.string(), which: z.enum(["task", "answer"]).default("task") }),
+  )
   .handler(async ({ data }) => {
     const user = await requireUser();
     // Задание педагога и ответ ученика лежат в разных таблицах, но отдаются
@@ -919,10 +1022,12 @@ export const customTaskFile = createServerFn({ method: "GET" })
              JOIN assignments a ON a.id = ai.assignment_id
              JOIN custom_tasks t ON t.id = ai.ref_id
             WHERE ai.id = ?`;
-    const row = await db()
-      .prepare(source)
-      .bind(data.itemId)
-      .first<{ child_id: string; file_name: string | null; file_type: string | null; file_data: string | null }>();
+    const row = await db().prepare(source).bind(data.itemId).first<{
+      child_id: string;
+      file_name: string | null;
+      file_type: string | null;
+      file_data: string | null;
+    }>();
     if (!row?.file_data) throw new Error("Файла нет");
     await requireChildAccess(row.child_id, user.id);
     return { name: row.file_name, type: row.file_type, data: row.file_data };
@@ -980,8 +1085,16 @@ export const submitCustomAnswer = createServerFn({ method: "POST" })
            ON CONFLICT (item_id) DO UPDATE SET file_name = ?, file_type = ?, file_data = ?, uploaded_at = ?`,
         )
         .bind(
-          data.itemId, row.child_id, data.file.name, data.file.type, data.file.data, now,
-          data.file.name, data.file.type, data.file.data, now,
+          data.itemId,
+          row.child_id,
+          data.file.name,
+          data.file.type,
+          data.file.data,
+          now,
+          data.file.name,
+          data.file.type,
+          data.file.data,
+          now,
         )
         .run();
     }
@@ -1026,7 +1139,11 @@ export const gradeCustomAnswer = createServerFn({ method: "POST" })
         nowIso(),
       )
       .run();
-    await track("custom_graded", { userId: user.id, childId: row.child_id, props: { grade: data.grade } });
+    await track("custom_graded", {
+      userId: user.id,
+      childId: row.child_id,
+      props: { grade: data.grade },
+    });
     return { ok: true };
   });
 
@@ -1093,7 +1210,9 @@ export const tutorCancelSubscription = createServerFn({ method: "POST" }).handle
   await db().batch([
     db().prepare("UPDATE users SET subscription_status = 'free' WHERE id = ?").bind(user.id),
     db()
-      .prepare("UPDATE subscriptions SET status = 'cancelled' WHERE user_id = ? AND status = 'active'")
+      .prepare(
+        "UPDATE subscriptions SET status = 'cancelled' WHERE user_id = ? AND status = 'active'",
+      )
       .bind(user.id),
   ]);
   return { ok: true };
@@ -1111,7 +1230,11 @@ export const assignDrill = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const user = await requireTutor();
     const title =
-      data.kind === "chtenie" ? "Скорочтение" : data.kind === "shulte" ? "Таблица Шульте" : "Устный счёт";
+      data.kind === "chtenie"
+        ? "Скорочтение"
+        : data.kind === "shulte"
+          ? "Таблица Шульте"
+          : "Устный счёт";
 
     for (const childId of data.childIds) {
       await requireStudent(childId, user.id);
@@ -1131,6 +1254,9 @@ export const assignDrill = createServerFn({ method: "POST" })
           .bind(uid("ai"), id, data.kind),
       ]);
     }
-    await track("drill_assigned", { userId: user.id, props: { kind: data.kind, students: data.childIds.length } });
+    await track("drill_assigned", {
+      userId: user.id,
+      props: { kind: data.kind, students: data.childIds.length },
+    });
     return { count: data.childIds.length };
   });

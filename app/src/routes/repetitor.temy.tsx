@@ -1,9 +1,9 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { QuietAction, SiteFooter, SiteHeader } from "../components/brand";
 import { me } from "../lib/api/app.functions";
-import { assignTopic, curriculum, topicTasks } from "../lib/api/tutor.functions";
+import { assignTopic, curriculum, programs, topicTasks } from "../lib/api/tutor.functions";
 
 export const Route = createFileRoute("/repetitor/temy")({
   head: () => ({ meta: [{ title: "Темы и задания, Совёнок" }] }),
@@ -11,7 +11,12 @@ export const Route = createFileRoute("/repetitor/temy")({
 });
 
 type Data = Awaited<ReturnType<typeof curriculum>>;
+type Programs = Awaited<ReturnType<typeof programs>>["programs"];
 type Tasks = Awaited<ReturnType<typeof topicTasks>>;
+
+const GRADES = [1, 2, 3, 4];
+/** Выбранный учебник меняется редко, а нужен каждое занятие. */
+const PROGRAM_KEY = "sov_program";
 
 function defaultDue(): string {
   return new Date(Date.now() + 7 * 864e5).toISOString().slice(0, 10);
@@ -19,11 +24,19 @@ function defaultDue(): string {
 
 /**
  * Программа целиком: репетитор готовится к занятию и решает, что давать
- * дальше, а для этого нужно видеть все темы обоих классов и то, из чего
- * они состоят. Срез под конкретного ученика для этого не годится.
+ * дальше.
+ *
+ * Экран устроен как разговор с родителем на первом занятии: сначала класс,
+ * потом «а по какому учебнику учитесь». Класс обязателен — тем в начальной
+ * школе почти восемьдесят, и показывать их одним списком бессмысленно.
+ * Программа необязательна: если учебник неизвестен, открывается общий список
+ * в порядке федеральной рабочей программы, а темы в нём те же самые.
  */
 function CurriculumPage() {
   const navigate = useNavigate();
+  const [grade, setGrade] = useState(1);
+  const [programId, setProgramId] = useState<string | null>(null);
+  const [programList, setProgramList] = useState<Programs>([]);
   const [data, setData] = useState<Data | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [openTopic, setOpenTopic] = useState<string | null>(null);
@@ -41,39 +54,51 @@ function CurriculumPage() {
         await navigate({ to: "/roditel" });
         return;
       }
+      const saved = localStorage.getItem(PROGRAM_KEY);
+      if (saved) setProgramId(saved);
       try {
-        setData(await curriculum());
+        setProgramList((await programs()).programs);
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Не удалось загрузить программу");
+        setError(e instanceof Error ? e.message : "Не удалось загрузить список программ");
       }
     })();
   }, [navigate]);
 
-  async function toggleTopic(id: string) {
-    if (openTopic === id) {
+  const load = useCallback(async () => {
+    setOpenTopic(null);
+    setTasks(null);
+    setAssignTo(null);
+    try {
+      setData(await curriculum({ data: { programId, grade } }));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Не удалось загрузить программу");
+    }
+  }, [grade, programId]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  function chooseProgram(id: string | null) {
+    setProgramId(id);
+    if (id) localStorage.setItem(PROGRAM_KEY, id);
+    else localStorage.removeItem(PROGRAM_KEY);
+  }
+
+  async function toggleTopic(code: string) {
+    if (openTopic === code) {
       setOpenTopic(null);
       setTasks(null);
       return;
     }
-    setOpenTopic(id);
+    setOpenTopic(code);
     setTasks(null);
     setError(null);
     try {
-      setTasks(await topicTasks({ data: { topicId: id } }));
+      setTasks(await topicTasks({ data: { topicId: code } }));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Не удалось открыть задания");
     }
-  }
-
-  if (!data) {
-    return (
-      <div className="sov">
-        <SiteHeader right={<QuietAction to="/repetitor">К ученикам</QuietAction>} />
-        <main className="sov-narrow" style={{ paddingTop: 40 }}>
-          {error ? <div className="sov-alert">{error}</div> : <p className="sov-mono">Открываем программу…</p>}
-        </main>
-      </div>
-    );
   }
 
   return (
@@ -89,10 +114,57 @@ function CurriculumPage() {
 
       <main className="sov-shell" style={{ paddingBottom: 60 }}>
         <h1 style={{ fontSize: "2.2rem", marginTop: 10 }}>Темы и задания</h1>
-        <p style={{ marginTop: 12, color: "var(--sov-ink-soft)", fontWeight: 500, maxWidth: "60ch" }}>
-          Вся программа 1 и 2 класса. Можно посмотреть, из чего состоит тема, и задать её сразу
-          нескольким ученикам — класс ученика при этом ничего не ограничивает.
+        <p
+          style={{ marginTop: 12, color: "var(--sov-ink-soft)", fontWeight: 500, maxWidth: "62ch" }}
+        >
+          Выберите класс, а при желании и программу школы: набор тем в классе один и тот же для всех
+          учебников, программа меняет порядок и названия. На каждую тему готовы 30 тренировочных
+          заданий и проверочная.
         </p>
+
+        <section className="sov-course">
+          <h2 className="sov-course__label">Класс</h2>
+          <div className="sov-chips" style={{ marginTop: 8 }}>
+            {GRADES.map((g) => (
+              <button
+                key={g}
+                type="button"
+                className="sov-chip"
+                data-active={grade === g}
+                onClick={() => setGrade(g)}
+              >
+                {g} класс
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="sov-course">
+          <h2 className="sov-course__label">Программа школы</h2>
+          <div className="sov-course__grid">
+            <button
+              type="button"
+              className="sov-course__card"
+              data-active={programId === null}
+              onClick={() => chooseProgram(null)}
+            >
+              <strong>Общий список тем</strong>
+              <span>Не знаю учебник — порядок федеральной рабочей программы</span>
+            </button>
+            {programList.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                className="sov-course__card"
+                data-active={programId === p.id}
+                onClick={() => chooseProgram(p.id)}
+              >
+                <strong>{p.short}</strong>
+                <span>{p.share ?? p.note}</span>
+              </button>
+            ))}
+          </div>
+        </section>
 
         {error ? (
           <div className="sov-alert" style={{ marginTop: 18 }}>
@@ -100,103 +172,171 @@ function CurriculumPage() {
           </div>
         ) : null}
 
-        {!data.paid ? (
-          <div className="sov-save-hint" style={{ marginTop: 22 }}>
-            <strong>Задания открывает подписка</strong>
-            <span>
-              Названия тем видны всегда, а содержимое — на бесплатных темах. С подпиской
-              открываются задания всех тем, и их можно задавать любому ученику.
-            </span>
-          </div>
-        ) : null}
+        {!data ? (
+          <p className="sov-mono" style={{ marginTop: 26 }}>
+            Открываем программу…
+          </p>
+        ) : (
+          <>
+            {data.program?.warning ? (
+              <div className="sov-risk" style={{ marginTop: 20 }}>
+                {data.program.warning}
+              </div>
+            ) : null}
 
-        {data.subjects.map((subject) => (
-          <section key={subject.id} className="sov-quest">
-            <header className="sov-quest__head">
-              <h2>{subject.name}</h2>
-              <span className="sov-quest__count">
-                {data.topics.filter((t) => t.subjectId === subject.id).length} тем
-              </span>
-            </header>
+            {data.deltas.length ? (
+              <section className="sov-quest">
+                <header className="sov-quest__head">
+                  <h2>
+                    Чем {data.program?.short} отличается в {data.grade} классе
+                  </h2>
+                </header>
+                <div className="sov-diff">
+                  {data.deltas.map((d, i) => (
+                    <article key={i} className="sov-diff__item" data-kind={d.type}>
+                      <b>
+                        {d.type === "ahead"
+                          ? "Опережение"
+                          : d.type === "extra"
+                            ? "Своя тема"
+                            : d.type === "behind"
+                              ? "Отставание"
+                              : d.type === "terminology"
+                                ? "Другие термины"
+                                : "Базовый темп"}
+                        {" · "}
+                        {d.subject === "math" ? "математика" : "русский язык"}
+                      </b>
+                      <strong>{d.what}</strong>
+                      <span>{d.impact}</span>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            ) : null}
 
-            <div className="sov-prog">
-              {data.topics
-                .filter((t) => t.subjectId === subject.id)
-                .map((topic) => (
-                  <article key={topic.id} className="sov-prog__item" data-locked={topic.locked}>
-                    <div className="sov-prog__head">
-                      <div className="sov-prog__title">
-                        <strong>{topic.name}</strong>
-                        <span className="sov-prog__meta">
-                          {topic.grade} класс · {topic.practice} тренировочных ·{" "}
-                          {topic.check} в проверочной
-                          {topic.free ? " · открыта всем" : ""}
-                        </span>
+            {data.missingSubjects.length ? (
+              <div className="sov-save-hint" style={{ marginTop: 22 }}>
+                <strong>{data.missingSubjects.join(" и ")}: программа не задаёт порядок</strong>
+                <span>
+                  Этот учебник в каталоге описан только по своим предметам. Остальное открывайте
+                  общим списком — темы там те же.
+                </span>
+              </div>
+            ) : null}
+
+            {!data.paid ? (
+              <div className="sov-save-hint" style={{ marginTop: 22 }}>
+                <strong>Задания открывает подписка</strong>
+                <span>
+                  Названия тем и порядок видны всегда, а содержимое — на первой теме каждого
+                  предмета. С подпиской открываются задания всех тем, и их можно задавать любому
+                  ученику.
+                </span>
+              </div>
+            ) : null}
+
+            {data.subjects.map((subject) => (
+              <section key={subject.id} className="sov-quest">
+                <header className="sov-quest__head">
+                  <h2>{subject.name}</h2>
+                  <span className="sov-quest__count">
+                    {subject.topics.length} тем · {subject.topics.length * 30} заданий
+                  </span>
+                </header>
+
+                <div className="sov-prog">
+                  {subject.topics.map((topic, index) => (
+                    <article key={topic.code} className="sov-prog__item" data-locked={topic.locked}>
+                      <div className="sov-prog__head">
+                        <div className="sov-prog__title">
+                          <strong>
+                            <span className="sov-prog__no">{index + 1}</span>
+                            {topic.title}
+                          </strong>
+                          <span className="sov-prog__meta">
+                            {topic.practice} тренировочных · {topic.check} в проверочной
+                            {topic.hours ? ` · ${topic.hours} ч в школе` : ""}
+                            {topic.free ? " · открыта всем" : ""}
+                          </span>
+                        </div>
+                        <div className="sov-prog__actions">
+                          <button
+                            type="button"
+                            className="sov-act-ghost"
+                            onClick={() => toggleTopic(topic.code)}
+                          >
+                            {openTopic === topic.code ? "Свернуть" : "Задания"}
+                          </button>
+                          <button
+                            type="button"
+                            className="sov-act-ghost"
+                            onClick={() => setAssignTo(assignTo === topic.code ? null : topic.code)}
+                            disabled={data.students.length === 0}
+                          >
+                            Задать
+                          </button>
+                        </div>
                       </div>
-                      <div className="sov-prog__actions">
-                        <button
-                          type="button"
-                          className="sov-act-ghost"
-                          onClick={() => toggleTopic(topic.id)}
-                        >
-                          {openTopic === topic.id ? "Свернуть" : "Задания"}
-                        </button>
-                        <button
-                          type="button"
-                          className="sov-act-ghost"
-                          onClick={() => setAssignTo(assignTo === topic.id ? null : topic.id)}
-                          disabled={data.students.length === 0}
-                        >
-                          Задать
-                        </button>
-                      </div>
-                    </div>
 
-                    {topic.summary ? <p className="sov-prog__summary">{topic.summary}</p> : null}
-
-                    {assignTo === topic.id ? (
-                      <AssignPanel
-                        topicId={topic.id}
-                        students={data.students}
-                        onDone={() => setAssignTo(null)}
-                      />
-                    ) : null}
-
-                    {openTopic === topic.id ? (
-                      tasks ? (
-                        <ol className="sov-tasks">
-                          {tasks.tasks.map((task) => (
-                            <li key={task.id} data-check={task.check}>
-                              <b>
-                                {task.check ? "Проверочная" : "Тренировка"}
-                                {task.kind === "choice"
-                                  ? " · выбор"
-                                  : task.kind === "match"
-                                    ? " · сопоставление"
-                                    : " · ввод ответа"}
-                              </b>
-                              <span className="sov-tasks__prompt">{task.prompt}</span>
-                              {task.options.length ? (
-                                <span className="sov-tasks__options">
-                                  {task.options.join(" · ")}
-                                </span>
-                              ) : null}
-                              <span className="sov-tasks__answer">Ответ: {task.answer}</span>
-                              <span className="sov-tasks__why">{task.explanation}</span>
-                            </li>
-                          ))}
-                        </ol>
-                      ) : (
-                        <p className="sov-mono" style={{ marginTop: 10 }}>
-                          Открываем задания…
+                      {topic.chapters.length ? (
+                        <p className="sov-prog__chapters">
+                          <b>В учебнике:</b> {topic.chapters.join(" · ")}
                         </p>
-                      )
-                    ) : null}
-                  </article>
-                ))}
-            </div>
-          </section>
-        ))}
+                      ) : null}
+
+                      {!topic.inProgram && data.program ? (
+                        <p className="sov-prog__chapters" data-tone="soft">
+                          В оглавлении этого учебника отдельной главы нет — тема идёт внутри других
+                          или в повторении.
+                        </p>
+                      ) : null}
+
+                      {assignTo === topic.code ? (
+                        <AssignPanel
+                          topicId={topic.code}
+                          students={data.students}
+                          onDone={() => setAssignTo(null)}
+                        />
+                      ) : null}
+
+                      {openTopic === topic.code ? (
+                        tasks && tasks.topic.id === topic.code ? (
+                          <ol className="sov-tasks">
+                            {tasks.tasks.map((task) => (
+                              <li key={task.id} data-check={task.check}>
+                                <b>
+                                  {task.check ? "Проверочная" : "Тренировка"}
+                                  {task.kind === "choice"
+                                    ? " · выбор"
+                                    : task.kind === "match"
+                                      ? " · сопоставление"
+                                      : " · ввод ответа"}
+                                </b>
+                                <span className="sov-tasks__prompt">{task.prompt}</span>
+                                {task.options.length ? (
+                                  <span className="sov-tasks__options">
+                                    {task.options.join(" · ")}
+                                  </span>
+                                ) : null}
+                                <span className="sov-tasks__answer">Ответ: {task.answer}</span>
+                                <span className="sov-tasks__why">{task.explanation}</span>
+                              </li>
+                            ))}
+                          </ol>
+                        ) : (
+                          <p className="sov-mono" style={{ marginTop: 10 }}>
+                            Открываем задания…
+                          </p>
+                        )
+                      ) : null}
+                    </article>
+                  ))}
+                </div>
+              </section>
+            ))}
+          </>
+        )}
       </main>
       <SiteFooter />
     </div>

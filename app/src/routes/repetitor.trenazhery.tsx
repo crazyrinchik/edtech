@@ -3,14 +3,14 @@ import { useEffect, useState } from "react";
 
 import { QuietAction, SiteFooter, SiteHeader } from "../components/brand";
 import { me } from "../lib/api/app.functions";
-import { assignDrill, curriculum } from "../lib/api/tutor.functions";
+import { assignDrill, tutorStudents } from "../lib/api/tutor.functions";
 
 export const Route = createFileRoute("/repetitor/trenazhery")({
   head: () => ({ meta: [{ title: "Тренажёры, Совёнок" }] }),
   component: TrainersPage,
 });
 
-type Students = Awaited<ReturnType<typeof curriculum>>["students"];
+type Students = Awaited<ReturnType<typeof tutorStudents>>["students"];
 
 function defaultDue(): string {
   return new Date(Date.now() + 7 * 864e5).toISOString().slice(0, 10);
@@ -72,7 +72,7 @@ function TrainersPage() {
         return;
       }
       try {
-        setStudents((await curriculum()).students);
+        setStudents((await tutorStudents()).students);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Не удалось загрузить учеников");
       }
@@ -92,9 +92,11 @@ function TrainersPage() {
 
       <main className="sov-shell" style={{ paddingBottom: 60 }}>
         <h1 style={{ fontSize: "2.2rem", marginTop: 10 }}>Тренажёры</h1>
-        <p style={{ marginTop: 12, color: "var(--sov-ink-soft)", fontWeight: 500, maxWidth: "62ch" }}>
-          Три тренажёра поверх программы: они не привязаны к темам и работают без подписки.
-          Задать можно сразу нескольким ученикам — так же, как тему.
+        <p
+          style={{ marginTop: 12, color: "var(--sov-ink-soft)", fontWeight: 500, maxWidth: "62ch" }}
+        >
+          Три тренажёра поверх программы: они не привязаны к темам и работают без подписки. Задать
+          можно сразу нескольким ученикам — так же, как тему.
         </p>
 
         {error ? (
