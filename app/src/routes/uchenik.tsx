@@ -11,6 +11,7 @@ import {
 } from "../components/brand";
 import { coinsLabel, SHOP } from "../lib/shop";
 import { AutoSpeakToggle, SpeakButton } from "../components/speak";
+import { Bar, Ring, WeekStrip, weekBuckets } from "../components/figures";
 import { getDiagnostic, getSkillMap, me, submitDiagnostic } from "../lib/api/app.functions";
 import { buyOwlItem, equipOwlItem } from "../lib/api/app.functions";
 import { childAssignments, customTaskFile, submitCustomAnswer } from "../lib/api/tutor.functions";
@@ -48,7 +49,7 @@ type TopicItem = {
 type MapData = {
   child: { id: string; name: string; avatar: string; grade: number; soundOn: boolean; dailyLimitMin: number; diagnosticsDone: boolean };
   subjects: { id: string; name: string; topics: TopicItem[] }[];
-  totalStars: number; level: number; paid: boolean; hasTutor: boolean;
+  totalStars: number; level: number; paid: boolean; hasTutor: boolean; weekRuns: string[];
   coins: number; earned: number; owned: string[]; equipped: string;
 };
 type DiagData = {
@@ -160,6 +161,19 @@ function PupilPage() {
   const starsInLevel = data.totalStars % STARS_PER_LEVEL;
   const toNextLevel = stage >= 5 ? 0 : STARS_PER_LEVEL - starsInLevel;
 
+  // Занятия за неделю раскладываются по календарным дням здесь, а не на
+  // сервере: часовой пояс ребёнка знает только браузер (см. figures.tsx).
+  const weekDays = weekBuckets(data.weekRuns, (iso) => iso).map((d) => ({
+    label: d.label,
+    count: d.rows.length,
+    today: d.today,
+  }));
+  const topicsDone = data.subjects.reduce(
+    (sum, s) => sum + s.topics.filter((t) => t.status === "completed").length,
+    0,
+  );
+  const topicsTotal = data.subjects.reduce((sum, s) => sum + s.topics.length, 0);
+
   return (
     <div className="sov sov-kid">
       <div className="sov-shell">
@@ -221,6 +235,17 @@ function PupilPage() {
                   : `Ещё ${toNextLevel} ${plural(toNextLevel, "звезда", "звезды", "звёзд")} — и совёнок подрастёт`}
               </span>
             </div>
+          </div>
+
+          {/* Неделя занятий: пропущенный день ребёнок замечает сам, без
+              взрослого и без единой строки текста. Рядом — кольцо со
+              счётом пройденных тем: «5 из 10» вместо «18 звёзд» в
+              пустоте. */}
+          <div className="sov-hollow__week">
+            <WeekStrip days={weekDays} />
+            <Ring value={topicsTotal ? (topicsDone / topicsTotal) * 100 : 0} size={56} label={`Пройдено ${topicsDone} тем из ${topicsTotal}`}>
+              {`${topicsDone}/${topicsTotal}`}
+            </Ring>
           </div>
         </div>
 
@@ -332,16 +357,20 @@ function PupilPage() {
             репетитор, программу выбирает он: свободная карта рядом с
             заданием предлагала ребёнку заняться чем-то другим, а темы
             вперёд плана ломали последовательность, которую держит педагог. */}
-        {data.hasTutor
-          ? null
-          : data.subjects.map((subject) => {
+        {data.hasTutor ? null : (
+          // Тропа больше не ограничена шириной колонки, и два предмета
+          // помещаются рядом: вся карта видна целиком, без прокрутки до
+          // русского языка.
+          <div className="sov-quests">
+            {data.subjects.map((subject) => {
           const passed = subject.topics.filter((t) => t.status === "completed").length;
+          const stars = subject.topics.reduce((sum, t) => sum + t.stars, 0);
           return (
             <section key={subject.id} className="sov-quest">
               <header className="sov-quest__head">
                 <h2>{subject.name}</h2>
                 <span className="sov-quest__count">
-                  {passed} из {subject.topics.length}
+                  {passed} из {subject.topics.length} · ★ {stars}
                 </span>
               </header>
 
@@ -355,13 +384,11 @@ function PupilPage() {
                   // открывает взрослый, а предыдущую тему он проходит сам.
                   const note = topic.locked
                     ? "Откроется с подпиской"
-                    : done
-                      ? `Пройдено на ${topic.bestPercent}%`
-                      : topic.reason === "sequence"
-                        ? `Сначала пройди «${topic.needsTopic}»`
-                        : started
-                          ? `Начато, лучший результат ${topic.bestPercent}%`
-                          : topic.summary;
+                    : topic.reason === "sequence"
+                      ? `После «${topic.needsTopic}»`
+                      : done || started
+                        ? null
+                        : topic.summary;
                   const assigned = assignedTopics.has(topic.id);
                   const body = (
                     <>
@@ -371,7 +398,18 @@ function PupilPage() {
                           {topic.name}
                           {assigned ? <em className="sov-level__tag">задано</em> : null}
                         </strong>
-                        <span>{note}</span>
+                        {/* У пройденной и начатой темы вместо строки
+                            «Пройдено на 92%» стоит полоса с засечкой
+                            порога: она отвечает и «сколько», и
+                            «засчитано ли», и читается не читая. */}
+                        {done || started ? (
+                          <Bar
+                            percent={topic.bestPercent}
+                            label={`${topic.name}: лучший результат ${topic.bestPercent} процентов`}
+                          />
+                        ) : (
+                          <span>{note}</span>
+                        )}
                       </span>
                       <Stars value={topic.stars} />
                     </>
@@ -419,6 +457,8 @@ function PupilPage() {
               </section>
             );
           })}
+          </div>
+        )}
 
         {/* Лавка вместо полки наград. Раньше вещь выдавалась вместе с ростом
             на том же уровне — выбора не было ни в чём. Теперь совёнок растёт
@@ -502,15 +542,10 @@ function PupilPage() {
           ) : null}
         </section>
 
-        {!data.paid && !data.hasTutor ? (
-          <div className="sov-panel" style={{ marginTop: 40, marginBottom: 40 }}>
-            <h3>Остальные темы пока закрыты</h3>
-            <p style={{ marginTop: 8, color: "var(--sov-ink-soft)" }}>
-              Их откроет твой взрослый — педагог или родитель. Пока в каждом предмете открыта
-              первая тема, а тренажёры работают целиком.
-            </p>
-          </div>
-        ) : null}
+        {/* Панель «Остальные темы пока закрыты» отсюда убрана: замок на
+            кружке и подпись «Откроется с подпиской» под ним говорят то же
+            самое там, где ребёнок на это смотрит, — а не абзацем в конце
+            страницы, до которого он не доскроллит. */}
       </div>
     </div>
   );

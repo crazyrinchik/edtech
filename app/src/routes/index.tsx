@@ -134,6 +134,12 @@ function Steps() {
         <div key={step.id} className="sov-section sov-shell">
           <div className={`sov-split${i % 2 ? " sov-split--flip" : ""}`}>
             <div>
+              {/* Четыре таких экрана идут подряд, и без счётчика непонятно,
+                  сколько ещё листать: читатель бросает не потому, что
+                  скучно, а потому, что не видно конца. */}
+              <p className="sov-step-count">
+                Шаг {i + 1} из {STEPS.length}
+              </p>
               <h2>{step.title}</h2>
               <p className="sov-section__lead">{step.text}</p>
               <div className="sov-journey__tags">

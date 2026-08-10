@@ -387,6 +387,15 @@ export const getSkillMap = createServerFn({ method: "GET" })
       .bind(data.childId)
       .all<{ topic_id: string; status: string; stars: number; best_percent: number }>();
 
+    // Занятия за неделю — для полоски дней в шапке: пропущенный день
+    // ребёнок видит сам, без взрослого и без единой строки текста.
+    // Отдаются метками времени, а не счётчиком по дням: календарный день
+    // считает клиент, у которого есть часовой пояс (см. parentReport).
+    const weekRuns = await db()
+      .prepare("SELECT started_at FROM lessons WHERE child_id = ? AND started_at > ? ORDER BY started_at")
+      .bind(data.childId, new Date(Date.now() - 7 * 864e5).toISOString())
+      .all<{ started_at: string }>();
+
     const byTopic = new Map((progress.results ?? []).map((p) => [p.topic_id, p]));
 
     const map = (subjects.results ?? []).map((subject) => {
@@ -425,6 +434,7 @@ export const getSkillMap = createServerFn({ method: "GET" })
       subjects: map,
       totalStars,
       level: Math.floor(totalStars / 5) + 1,
+      weekRuns: (weekRuns.results ?? []).map((r) => r.started_at),
       paid,
       ...(await owlState(data.childId)),
       // Есть ли у ученика педагог: от этого зависит, показывать ли карту
@@ -645,6 +655,13 @@ export const parentReport = createServerFn({ method: "GET" })
       .bind(data.childId)
       .first<{ n: number; stars: number }>();
 
+    // Знаменатель для «пройдено тем»: без него число растёт в пустоте и
+    // не говорит, много это или мало.
+    const topicsTotal = await db()
+      .prepare("SELECT COUNT(*) AS n FROM topics WHERE grade = ?")
+      .bind(child.grade)
+      .first<{ n: number }>();
+
     // Во всех GROUP BY ниже неагрегированные колонки (t.name, s.name)
     // перечислены явно: SQLite разрешает выбирать их «мимо» GROUP BY,
     // PostgreSQL это запрещает. Имена однозначны для topic_id, поэтому
@@ -688,6 +705,65 @@ export const parentReport = createServerFn({ method: "GET" })
       .bind(data.childId)
       .all<{ kind: string; runs: number; correct: number; total: number; last_at: string }>();
 
+    // Доля верных по каждой теме, а не только по проблемным. Раньше здесь
+    // был один список «зон риска» и абзац, объясняющий, что это такое;
+    // полоса, у которой отмечен порог 70%, объясняет себя сама, но для
+    // этого ей нужны все темы, а не только те, что ниже порога.
+    const mastery = await db()
+      .prepare(
+        `SELECT t.name AS topic, s.name AS subject, t.subject_id AS subject_id,
+                t.sort_order AS sort_order,
+                COUNT(*) AS total, SUM(a.is_correct) AS correct
+           FROM attempts a
+           JOIN topics t ON t.id = a.topic_id
+           JOIN subjects s ON s.id = t.subject_id
+          WHERE a.child_id = ?
+          GROUP BY a.topic_id, t.name, s.name, t.subject_id, t.sort_order
+          ORDER BY t.subject_id, t.sort_order`,
+      )
+      .bind(data.childId)
+      .all<{ topic: string; subject: string; subject_id: string; sort_order: number; total: number; correct: number }>();
+
+    // Точность за прошлую неделю — чтобы у числа была стрелка, а не просто
+    // цифра: «78%» ни о чём не говорит, «78%, было 71%» говорит всё.
+    const twoWeeksAgo = new Date(Date.now() - 14 * 864e5).toISOString();
+    const weekAcc = await db()
+      .prepare(
+        `SELECT COUNT(*) AS attempts, SUM(is_correct) AS correct
+           FROM attempts WHERE child_id = ? AND created_at > ?`,
+      )
+      .bind(data.childId, weekAgo)
+      .first<{ attempts: number; correct: number | null }>();
+    const prevAcc = await db()
+      .prepare(
+        `SELECT COUNT(*) AS attempts, SUM(is_correct) AS correct
+           FROM attempts WHERE child_id = ? AND created_at > ? AND created_at <= ?`,
+      )
+      .bind(data.childId, twoWeeksAgo, weekAgo)
+      .first<{ attempts: number; correct: number | null }>();
+
+    // Занятия за неделю отдаются строками, а не сгруппированными по дням:
+    // разложить их по календарным дням может только клиент — на сервере
+    // нет часового пояса ребёнка, и занятие в девять вечера по Москве
+    // ушло бы в следующий день.
+    const weekRuns = await db()
+      .prepare(
+        `SELECT started_at, seconds FROM lessons
+          WHERE child_id = ? AND started_at > ? ORDER BY started_at`,
+      )
+      .bind(data.childId, weekAgo)
+      .all<{ started_at: string; seconds: number }>();
+
+    // Последние заходы тренажёров: по одной точке на заход, чтобы было
+    // видно направление. Сорок строк с запасом на оба тренажёра.
+    const drillRuns = await db()
+      .prepare(
+        `SELECT kind, correct, total, score, created_at FROM drills
+          WHERE child_id = ? ORDER BY created_at DESC LIMIT 40`,
+      )
+      .bind(data.childId)
+      .all<{ kind: string; correct: number; total: number; score: number; created_at: string }>();
+
     await track("parent_dashboard_opened", { userId: user.id, childId: data.childId });
 
     const attempts = totals?.attempts ?? 0;
@@ -698,12 +774,27 @@ export const parentReport = createServerFn({ method: "GET" })
       weekLessons: week?.lessons ?? 0,
       weekMinutes: Math.round((week?.seconds ?? 0) / 60),
       topicsDone: done?.n ?? 0,
+      topicsTotal: topicsTotal?.n ?? 0,
       stars: done?.stars ?? 0,
       risk: (risk.results ?? []).map((r) => ({
         topic: r.topic,
         subject: r.subject,
         percent: Math.round((r.correct / r.total) * 100),
+        total: r.total,
       })),
+      mastery: (mastery.results ?? []).map((m) => ({
+        topic: m.topic,
+        subject: m.subject,
+        subjectId: m.subject_id,
+        total: m.total,
+        percent: Math.round((m.correct / m.total) * 100),
+      })),
+      weekAccuracy: weekAcc?.attempts ? Math.round(((weekAcc.correct ?? 0) / weekAcc.attempts) * 100) : null,
+      prevAccuracy: prevAcc?.attempts ? Math.round(((prevAcc.correct ?? 0) / prevAcc.attempts) * 100) : null,
+      weekRuns: (weekRuns.results ?? []).map((r) => ({ startedAt: r.started_at, seconds: r.seconds })),
+      drillRuns: (drillRuns.results ?? [])
+        .map((r) => ({ kind: r.kind, correct: r.correct, total: r.total, score: r.score, createdAt: r.created_at }))
+        .reverse(),
       history: history.results ?? [],
       drills: drills.results ?? [],
       subscription: user.subscriptionStatus,

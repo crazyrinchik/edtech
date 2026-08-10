@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate, useParams, useSearch } from "@tanstack/re
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { ChildAction, Owl, Stars } from "../components/brand";
+import { PASS_PERCENT, Ring, Stones, StonesLegend, type StoneState } from "../components/figures";
 import { AutoSpeakToggle, SpeakButton, useAutoSpeak } from "../components/speak";
 import { answerTask, finishTopic, me, startTopic } from "../lib/api/app.functions";
 
@@ -47,6 +48,10 @@ function LessonPage() {
   // возвращается именно затем, чтобы перечитать объяснение.
   const [history, setHistory] = useState<Record<number, { value: string; verdict: Verdict }>>({});
   const [done, setDone] = useState<Finish | null>(null);
+  // Какой камешек открыт на экране итога. Раньше перечитать разбор можно
+  // было только шагом назад по одному вопросу, и после конца работы —
+  // никак.
+  const [review, setReview] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const [pending, setPending] = useState(false);
@@ -135,54 +140,101 @@ function LessonPage() {
 
   if (done) {
     const passed = done.passed;
+    // Камешки по числу заданий: кольцо отвечает «сколько», камешки —
+    // «на чём именно». Раньше это была одна строка «Верных ответов: N
+    // процентов», из которой ребёнок не мог узнать, где ошибся.
+    const stones: { state: StoneState; label: string }[] = session.tasks.map((_, i) => ({
+      state: history[i]?.verdict ? (history[i].verdict!.correct ? "right" : "wrong") : "next",
+      label: String(i + 1),
+    }));
+    const rightCount = stones.filter((s) => s.state === "right").length;
+    const minutes = Math.max(1, Math.round((Date.now() - startedAt.current) / 60000));
+    const opened = review !== null ? history[review] : null;
+
     return (
       <div className="sov sov-kid">
         <div className="sov-play">
           <div className="sov-card">
-            <Owl size={64} />
-            <h2 style={{ marginTop: 16 }}>
-              {done.mode === "check"
-                ? passed
-                  ? "Проверочная сдана"
-                  : "Почти получилось"
-                : "Тренировка окончена"}
-            </h2>
-            <p style={{ marginTop: 12, color: "var(--sov-ink-soft)" }}>
-              Верных ответов: {done.percent} процентов.
-              {done.mode === "check" && !passed ? " Для зачёта нужно 70. Попробуй ещё раз." : ""}
-            </p>
-            {done.mode === "check" ? (
-              <div style={{ marginTop: 16 }}>
-                <Stars value={done.stars} />
+            <div className="sov-result">
+              <Ring
+                value={done.percent}
+                size={170}
+                threshold={done.mode === "check" ? PASS_PERCENT : undefined}
+                tone={done.mode === "check" && !passed ? "warn" : undefined}
+                caption="верных"
+                label={`${done.percent} процентов верных ответов`}
+              />
+
+              <div>
+                <div className="sov-result__title">
+                  <Owl size={52} mood={passed ? "happy" : "concerned"} />
+                  <h2>
+                    {done.mode === "check" ? (passed ? "Проверочная сдана" : "Почти получилось") : "Тренировка окончена"}
+                  </h2>
+                </div>
+                <div className="sov-result__chips">
+                  {done.mode === "check" ? <Stars value={done.stars} /> : null}
+                  {done.mode === "check" && done.stars > 0 ? (
+                    <span className="sov-quest__count">+{done.stars} к звёздам</span>
+                  ) : null}
+                  <span className="sov-quest__count">{minutes} мин</span>
+                  {done.mode === "check" && !passed ? (
+                    <span className="sov-quest__count">для зачёта нужно {PASS_PERCENT}%</span>
+                  ) : null}
+                </div>
+
+                <div style={{ marginTop: 20 }}>
+                  <div className="sov-panel__head">
+                    <span className="sov-side__cap">Задания</span>
+                    <span className="sov-panel__note">
+                      {rightCount} из {session.tasks.length}
+                    </span>
+                  </div>
+                  <div style={{ marginTop: 10 }}>
+                    <Stones items={stones} onPick={(i) => setReview(review === i ? null : i)} />
+                  </div>
+                  <StonesLegend hint="нажми, чтобы перечитать разбор" />
+                </div>
+
+                {opened?.verdict ? (
+                  <div className="sov-feedback" data-kind={opened.verdict.correct ? "right" : "wrong"}>
+                    <div>
+                      <strong>Задание {(review ?? 0) + 1}</strong>
+                      {opened.verdict.explanation ?? (opened.verdict.correct ? "Верно." : "Подумай ещё раз.")}
+                      {!opened.verdict.correct && opened.value ? (
+                        <div className="sov-mono" style={{ marginTop: 6 }}>Твой ответ: {opened.value}</div>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
               </div>
-            ) : null}
-            {/* Раньше после зачёта экран молчал о том, что дальше, и закрытая
-                по подписке тема читалась как «прогресс не сохранился». */}
-            {done.next ? (
-              <div className="sov-save-hint" data-tone={done.next.locked ? "warn" : "ok"}>
-                <strong>
-                  {done.next.locked
-                    ? `Следующая тема «${done.next.name}» открывается с подпиской`
-                    : `Открылась следующая тема: «${done.next.name}»`}
-                </strong>
-                <span>
-                  {done.next.locked
-                    ? "Покажи этот экран взрослому: подписка включается в кабинете родителя."
-                    : "Она уже ждёт на карте занятий."}
-                </span>
+
+              {/* Раньше после зачёта экран молчал о том, что дальше, и закрытая
+                  по подписке тема читалась как «прогресс не сохранился». */}
+              <div className="sov-result__next">
+                {done.next ? (
+                  <div className="sov-save-hint" data-tone={done.next.locked ? "warn" : "ok"} style={{ marginTop: 0 }}>
+                    <strong>
+                      {done.next.locked
+                        ? `«${done.next.name}» открывается с подпиской`
+                        : `Открылась тема «${done.next.name}»`}
+                    </strong>
+                    {done.next.locked ? (
+                      <span>Покажи этот экран взрослому: подписка включается в кабинете родителя.</span>
+                    ) : null}
+                  </div>
+                ) : null}
+                {done.mode === "practice" ? (
+                  <ChildAction onClick={() => restart("check")}>Пройти проверочную</ChildAction>
+                ) : (
+                  <ChildAction onClick={() => restart(passed ? "practice" : "check")}>
+                    {passed ? "Потренироваться ещё" : "Ещё попытка"}
+                  </ChildAction>
+                )}
+                <button className="sov-act-ghost" onClick={() => navigate({ to: "/uchenik" })}>
+                  К карте занятий
+                </button>
               </div>
-            ) : null}
-            <div style={{ marginTop: 28, display: "flex", gap: 12, flexWrap: "wrap" }}>
-              {done.mode === "practice" ? (
-                <ChildAction onClick={() => restart("check")}>Пройти проверочную</ChildAction>
-              ) : (
-                <ChildAction onClick={() => restart(passed ? "practice" : "check")}>
-                  {passed ? "Потренироваться ещё" : "Ещё попытка"}
-                </ChildAction>
-              )}
-              <button className="sov-act-ghost" onClick={() => navigate({ to: "/uchenik" })}>
-                К списку тем
-              </button>
             </div>
           </div>
         </div>
@@ -305,11 +357,26 @@ function LessonPage() {
     setPending(false);
   }
 
+  // Камешки для боковой панели: тропа показывает, где ребёнок сейчас,
+  // камешки — что вышло на пройденных вопросах. Это разные вопросы, и
+  // тропа на второй не отвечает.
+  const playStones: { state: StoneState; label: string }[] = session.tasks.map((_, i) => ({
+    state:
+      i === index ? "now" : history[i]?.verdict ? (history[i].verdict!.correct ? "right" : "wrong") : "next",
+    label: String(i + 1),
+  }));
+  const answered = playStones.filter((s) => s.state === "right" || s.state === "wrong").length;
+  const runningPercent = answered ? Math.round((correctCount / answered) * 100) : 0;
+
   return (
     <div className="sov sov-kid">
       <div className="sov-play">
+        <div className="sov-play__grid">
+        <div>
         {/* Тропа занятия: совёнок идёт от камня к камню, в конце — банка мёда,
-            которая наполняется по числу верных ответов. */}
+            которая наполняется по числу верных ответов. Раньше она тянулась
+            во всю страницу и разносила камни на метр друг от друга; теперь
+            стоит в колонке вопроса и снова читается как тропа. */}
         <div className="sov-track">
           <div className="sov-track__line" aria-hidden="true" />
           <div className="sov-track__stones" aria-hidden="true">
@@ -468,6 +535,54 @@ function LessonPage() {
             никуда не денутся.
           </div>
         ) : null}
+        </div>
+
+        {/* Панель занятия. Контент занял всю ширину, и справа от вопроса
+            осталось пустое поле; сюда переехало то, что раньше нигде не
+            показывалось: что вышло на пройденных вопросах и сколько
+            верных набрано к этой минуте. */}
+        <aside className="sov-side">
+          <div className="sov-side__block">
+            <span className="sov-side__cap">Пройдено</span>
+            <Stones items={playStones} small />
+            <StonesLegend />
+          </div>
+
+          <div className="sov-side__block">
+            <div className="sov-side__row">
+              <Ring
+                value={runningPercent}
+                size={92}
+                threshold={mode === "check" ? PASS_PERCENT : undefined}
+                label={`${runningPercent} процентов верных к этой минуте`}
+              >
+                {`${correctCount}/${answered || 0}`}
+              </Ring>
+              <div>
+                <span className="sov-side__cap">Верных пока</span>
+                <p className="sov-side__big">{answered ? `${runningPercent}%` : "—"}</p>
+                {mode === "check" ? (
+                  <p className="sov-panel__note">до зачёта нужно {PASS_PERCENT}%</p>
+                ) : (
+                  <p className="sov-panel__note">это тренировка, звёзды не считаются</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="sov-side__block">
+            <div className="sov-panel__head">
+              <span className="sov-side__cap">Время</span>
+              <span className="sov-mono">
+                {Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, "0")} из 20:00
+              </span>
+            </div>
+            <span className="sov-bar sov-bar--plain">
+              <i style={{ width: `${Math.min(100, (elapsed / SOFT_LIMIT_SEC) * 100)}%` }} />
+            </span>
+          </div>
+        </aside>
+        </div>
       </div>
     </div>
   );

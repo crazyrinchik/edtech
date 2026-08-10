@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 
 import { CHILD_AVATARS, ChildAvatar, FormAction, Owl, SiteFooter, SiteHeader } from "../components/brand";
+import { Bar, DayBars, Delta, PASS_PERCENT, Ring, Spark, WeekStrip, weekBuckets } from "../components/figures";
 import {
   addChild, cancelSubscription, lockParentCabinet, logout, me, notifyConnect, notifyDisconnect,
   notifySettings, notifyToggle, parentReport, redeemPromo, selectChild, setParentPin, unlockParentCabinet,
@@ -15,8 +16,13 @@ export const Route = createFileRoute("/roditel")({
 
 type Report = {
   child: { id: string; name: string; grade: number; avatar: string; dailyLimitMin: number; soundOn: boolean; diagnosticsDone: boolean };
-  accuracy: number; attempts: number; weekLessons: number; weekMinutes: number; topicsDone: number; stars: number;
-  risk: { topic: string; subject: string; percent: number }[];
+  accuracy: number; attempts: number; weekLessons: number; weekMinutes: number;
+  topicsDone: number; topicsTotal: number; stars: number;
+  risk: { topic: string; subject: string; percent: number; total: number }[];
+  mastery: { topic: string; subject: string; subjectId: string; total: number; percent: number }[];
+  weekAccuracy: number | null; prevAccuracy: number | null;
+  weekRuns: { startedAt: string; seconds: number }[];
+  drillRuns: { kind: string; correct: number; total: number; score: number; createdAt: string }[];
   history: { started_at: string; seconds: number; correct: number; total: number; topic: string; subject: string }[];
   drills: { kind: string; runs: number; correct: number; total: number; last_at: string }[];
   subscription: string;
@@ -140,12 +146,7 @@ function ParentPage() {
           <AddChildForm onAdded={load} />
         ) : (
           <>
-            <div className="sov-metrics">
-              <div className="sov-metric"><b>{report.topicsDone}</b><span>тем пройдено</span></div>
-              <div className="sov-metric"><b>{report.accuracy}%</b><span>верных ответов</span></div>
-              <div className="sov-metric"><b>{report.weekMinutes}</b><span>минут за неделю</span></div>
-              <div className="sov-metric"><b>{report.weekLessons}</b><span>занятий за неделю</span></div>
-            </div>
+            <ReportTiles report={report} />
 
             <div className="sov-tabs">
               {([["progress","Прогресс"],["history","История"],["notify","Напоминания"],["settings","Настройки"],["billing","Подписка"]] as const).map(([id,label]) => (
@@ -153,62 +154,7 @@ function ParentPage() {
               ))}
             </div>
 
-            {tab === "progress" ? (
-              <section style={{ marginTop: 24 }}>
-                <h2 style={{ fontSize: "1.3rem", fontWeight: 600 }}>Зоны риска</h2>
-                <p style={{ marginTop: 8, color: "var(--sov-ink-soft)", fontSize: ".95rem" }}>
-                  Темы, где ребёнок ошибается чаще всего. Хороший повод разобрать вместе.
-                </p>
-                <div style={{ marginTop: 16 }}>
-                  {report.risk.length === 0 ? (
-                    <div className="sov-panel">
-                      <h3>Пока всё ровно</h3>
-                      <p style={{ marginTop: 8, color: "var(--sov-ink-soft)" }}>
-                        Зоны риска появятся, когда наберётся статистика по темам.
-                      </p>
-                    </div>
-                  ) : (
-                    report.risk.map((r) => (
-                      <div key={r.topic} className="sov-risk">
-                        <strong>{r.topic}</strong>
-                        <div className="sov-mono" style={{ marginTop: 4 }}>{r.subject} · {r.percent}% верных ответов</div>
-                      </div>
-                    ))
-                  )}
-                </div>
-                <h2 style={{ fontSize: "1.3rem", fontWeight: 600, marginTop: 32 }}>Тренажёры</h2>
-                {report.drills.length === 0 ? (
-                  <p style={{ marginTop: 10, color: "var(--sov-ink-soft)", fontSize: ".95rem" }}>
-                    Устный счёт и скорочтение доступны с карты занятий. Результаты появятся здесь.
-                  </p>
-                ) : (
-                  <table className="sov-table">
-                    <thead>
-                      <tr><th>Тренажёр</th><th>Заходов</th><th>Верных</th><th>Последний раз</th></tr>
-                    </thead>
-                    <tbody>
-                      {report.drills.map((d) => (
-                        <tr key={d.kind}>
-                          <td>{d.kind === "mental" ? "Устный счёт" : "Скорочтение"}</td>
-                          <td>{d.runs}</td>
-                          <td>{d.total ? Math.round((d.correct / d.total) * 100) : 0}%</td>
-                          <td>{d.last_at ? fmt(d.last_at) : "—"}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-
-                {!report.child.diagnosticsDone ? (
-                  <div className="sov-panel" style={{ marginTop: 20 }}>
-                    <h3>Диагностика не пройдена</h3>
-                    <p style={{ marginTop: 8, color: "var(--sov-ink-soft)" }}>
-                      Откройте раздел занятий, чтобы ребёнок прошёл короткий стартовый тест.
-                    </p>
-                  </div>
-                ) : null}
-              </section>
-            ) : null}
+            {tab === "progress" ? <ProgressTab report={report} onHistory={() => setTab("history")} /> : null}
 
             {tab === "history" ? (
               <section style={{ marginTop: 24 }}>
@@ -336,6 +282,243 @@ function ParentPage() {
       </main>
       <SiteFooter />
     </div>
+  );
+}
+
+const DRILL_NAMES: Record<string, string> = { mental: "Устный счёт", reading: "Скорочтение", shulte: "Таблица Шульте" };
+
+/**
+ * Плитки над вкладками.
+ *
+ * Раньше здесь стояли четыре голых числа. «78%» не отвечает на
+ * единственный вопрос родителя — лучше стало или хуже; «96 минут за
+ * неделю» не отличает четверть часа каждый день от одного длинного
+ * воскресенья. Числа остались, но у каждого появилась фигура, которая
+ * показывает то, чего число не показывает.
+ */
+function ReportTiles({ report }: { report: Report }) {
+  const week = weekBuckets(report.weekRuns, (r) => r.startedAt);
+  const days = week.map((d) => ({
+    label: d.label,
+    minutes: Math.round(d.rows.reduce((sum, r) => sum + r.seconds, 0) / 60),
+    count: d.rows.length,
+    today: d.today,
+  }));
+  const accuracy = report.weekAccuracy ?? report.accuracy;
+  const delta =
+    report.weekAccuracy !== null && report.prevAccuracy !== null ? report.weekAccuracy - report.prevAccuracy : null;
+
+  return (
+    <div className="sov-metrics">
+      <div className="sov-tile">
+        <span className="sov-tile__cap">Верных за неделю</span>
+        <div className="sov-tile__row">
+          <Ring value={accuracy} size={96} threshold={PASS_PERCENT} label={`${accuracy} процентов верных ответов за неделю`} />
+          <div>
+            {delta !== null ? <Delta value={delta} /> : null}
+            <div className="sov-tile__sub">
+              {report.prevAccuracy !== null ? `было ${report.prevAccuracy}%` : "первая неделя"}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="sov-tile">
+        <span className="sov-tile__cap">Минуты по дням</span>
+        <div style={{ marginTop: 14 }}>
+          <DayBars days={days} />
+        </div>
+        <div className="sov-tile__sub">
+          всего {report.weekMinutes} · в среднем {Math.round(report.weekMinutes / 7)} в день
+        </div>
+      </div>
+
+      <div className="sov-tile">
+        <span className="sov-tile__cap">Занятий за неделю</span>
+        <div className="sov-tile__big">{report.weekLessons}</div>
+        <div style={{ marginTop: 12 }}>
+          <WeekStrip days={days} />
+        </div>
+      </div>
+
+      <div className="sov-tile">
+        <span className="sov-tile__cap">Темы</span>
+        <div className="sov-tile__big">
+          {report.topicsDone}{" "}
+          <span style={{ color: "var(--sov-ink-soft)", fontSize: "1.4rem" }}>/ {report.topicsTotal}</span>
+        </div>
+        <div style={{ marginTop: 14 }}>
+          <Bar
+            percent={report.topicsTotal ? (report.topicsDone / report.topicsTotal) * 100 : 0}
+            threshold={false}
+            label={`Пройдено ${report.topicsDone} тем из ${report.topicsTotal}`}
+          />
+        </div>
+        <div className="sov-tile__sub">
+          {report.stars} звёзд · осталось {Math.max(0, report.topicsTotal - report.topicsDone)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Вкладка «Прогресс» в три колонки.
+ *
+ * Абзаца «Темы, где ребёнок ошибается чаще всего» больше нет: полоса,
+ * которая не дотянулась до засечки порога, говорит это сама. Таблица
+ * тренажёров из четырёх колонок свернулась в две линии — в таблице
+ * стояло одно среднее за всё время, и падение скорости чтения в ней
+ * было невидимо.
+ */
+function ProgressTab({ report, onHistory }: { report: Report; onHistory: () => void }) {
+  const drillSeries = (kind: string) =>
+    report.drillRuns
+      .filter((r) => r.kind === kind)
+      .slice(-8)
+      .map((r) => (kind === "reading" ? r.score : r.total ? Math.round((r.correct / r.total) * 100) : 0));
+
+  return (
+    <section className="sov-progress">
+      {report.mastery.length === 0 ? (
+        <div className="sov-panel" style={{ marginTop: 24 }}>
+          <h3>Занятий пока не было</h3>
+          <p style={{ marginTop: 8, color: "var(--sov-ink-soft)" }}>
+            Освоение тем и зоны риска появятся после первых заданий.
+          </p>
+        </div>
+      ) : (
+        <div className="sov-progress__grid">
+          <div className="sov-panel">
+            <div className="sov-panel__head">
+              <h3>Освоение тем</h3>
+              <span className="sov-panel__note">риска — ниже {PASS_PERCENT}%</span>
+            </div>
+            <div className="sov-mastery">
+              {report.mastery.map((m) => (
+                <div key={`${m.subjectId}-${m.topic}`} className="sov-mastery__row">
+                  <div>
+                    <strong>{m.topic}</strong>
+                    <Bar percent={m.percent} label={`${m.topic}: ${m.percent} процентов верных`} />
+                  </div>
+                  <span className="sov-mastery__val" data-risk={m.percent < PASS_PERCENT}>
+                    {m.percent}%
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="sov-progress__stack">
+            <div className="sov-panel">
+              <div className="sov-panel__head">
+                <h3>{report.risk.length ? `Ниже порога: ${report.risk.length}` : "Всё выше порога"}</h3>
+              </div>
+              {report.risk.length === 0 ? (
+                <p style={{ marginTop: 12, color: "var(--sov-ink-soft)", fontWeight: 500 }}>
+                  Ни одна тема не просела ниже {PASS_PERCENT}%.
+                </p>
+              ) : (
+                <div className="sov-risks">
+                  {report.risk.map((r) => (
+                    <div key={r.topic} className="sov-risks__row">
+                      <Ring
+                        value={r.percent}
+                        size={66}
+                        tone="warn"
+                        label={`${r.topic}: ${r.percent} процентов верных`}
+                      />
+                      <div>
+                        <strong>{r.topic}</strong>
+                        <span>
+                          {r.subject} · {r.total} заданий
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="sov-panel">
+              <div className="sov-panel__head">
+                <h3>Последние занятия</h3>
+                <button type="button" className="sov-act-ghost" onClick={onHistory}>
+                  Вся история
+                </button>
+              </div>
+              {report.history.length === 0 ? (
+                <p style={{ marginTop: 12, color: "var(--sov-ink-soft)", fontWeight: 500 }}>Занятий пока не было.</p>
+              ) : (
+                <table className="sov-table sov-table--tight">
+                  <tbody>
+                    {report.history.slice(0, 4).map((h, i) => (
+                      <tr key={i}>
+                        <td>{fmt(h.started_at)}</td>
+                        <td>{h.topic}</td>
+                        <td
+                          style={{
+                            textAlign: "right",
+                            fontWeight: 700,
+                            color:
+                              h.total && (h.correct / h.total) * 100 < PASS_PERCENT
+                                ? "var(--sov-warn)"
+                                : "var(--sov-ink)",
+                          }}
+                        >
+                          {h.total ? Math.round((h.correct / h.total) * 100) : 0}%
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+
+          <div className="sov-progress__stack">
+            {report.drills.length === 0 ? (
+              <div className="sov-panel">
+                <h3>Тренажёры</h3>
+                <p style={{ marginTop: 8, color: "var(--sov-ink-soft)", fontWeight: 500 }}>
+                  Устный счёт и скорочтение открываются с карты занятий.
+                </p>
+              </div>
+            ) : (
+              report.drills.map((d) => {
+                const series = drillSeries(d.kind);
+                const percent = d.total ? Math.round((d.correct / d.total) * 100) : 0;
+                const change = series.length > 1 ? series[series.length - 1] - series[0] : null;
+                return (
+                  <div key={d.kind} className="sov-panel">
+                    <div className="sov-panel__head">
+                      <h3 style={{ fontSize: "1rem" }}>{DRILL_NAMES[d.kind] ?? d.kind}</h3>
+                      <span className="sov-panel__note">{d.runs} заходов</span>
+                    </div>
+                    <Spark points={series} label={`${DRILL_NAMES[d.kind] ?? d.kind}: последние заходы`} />
+                    <div className="sov-panel__head">
+                      <span className="sov-panel__note">
+                        {d.kind === "reading" ? `${series[series.length - 1] ?? 0} слов в минуту` : `верных ${percent}%`}
+                      </span>
+                      {change !== null ? <Delta value={change} /> : null}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+
+      {!report.child.diagnosticsDone ? (
+        <div className="sov-panel" style={{ marginTop: 20 }}>
+          <h3>Диагностика не пройдена</h3>
+          <p style={{ marginTop: 8, color: "var(--sov-ink-soft)" }}>
+            Откройте раздел занятий, чтобы ребёнок прошёл короткий стартовый тест.
+          </p>
+        </div>
+      ) : null}
+    </section>
   );
 }
 

@@ -58,7 +58,7 @@
 .sov-shell { width: 100%; padding: 0 var(--sov-gutter); }
 /* Формы — исключение: поле ввода во весь монитор не заполняют, а мажут. */
 .sov-narrow { max-width: 620px; margin: 0 auto; padding: 0 var(--sov-gutter); }
-.sov-mono { font-family: var(--sov-mono); font-size: 0.8rem; letter-spacing: 0.02em; }
+.sov-mono { font-family: var(--sov-mono); font-size: .88rem; letter-spacing: 0.02em; }
 
 /* ------------------------------------------------------------- шапка */
 
@@ -122,7 +122,7 @@
 .sov-act-quiet {
   display: inline-flex; align-items: center; justify-content: center;
   text-decoration: none; color: var(--sov-cobalt);
-  font-weight: 800; font-size: .88rem; text-transform: uppercase; letter-spacing: .05em;
+  font-weight: 800; font-size: .95rem; text-transform: uppercase; letter-spacing: .05em;
   padding: 13px 24px; border: 2px solid var(--sov-line); border-radius: var(--sov-radius);
   background: transparent; transition: border-color .15s, background .15s;
 }
@@ -162,7 +162,7 @@
 .sov-journey__tags { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 30px; }
 .sov-journey__tags span {
   border: 2px solid var(--sov-line); border-radius: 999px;
-  padding: 7px 16px; font-size: .85rem; font-weight: 700; color: var(--sov-ink-soft);
+  padding: 7px 16px; font-size: .92rem; font-weight: 700; color: var(--sov-ink-soft);
 }
 
 /* ------------------------------------------------------- секции витрины */
@@ -209,7 +209,7 @@
   position: absolute; top: -14px; right: 24px;
   background: var(--sov-cobalt); color: #fff;
   border-radius: 999px; padding: 5px 15px;
-  font-size: .74rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em;
+  font-size: .82rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em;
 }
 .sov-plan h3 { font-size: 1.15rem; }
 .sov-plan__price {
@@ -236,8 +236,8 @@
 .sov-field input:focus, .sov-field select:focus, .sov-field textarea:focus {
   outline: none; border-color: var(--sov-cobalt); box-shadow: 0 0 0 3px var(--sov-cobalt-soft);
 }
-.sov-field__hint { font-size: .84rem; color: var(--sov-ink-soft); font-weight: 500; }
-.sov-field__error { font-size: .86rem; color: var(--sov-bad); font-weight: 600; }
+.sov-field__hint { font-size: .92rem; color: var(--sov-ink-soft); font-weight: 500; }
+.sov-field__error { font-size: .94rem; color: var(--sov-bad); font-weight: 600; }
 /* Флажок и текст согласия. flex: none обязателен: без него длинный текст
    сжимал сам квадрат, и два согласия рядом получались разного размера.
    Высота строки задана явно, чтобы квадрат вставал ровно по первой строке. */
@@ -309,7 +309,7 @@
 .sov-hollow__info { flex: 1; min-width: 240px; }
 .sov-hollow__hi { display: block; font-size: clamp(1.25rem, 3vw, 1.6rem); font-weight: 800; line-height: 1.15; }
 .sov-hollow__grade {
-  display: block; margin-top: 4px; font-size: .8rem; font-weight: 800;
+  display: block; margin-top: 4px; font-size: .88rem; font-weight: 800;
   text-transform: uppercase; letter-spacing: .05em; color: rgba(255,255,255,.72);
 }
 
@@ -317,7 +317,7 @@
 .sov-xp__row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-weight: 700; font-size: .9rem; }
 .sov-xp__track { margin-top: 8px; height: 14px; border-radius: 999px; background: rgba(255,255,255,.28); overflow: hidden; }
 .sov-xp__fill { height: 100%; background: #fff; border-radius: 999px; transition: width .5s cubic-bezier(.2,.8,.2,1); }
-.sov-xp__hint { display: block; margin-top: 8px; font-size: .85rem; font-weight: 600; color: rgba(255,255,255,.72); }
+.sov-xp__hint { display: block; margin-top: 8px; font-size: .92rem; font-weight: 600; color: rgba(255,255,255,.72); }
 
 /* ── полка наград ───────────────────────────────────────────────── */
 .sov-shelf {
@@ -329,7 +329,7 @@
   padding: 14px 12px; text-align: center; display: grid; gap: 2px; justify-items: center;
 }
 .sov-shelf__item strong { font-size: .92rem; font-weight: 800; }
-.sov-shelf__item span { font-size: .78rem; color: var(--sov-ink-soft); font-weight: 600; }
+.sov-shelf__item span { font-size: .86rem; color: var(--sov-ink-soft); font-weight: 600; }
 .sov-shelf__item[data-open="true"] { border-color: var(--sov-cobalt); }
 .sov-shelf__item[data-open="false"] { opacity: .45; filter: grayscale(1); }
 
@@ -344,7 +344,7 @@
 .sov-quest__head h2 { font-size: clamp(1.3rem, 3vw, 1.6rem); }
 .sov-quest__count {
   background: #fff; border: 2px solid var(--sov-line); border-radius: 999px;
-  padding: 5px 14px; font-weight: 800; font-size: .82rem; white-space: nowrap; color: var(--sov-ink-soft);
+  padding: 5px 14px; font-weight: 800; font-size: .9rem; white-space: nowrap; color: var(--sov-ink-soft);
 }
 
 .sov-trail { list-style: none; margin: 26px 0 0; padding: 0; }
@@ -367,7 +367,7 @@ a.sov-level:hover .sov-level__num { transform: translateY(-2px); box-shadow: 0 8
 a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2px 0 var(--sov-cobalt-deep); }
 .sov-level__text { flex: 1; min-width: 0; display: grid; gap: 2px; }
 .sov-level__text strong { font-size: 1.1rem; font-weight: 800; }
-.sov-level__text span { font-size: .88rem; color: var(--sov-ink-soft); font-weight: 600; }
+.sov-level__text span { font-size: .95rem; color: var(--sov-ink-soft); font-weight: 600; }
 
 .sov-level[data-state="current"] .sov-level__num {
   background: #fff; color: var(--sov-cobalt);
@@ -385,7 +385,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 .sov-level[data-state="locked"], .sov-level[data-state="wait"] { --sov-star: #cbbfa9; }
 
 .sov-level__check {
-  display: inline-block; margin-top: 6px; font-size: .84rem; font-weight: 800;
+  display: inline-block; margin-top: 6px; font-size: .92rem; font-weight: 800;
   color: var(--sov-cobalt); text-decoration: none;
   text-transform: uppercase; letter-spacing: .04em;
 }
@@ -409,7 +409,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 .sov-node[data-done="true"] .sov-node__badge { background: var(--sov-cobalt); color: #fff; }
 .sov-node__body { flex: 1; min-width: 0; }
 .sov-node__body strong { font-size: 1.08rem; display: block; font-weight: 800; }
-.sov-node__body span { font-size: .88rem; color: var(--sov-ink-soft); font-weight: 600; }
+.sov-node__body span { font-size: .95rem; color: var(--sov-ink-soft); font-weight: 600; }
 
 /* ── экран занятия ──────────────────────────────────────────────── */
 
@@ -428,10 +428,15 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 /* Карточка занятия теперь во всю ширину, и вариант ответа на 1400 пикселей —
    это буква слева и пустота до правого края. Поэтому варианты не тянутся,
    а встают в ряд: auto-fit сам вернёт их в столбик, как только на строку
-   перестанет хватать места. */
+   перестанет хватать места.
+
+   Минимум колонки задан долей, а не фиксированными 260px: на широком
+   экране четыре варианта раскладывались как три в ряд и один под ними —
+   ребёнок читает такой ряд как «три ответа и ещё какой-то». Доля держит
+   их по два в ряд, пока хватает места, и только потом уводит в столбик. */
 .sov-options {
   display: grid; gap: 12px; margin-top: 24px; counter-reset: sov-opt;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(clamp(240px, 40%, 380px), 1fr));
 }
 .sov-option {
   display: flex; align-items: center; gap: 14px; padding: 15px 20px; min-height: 60px;
@@ -445,7 +450,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
   width: 30px; height: 30px; flex: none; border-radius: 9px;
   display: grid; place-items: center;
   background: var(--sov-paper-2); color: var(--sov-ink-soft);
-  font-size: .82rem; font-weight: 800;
+  font-size: .9rem; font-weight: 800;
 }
 .sov-option:hover:not(:disabled) { border-color: var(--sov-cobalt); background: var(--sov-cobalt-soft); }
 .sov-option:hover:not(:disabled)::before { background: var(--sov-cobalt); color: #fff; }
@@ -509,14 +514,14 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
   background: var(--sov-cobalt-soft); color: var(--sov-cobalt);
 }
 .sov-ear[data-talking="true"] .sov-ear__icon { background: var(--sov-cobalt); color: #fff; }
-.sov-ear[data-compact="true"] { padding: 5px 14px 5px 6px; font-size: .82rem; gap: 7px; }
+.sov-ear[data-compact="true"] { padding: 5px 14px 5px 6px; font-size: .9rem; gap: 7px; }
 .sov-ear[data-compact="true"] .sov-ear__icon { width: 26px; height: 26px; }
 
 .sov-ear-toggle {
   display: inline-flex; align-items: center; gap: 8px;
   border: 2px solid var(--sov-line); border-radius: 999px;
   background: #fff; padding: 7px 15px; cursor: pointer;
-  font: 700 .85rem/1 var(--sov-font); color: var(--sov-ink-soft);
+  font: 700 .92rem/1 var(--sov-font); color: var(--sov-ink-soft);
 }
 .sov-ear-toggle[data-on="true"] { border-color: var(--sov-cobalt); color: var(--sov-cobalt); background: var(--sov-cobalt-soft); }
 
@@ -555,7 +560,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
   overflow: hidden; display: grid; place-items: end center;
 }
 .sov-track__jar-fill { position: absolute; left: 0; right: 0; bottom: 0; background: var(--sov-cobalt); transition: height .45s cubic-bezier(.2,.8,.2,1); }
-.sov-track__jar-count { position: relative; z-index: 1; font-weight: 800; font-size: .78rem; color: var(--sov-ink); padding-bottom: 2px; }
+.sov-track__jar-count { position: relative; z-index: 1; font-weight: 800; font-size: .86rem; color: var(--sov-ink); padding-bottom: 2px; }
 
 @media (max-width: 520px) {
   .sov-track { height: 68px; }
@@ -583,7 +588,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 }
 .sov-who__card:hover:not(:disabled) { border-color: var(--sov-cobalt); background: var(--sov-cobalt-soft); }
 .sov-who__card strong { font-size: 1.2rem; font-weight: 800; }
-.sov-who__card span { font-size: .88rem; color: var(--sov-ink-soft); font-weight: 600; }
+.sov-who__card span { font-size: .95rem; color: var(--sov-ink-soft); font-weight: 600; }
 .sov-who__card[data-active="true"] { border-color: var(--sov-cobalt); background: var(--sov-cobalt-soft); }
 .sov-who__card:disabled { opacity: .6; cursor: progress; }
 
@@ -591,7 +596,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 .sov-avatar-pick__item {
   display: grid; justify-items: center; gap: 4px; cursor: pointer;
   border: 2px solid var(--sov-line); border-radius: 14px; background: #fff;
-  padding: 10px 12px; font: 600 .78rem/1.2 var(--sov-font); color: var(--sov-ink-soft);
+  padding: 10px 12px; font: 600 .86rem/1.2 var(--sov-font); color: var(--sov-ink-soft);
   min-width: 84px;
 }
 .sov-avatar-pick__item[data-active="true"] { border-color: var(--sov-cobalt); background: var(--sov-cobalt-soft); color: var(--sov-cobalt); }
@@ -616,7 +621,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 .sov-trainer:hover { border-color: var(--sov-cobalt); }
 .sov-trainer__icon { font-size: 1.8rem; line-height: 1; flex: none; }
 .sov-trainer strong { display: block; font-size: 1.05rem; font-weight: 800; }
-.sov-trainer em { display: block; font-style: normal; font-size: .88rem; color: var(--sov-ink-soft); font-weight: 600; margin-top: 2px; }
+.sov-trainer em { display: block; font-style: normal; font-size: .95rem; color: var(--sov-ink-soft); font-weight: 600; margin-top: 2px; }
 
 .sov-setup { display: grid; gap: 22px; margin-top: 24px; }
 .sov-setup__row { display: grid; gap: 10px; }
@@ -652,7 +657,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 }
 .sov-reading-item[data-active="true"] { border-color: var(--sov-cobalt); background: var(--sov-cobalt-soft); }
 .sov-reading-item strong { display: block; font-size: 1rem; font-weight: 800; }
-.sov-reading-item span { font-size: .85rem; color: var(--sov-ink-soft); font-weight: 600; }
+.sov-reading-item span { font-size: .92rem; color: var(--sov-ink-soft); font-weight: 600; }
 
 /* Шапка экранов, которые открываются без аккаунта. */
 .sov-demo__top { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
@@ -666,7 +671,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 @media (min-width: 820px) { .sov-metrics { grid-template-columns: repeat(4, 1fr); } }
 .sov-metric { border: 2px solid var(--sov-line); border-radius: var(--sov-radius); padding: 18px 20px; background: #fff; }
 .sov-metric b { display: block; font-size: 2rem; font-weight: 800; letter-spacing: -.02em; }
-.sov-metric span { font-size: .88rem; color: var(--sov-ink-soft); font-weight: 600; }
+.sov-metric span { font-size: .95rem; color: var(--sov-ink-soft); font-weight: 600; }
 
 .sov-table { width: 100%; border-collapse: collapse; margin-top: 18px; font-size: .93rem; }
 .sov-table th { text-align: left; font-weight: 800; padding: 11px 12px; border-bottom: 2px solid var(--sov-line); }
@@ -684,7 +689,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 .sov-chips { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
 .sov-chip {
   border: 2px solid var(--sov-line); border-radius: 999px; padding: 7px 16px;
-  font-size: .88rem; font-weight: 700; background: #fff; cursor: pointer;
+  font-size: .95rem; font-weight: 700; background: #fff; cursor: pointer;
   font-family: var(--sov-font); color: var(--sov-ink-soft);
 }
 .sov-chip[data-active="true"] { border-color: var(--sov-cobalt); background: var(--sov-cobalt); color: #fff; }
@@ -700,7 +705,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 }
 .sov-footer > div { display: flex; align-items: center; gap: 14px; }
 .sov-footer p { color: var(--sov-ink-soft); font-size: .95rem; font-weight: 500; }
-.sov-footer__legal { font-size: .85rem; max-width: 70ch; }
+.sov-footer__legal { font-size: .92rem; max-width: 70ch; }
 
 /* ═══════════════════════════════════════════════════════════════════
    Витрина: синяя полоса и крупные цифры.
@@ -745,7 +750,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 }
 @media (min-width: 860px) { .sov-data { grid-template-columns: auto 1fr 1fr; align-items: start; } }
 .sov-data h3 { font-size: 1.15rem; max-width: 14ch; }
-.sov-data__col b { display: block; font-size: .76rem; letter-spacing: .06em; text-transform: uppercase; color: var(--sov-ink-soft); font-weight: 800; }
+.sov-data__col b { display: block; font-size: .84rem; letter-spacing: .06em; text-transform: uppercase; color: var(--sov-ink-soft); font-weight: 800; }
 .sov-data__col ul { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 9px; }
 .sov-data__col li { display: flex; gap: 9px; align-items: flex-start; font-size: .95rem; font-weight: 500; }
 .sov-data__col li::before { font-weight: 800; line-height: 1.5; }
@@ -763,17 +768,17 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
   padding: 14px 20px; border-bottom: 2px solid var(--sov-line);
 }
 .sov-cab__head strong { font-size: .95rem; font-weight: 800; }
-.sov-cab__head span { font-size: .78rem; color: var(--sov-ink-soft); font-weight: 600; }
+.sov-cab__head span { font-size: .86rem; color: var(--sov-ink-soft); font-weight: 600; }
 
 .sov-cab__metrics { display: grid; grid-template-columns: repeat(3, 1fr); }
 .sov-cab__metric { padding: 20px; border-right: 2px solid var(--sov-line); }
 .sov-cab__metric:last-child { border-right: none; }
 .sov-cab__metric b { display: block; font-size: 1.7rem; font-weight: 800; line-height: 1; letter-spacing: -.02em; }
-.sov-cab__metric span { display: block; margin-top: 6px; font-size: .78rem; color: var(--sov-ink-soft); font-weight: 600; }
+.sov-cab__metric span { display: block; margin-top: 6px; font-size: .86rem; color: var(--sov-ink-soft); font-weight: 600; }
 
 .sov-cab__risk { margin: 16px 20px 18px; background: var(--sov-warn-bg); border-radius: 12px; padding: 12px 16px; }
-.sov-cab__risk em { font-style: normal; display: block; font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--sov-warn); font-weight: 800; }
-.sov-cab__note { padding: 0 20px 18px; font-size: .78rem; color: var(--sov-ink-soft); font-weight: 500; }
+.sov-cab__risk em { font-style: normal; display: block; font-size: .8rem; letter-spacing: .06em; text-transform: uppercase; color: var(--sov-warn); font-weight: 800; }
+.sov-cab__note { padding: 0 20px 18px; font-size: .86rem; color: var(--sov-ink-soft); font-weight: 500; }
 
 /* ------------------------------------------------------------ прочее */
 
@@ -830,10 +835,10 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 .sov-student__head:hover { background: var(--sov-cobalt-soft); }
 .sov-student__who { display: grid; gap: 2px; }
 .sov-student__who strong { font-size: 1.15rem; font-weight: 800; }
-.sov-student__who > span { font-size: .88rem; font-weight: 600; color: var(--sov-ink-soft); }
+.sov-student__who > span { font-size: .95rem; font-weight: 600; color: var(--sov-ink-soft); }
 .sov-student__body { padding: 18px 22px; display: grid; gap: 12px; justify-items: start; }
 .sov-student__risk { font-size: .9rem; font-weight: 600; color: var(--sov-warn); }
-.sov-student__note { font-size: .88rem; font-weight: 600; color: var(--sov-ink-soft); }
+.sov-student__note { font-size: .95rem; font-weight: 600; color: var(--sov-ink-soft); }
 .sov-student__title { display: flex; align-items: center; gap: 16px; margin-top: 10px; }
 
 /* Строка домашки в списке: статус несёт левая грань, а не заливка —
@@ -844,7 +849,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
   border-radius: 0 12px 12px 0;
 }
 .sov-hw b { font-size: 1rem; font-weight: 800; }
-.sov-hw span { font-size: .86rem; font-weight: 600; color: var(--sov-ink-soft); }
+.sov-hw span { font-size: .94rem; font-weight: 600; color: var(--sov-ink-soft); }
 .sov-hw[data-status="done"] { border-left-color: var(--sov-ok); }
 .sov-hw[data-status="overdue"] { border-left-color: var(--sov-warn); }
 .sov-hw[data-status="in_progress"] { border-left-color: var(--sov-cobalt); }
@@ -862,7 +867,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 .sov-hw-card[data-status="in_progress"] { border-left-color: var(--sov-cobalt); }
 .sov-hw-card header { display: flex; align-items: baseline; gap: 12px; justify-content: space-between; width: 100%; }
 .sov-hw-card header strong { font-size: 1.1rem; font-weight: 800; }
-.sov-hw-card__status { font-size: .74rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--sov-ink-soft); }
+.sov-hw-card__status { font-size: .82rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--sov-ink-soft); }
 .sov-hw-card ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .sov-hw-card li { font-size: .95rem; font-weight: 600; color: var(--sov-ink-soft); }
 .sov-hw-card li[data-done="true"] { color: var(--sov-ok); }
@@ -876,7 +881,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 }
 .sov-homework__head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .sov-homework__head strong { font-size: 1.15rem; font-weight: 800; }
-.sov-homework__due { font-size: .8rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--sov-cobalt); }
+.sov-homework__due { font-size: .88rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--sov-cobalt); }
 .sov-homework__items { display: grid; gap: 8px; }
 .sov-homework__item {
   display: flex; align-items: center; gap: 10px; text-decoration: none;
@@ -885,7 +890,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 .sov-homework__item[data-done="true"] { color: var(--sov-ok); }
 .sov-homework__mark {
   width: 26px; height: 26px; flex: none; border-radius: 50%; display: grid; place-items: center;
-  background: var(--sov-paper-2); color: var(--sov-ink-soft); font-size: .8rem; font-weight: 800;
+  background: var(--sov-paper-2); color: var(--sov-ink-soft); font-size: .88rem; font-weight: 800;
 }
 .sov-homework__item[data-done="true"] .sov-homework__mark { background: var(--sov-ok); color: #fff; }
 .sov-homework__comment { font-size: .92rem; font-weight: 500; color: var(--sov-ink-soft); }
@@ -902,7 +907,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 }
 .sov-hollow__owl { background: none; padding: 0; }
 .sov-hollow__badge {
-  right: -6px; bottom: -4px; min-width: 24px; height: 24px; font-size: .8rem;
+  right: -6px; bottom: -4px; min-width: 24px; height: 24px; font-size: .88rem;
   background: var(--sov-cobalt); color: #fff; border: 2px solid #fff;
 }
 .sov-hollow__info { flex: none; min-width: 0; }
@@ -925,7 +930,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 .sov-homework__head strong { color: #fff; font-size: 1.2rem; }
 .sov-homework__due { color: #fff; }
 .sov-homework__count {
-  font-size: .82rem; font-weight: 800; text-transform: uppercase;
+  font-size: .9rem; font-weight: 800; text-transform: uppercase;
   letter-spacing: .05em; color: rgba(255,255,255,.75);
 }
 .sov-homework__item {
@@ -947,13 +952,62 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
    видит, какие темы просил педагог. */
 .sov-level__tag {
   display: inline-block; margin-left: 8px; vertical-align: 2px;
-  font-style: normal; font-size: .68rem; font-weight: 800;
+  font-style: normal; font-size: .78rem; font-weight: 800;
   text-transform: uppercase; letter-spacing: .05em;
   background: var(--sov-cobalt); color: #fff;
   border-radius: 999px; padding: 3px 9px;
 }
 
 /* ── обзор программы у репетитора ───────────────────────────────── */
+
+/* Выбор класса и программы: два шага перед списком тем. Программа — карточки,
+   а не select: репетитор узнаёт учебник по названию и распространённости, и
+   их нужно видеть рядом, не открывая список. */
+.sov-pick { margin-top: 26px; }
+.sov-pick__label {
+  font-size: .82rem; font-weight: 800; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--sov-ink-soft);
+}
+.sov-pick__grid {
+  display: grid; gap: 10px; margin-top: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+.sov-pick__card {
+  display: grid; gap: 4px; text-align: left; cursor: pointer;
+  font-family: var(--sov-font); color: var(--sov-ink);
+  border: 2px solid var(--sov-line); border-radius: 14px;
+  background: #fff; padding: 12px 15px;
+}
+.sov-pick__card strong { font-size: 1rem; font-weight: 800; }
+.sov-pick__card span { font-size: .86rem; font-weight: 600; color: var(--sov-ink-soft); line-height: 1.4; }
+.sov-pick__card[data-active="true"] { border-color: var(--sov-cobalt); background: var(--sov-cobalt-soft); }
+.sov-pick__card[data-active="true"] strong { color: var(--sov-cobalt); }
+
+/* Номер темы в порядке выбранной программы: по нему репетитор понимает, где
+   класс сейчас находится. */
+.sov-prog__no {
+  display: inline-grid; place-items: center; width: 24px; height: 24px;
+  margin-right: 9px; border-radius: 8px; background: var(--sov-paper-2);
+  font-size: .82rem; font-weight: 800; color: var(--sov-ink-soft); vertical-align: 2px;
+}
+.sov-prog__chapters { font-size: .89rem; font-weight: 500; color: var(--sov-ink-soft); line-height: 1.45; }
+.sov-prog__chapters b { font-weight: 800; }
+.sov-prog__chapters[data-tone="soft"] { font-style: italic; }
+
+/* Отличия программы от базового темпа. */
+.sov-delta { display: grid; gap: 10px; margin-top: 16px; }
+.sov-delta__item {
+  display: grid; gap: 3px; padding: 13px 16px; border-radius: 12px;
+  background: var(--sov-paper); border-left: 4px solid var(--sov-line);
+}
+.sov-delta__item[data-kind="ahead"] { border-left-color: var(--sov-cobalt); }
+.sov-delta__item[data-kind="extra"] { border-left-color: var(--sov-warn); }
+.sov-delta__item b {
+  font-size: .78rem; font-weight: 800; text-transform: uppercase;
+  letter-spacing: .05em; color: var(--sov-ink-soft);
+}
+.sov-delta__item strong { font-size: .98rem; font-weight: 800; }
+.sov-delta__item span { font-size: .9rem; font-weight: 500; color: var(--sov-ink-soft); line-height: 1.45; }
 
 .sov-prog { display: grid; gap: 12px; margin-top: 18px; }
 .sov-prog__item {
@@ -964,7 +1018,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 .sov-prog__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .sov-prog__title { display: grid; gap: 3px; min-width: 0; }
 .sov-prog__title strong { font-size: 1.08rem; font-weight: 800; }
-.sov-prog__meta { font-size: .84rem; font-weight: 600; color: var(--sov-ink-soft); }
+.sov-prog__meta { font-size: .92rem; font-weight: 600; color: var(--sov-ink-soft); }
 .sov-prog__actions { display: flex; gap: 8px; flex: none; }
 .sov-prog__summary { font-size: .93rem; font-weight: 500; color: var(--sov-ink-soft); }
 .sov-prog__ok { font-size: .95rem; font-weight: 700; color: var(--sov-ok); }
@@ -975,7 +1029,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 }
 .sov-prog__row { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; }
 .sov-prog__row label {
-  display: grid; gap: 5px; font-size: .84rem; font-weight: 700; color: var(--sov-ink-soft);
+  display: grid; gap: 5px; font-size: .92rem; font-weight: 700; color: var(--sov-ink-soft);
 }
 .sov-prog__row input, .sov-prog__row select {
   font-family: var(--sov-font); font-size: .95rem; font-weight: 600; padding: 10px 13px;
@@ -991,7 +1045,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 }
 .sov-tasks li[data-check="true"] { border-left-color: var(--sov-cobalt); }
 .sov-tasks b {
-  font-size: .7rem; font-weight: 800; text-transform: uppercase;
+  font-size: .8rem; font-weight: 800; text-transform: uppercase;
   letter-spacing: .05em; color: var(--sov-ink-soft);
 }
 .sov-tasks__prompt { font-size: 1rem; font-weight: 700; }
@@ -1006,7 +1060,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 .sov-homework__check {
   display: grid; place-items: center; flex: none; padding: 0 16px;
   background: rgba(255,255,255,.16); border-radius: 12px; color: #fff;
-  font-size: .78rem; font-weight: 800; text-transform: uppercase;
+  font-size: .86rem; font-weight: 800; text-transform: uppercase;
   letter-spacing: .04em; text-decoration: none; text-align: center;
   border-bottom: 4px solid rgba(0,0,0,.12);
 }
@@ -1022,7 +1076,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
    открывает приложение. */
 
 .sov-coins {
-  font-family: var(--sov-mono); font-size: .78rem; letter-spacing: .02em;
+  font-family: var(--sov-mono); font-size: .86rem; letter-spacing: .02em;
   color: var(--sov-ink-soft); font-weight: 500;
 }
 .sov-shop__hint {
@@ -1040,7 +1094,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
    отступление, а не действие урока. */
 .sov-leave {
   margin-top: 14px; background: none; border: none; cursor: pointer;
-  font-family: var(--sov-font); font-size: .85rem; font-weight: 700;
+  font-family: var(--sov-font); font-size: .92rem; font-weight: 700;
   color: var(--sov-ink-soft); text-decoration: underline;
   text-decoration-color: var(--sov-line); text-underline-offset: 4px; padding: 0;
 }
@@ -1112,7 +1166,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 }
 .sov-homework__file {
   background: var(--sov-cobalt-soft); border: none; border-radius: 999px; cursor: pointer;
-  padding: 9px 18px; font-family: var(--sov-font); font-size: .88rem; font-weight: 800;
+  padding: 9px 18px; font-family: var(--sov-font); font-size: .95rem; font-weight: 800;
   color: var(--sov-cobalt);
 }
 .sov-homework__grade { font-size: .9rem; font-weight: 700; color: var(--sov-ok); }
@@ -1120,7 +1174,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 
 .sov-custom { display: grid; gap: 8px; margin-top: 8px; justify-items: start; }
 .sov-custom__meta {
-  font-size: .72rem; font-weight: 800; text-transform: uppercase;
+  font-size: .8rem; font-weight: 800; text-transform: uppercase;
   letter-spacing: .05em; color: var(--sov-ink-soft);
 }
 .sov-custom__answer {
@@ -1150,3 +1204,244 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 .sov-steps { display: flex; gap: 20px; flex-wrap: wrap; align-items: center; margin-top: 14px; }
 .sov-steps .sov-leave { margin-top: 0; }
 .sov-leave:disabled { opacity: .4; cursor: default; text-decoration-color: transparent; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   Инфографика.
+
+   Правило то же, что у всего остального: один насыщенный цвет. Синяя
+   заливка кольца и полосы значит «сделано», бумага-2 — «осталось».
+   Охра появляется ровно там, где она уже значила «подумай ещё»: у темы
+   ниже порога зачёта. Зелёный — только у верного ответа.
+
+   Второе правило — подпись. У каждой фигуры ровно одна строка рядом:
+   что это и за какой срок. Абзацы, объясняющие график, значат, что
+   график нарисован плохо.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── кольцо ──────────────────────────────────────────────────────────
+   Заливка — conic-gradient, дырка — вложенный кружок цвета бумаги, на
+   которой кольцо лежит: рисовать дугу в SVG ради одной цифры незачем.
+   Толщина кольца задана в процентах от размера, иначе на 56 px кольцо
+   в 15 px съедает середину, а на 170 px превращается в ниточку. */
+.sov-ring {
+  position: relative; flex: none; border-radius: 50%;
+  width: var(--sov-ring-size, 120px); height: var(--sov-ring-size, 120px);
+  background: conic-gradient(var(--sov-ring-color, var(--sov-cobalt)) var(--sov-ring-value, 0%), var(--sov-paper-2) 0);
+}
+.sov-ring::after {
+  content: ""; position: absolute; inset: 13%; border-radius: 50%;
+  background: var(--sov-ring-hole, #fff);
+}
+.sov-ring--warn { --sov-ring-color: var(--sov-warn); }
+.sov-ring--ok { --sov-ring-color: var(--sov-ok); }
+/* Засечка порога зачёта. Без неё кольцо отвечает «сколько», но не
+   отвечает «хватило ли» — а ребёнка и родителя занимает второе. */
+.sov-ring__mark {
+  position: absolute; left: 50%; top: 0; width: 3px; height: 13%;
+  background: var(--sov-ink); opacity: .55; z-index: 2;
+  transform-origin: 50% calc(var(--sov-ring-size, 120px) / 2);
+  transform: translateX(-50%) rotate(var(--sov-ring-mark, 252deg));
+}
+.sov-ring__mid {
+  position: absolute; inset: 0; z-index: 1;
+  display: grid; place-items: center; text-align: center; line-height: 1.1;
+}
+.sov-ring__mid b { display: block; font-weight: 800; letter-spacing: -.03em; font-size: var(--sov-ring-font, 1.5rem); }
+.sov-ring__mid span {
+  display: block; font-size: .88rem; font-weight: 800;
+  text-transform: uppercase; letter-spacing: .05em; color: var(--sov-ink-soft);
+}
+
+/* ── камешки заданий ─────────────────────────────────────────────────
+   Ряд квадратиков по числу заданий: видно не только «девять из
+   одиннадцати», но и на каком именно вопросе споткнулся. Цвета те же,
+   что у разбора ответа, — ребёнок уже знает, что они значат. */
+.sov-stones { display: flex; gap: 8px; flex-wrap: wrap; }
+.sov-stone {
+  width: 38px; height: 38px; border-radius: 12px; flex: none;
+  display: grid; place-items: center; border: none;
+  font-family: var(--sov-font); font-weight: 800; font-size: .95rem;
+  background: var(--sov-paper-2); color: #a99c85;
+}
+.sov-stone[data-state="right"] { background: var(--sov-ok-bg); color: var(--sov-ok); }
+.sov-stone[data-state="wrong"] { background: var(--sov-warn-bg); color: var(--sov-warn); }
+.sov-stone[data-state="now"] { background: #fff; color: var(--sov-cobalt); box-shadow: inset 0 0 0 3px var(--sov-cobalt); }
+button.sov-stone { cursor: pointer; }
+button.sov-stone:disabled { cursor: default; }
+.sov-stones--sm .sov-stone { width: 27px; height: 27px; border-radius: 9px; font-size: .88rem; }
+
+/* Что значат цвета камешков. Одна строка под рядом вместо легенды
+   сбоку: ряд короткий, а подпись читают один раз. */
+.sov-legend {
+  display: flex; gap: 18px; flex-wrap: wrap; margin-top: 12px;
+  font-size: .95rem; font-weight: 700; color: var(--sov-ink-soft);
+}
+.sov-legend i { display: inline-block; width: 13px; height: 13px; border-radius: 4px; margin-right: 7px; vertical-align: -2px; }
+.sov-legend i[data-state="right"] { background: var(--sov-ok-bg); box-shadow: inset 0 0 0 2px var(--sov-ok); }
+.sov-legend i[data-state="wrong"] { background: var(--sov-warn-bg); box-shadow: inset 0 0 0 2px var(--sov-warn); }
+
+/* ── столбики по дням ────────────────────────────────────────────────
+   Высота задаётся инлайном в пикселях, а не процентами: процент от
+   строки грид-контейнера считается от auto и схлопывается в ноль. */
+.sov-days { display: flex; align-items: flex-end; gap: 10px; height: 96px; position: relative; }
+.sov-days__avg { position: absolute; left: 0; right: 0; border-top: 2px dashed var(--sov-paper-3); }
+.sov-day-bar { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 6px; height: 100%; }
+.sov-day-bar i { display: block; flex: none; width: 100%; border-radius: 8px 8px 4px 4px; background: var(--sov-cobalt-soft); }
+.sov-day-bar[data-hi="true"] i { background: var(--sov-cobalt); }
+.sov-day-bar[data-zero="true"] i { background: var(--sov-paper-2); }
+.sov-day-bar u { text-decoration: none; font-size: .86rem; font-weight: 800; color: var(--sov-ink-soft); }
+
+/* ── неделя кружками ─────────────────────────────────────────────────
+   Семь дней: занимался — синий, пропустил — бумажный, сегодня — обводка.
+   Стоит в шапке у ребёнка и плиткой у родителя. */
+.sov-week { display: flex; gap: 8px; }
+.sov-week__day { width: 34px; text-align: center; }
+.sov-week__day i {
+  display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%;
+  background: var(--sov-paper-2); color: #b3a794; font-style: normal;
+  font-size: .92rem; font-weight: 800;
+}
+.sov-week__day[data-on="true"] i { background: var(--sov-cobalt); color: #fff; }
+.sov-week__day[data-today="true"] i { background: #fff; color: var(--sov-cobalt); box-shadow: inset 0 0 0 3px var(--sov-cobalt); }
+.sov-week__day u { display: block; text-decoration: none; margin-top: 5px; font-size: .86rem; font-weight: 800; color: var(--sov-ink-soft); }
+
+/* ── полоса освоения темы ────────────────────────────────────────────
+   Засечка на 70% стоит на каждой полосе: она и есть порог зачёта, и
+   благодаря ей полоса читается без цифры рядом. */
+.sov-bar { display: block; position: relative; height: 12px; border-radius: 999px; background: var(--sov-paper-2); overflow: hidden; }
+.sov-bar i { display: block; height: 100%; border-radius: 999px; background: var(--sov-cobalt); }
+.sov-bar[data-risk="true"] i { background: var(--sov-warn); }
+.sov-bar::after { content: ""; position: absolute; left: 70%; top: -3px; bottom: -3px; width: 2px; background: var(--sov-ink); opacity: .35; }
+.sov-bar--plain::after { content: none; }
+
+.sov-mastery { display: grid; gap: 13px; margin-top: 16px; }
+.sov-mastery__row { display: grid; grid-template-columns: 1fr 58px; gap: 12px; align-items: center; }
+.sov-mastery__row strong { display: block; font-size: 1rem; font-weight: 800; }
+.sov-mastery__row .sov-bar { margin-top: 6px; }
+.sov-mastery__val { font-family: var(--sov-mono); font-size: 1rem; text-align: right; }
+.sov-mastery__val[data-risk="true"] { color: var(--sov-warn); font-weight: 600; }
+
+/* ── спарклайн тренажёра ─────────────────────────────────────────────
+   Четыре захода в таблице — это четыре числа, которые никто не
+   сравнивает. Линия сравнивает их за читателя. */
+.sov-spark { display: block; width: 100%; height: 52px; margin: 10px 0; }
+.sov-delta {
+  display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+  font-size: .92rem; font-weight: 800; border-radius: 999px; padding: 3px 11px;
+  background: var(--sov-ok-bg); color: var(--sov-ok);
+}
+.sov-delta[data-dir="down"] { background: var(--sov-warn-bg); color: var(--sov-warn); }
+.sov-delta[data-dir="flat"] { background: var(--sov-paper-2); color: var(--sov-ink-soft); }
+
+/* ── плитка с цифрой ─────────────────────────────────────────────────
+   Заменяет .sov-metric там, где рядом с числом стоит фигура. */
+.sov-tile { border: 2px solid var(--sov-line); border-radius: var(--sov-radius); background: #fff; padding: 20px; }
+.sov-tile__cap { display: block; font-size: .94rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--sov-ink-soft); }
+.sov-tile__big { font-size: 2.4rem; font-weight: 800; letter-spacing: -.03em; line-height: 1; margin-top: 10px; }
+.sov-tile__sub { font-size: .94rem; font-weight: 600; color: var(--sov-ink-soft); margin-top: 6px; }
+.sov-tile__row { display: flex; align-items: center; gap: 14px; margin-top: 14px; }
+
+/* ── панель занятия ──────────────────────────────────────────────────
+   Контент занял всю ширину, и справа от вопроса осталось пустое поле.
+   Панель забирает его под то, что раньше жило в тропе: сколько
+   пройдено, сколько верных, сколько осталось времени. */
+.sov-play__grid { display: grid; gap: 20px; align-items: start; grid-template-columns: 1fr; }
+@media (min-width: 1100px) { .sov-play__grid { grid-template-columns: minmax(0, 1fr) 340px; } }
+.sov-side {
+  border: 2px solid var(--sov-line); border-radius: 22px; background: #fff;
+  padding: 22px; display: grid; gap: 18px; align-content: start;
+}
+.sov-side__block { display: grid; gap: 10px; }
+.sov-side__block + .sov-side__block { border-top: 2px solid var(--sov-line); padding-top: 18px; }
+.sov-side__cap { font-size: .94rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--sov-ink-soft); }
+.sov-side__row { display: flex; align-items: center; gap: 16px; }
+/* На узком экране панель встаёт под карточку, и вертикальная колонка
+   из четырёх блоков растягивает страницу. Раскладываем в строку. */
+@media (max-width: 1099px) {
+  .sov-side { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+  .sov-side__block + .sov-side__block { border-top: none; padding-top: 0; }
+}
+
+/* Банка мёда крупно — та же, что идёт по тропе, но с подписью. */
+.sov-honey {
+  position: relative; width: 56px; height: 74px; flex: none; overflow: hidden;
+  border: 3px solid var(--sov-cobalt); border-radius: 10px 10px 16px 16px;
+  background: #fff; display: grid; place-items: end center;
+}
+.sov-honey i { position: absolute; left: 0; right: 0; bottom: 0; background: var(--sov-cobalt); transition: height .45s cubic-bezier(.2,.8,.2,1); }
+.sov-honey b { position: relative; z-index: 1; font-weight: 800; font-size: 1rem; padding-bottom: 6px; }
+
+/* ── итог занятия ────────────────────────────────────────────────────
+   Три колонки: результат, разбор по заданиям, что дальше. На узком
+   экране — одна, в том же порядке. */
+.sov-result { display: grid; gap: 28px; align-items: center; grid-template-columns: 1fr; }
+@media (min-width: 1000px) { .sov-result { grid-template-columns: auto minmax(0, 1fr) 290px; } }
+.sov-result__next { display: grid; gap: 12px; }
+
+/* ── карта тем в две колонки ─────────────────────────────────────────
+   Тропа больше не ограничена 560 px, и два предмета помещаются рядом:
+   вся карта видна целиком, без прокрутки до русского языка. */
+.sov-quests { display: grid; gap: 28px; grid-template-columns: 1fr; }
+@media (min-width: 1000px) { .sov-quests { grid-template-columns: 1fr 1fr; } }
+/* Строка темы в колонке короче, чем была во всю страницу, и звёзды,
+   прижатые к правому краю, отрывались от названия: между ними
+   оставалась полоса пустоты в полколонки. Текст перестаёт растягиваться,
+   и звёзды встают сразу за темой. */
+.sov-quests .sov-level__text { flex: 0 1 auto; }
+.sov-quests .sov-level__text .sov-bar { width: 240px; max-width: 100%; }
+
+/* ── вкладка «Прогресс» в три колонки ────────────────────────────────
+   Порядок колонок повторяет порядок вопросов родителя: как идёт по
+   темам → что просело → чем занимался помимо тем. */
+.sov-progress { margin-top: 24px; }
+.sov-progress__grid { display: grid; gap: 14px; grid-template-columns: 1fr; }
+@media (min-width: 900px) { .sov-progress__grid { grid-template-columns: 1fr 1fr; } }
+@media (min-width: 1280px) { .sov-progress__grid { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) 300px; } }
+.sov-progress__stack { display: grid; gap: 14px; align-content: start; }
+
+/* Шапка панели: заголовок слева, сноска или кнопка справа. Заменяет
+   пару «заголовок + абзац под ним». */
+.sov-panel__head { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.sov-panel__note { font-size: .95rem; font-weight: 600; color: var(--sov-ink-soft); }
+
+/* Тема ниже порога: кольцо, название, из чего сложилась цифра. Раньше
+   это была охряная плашка во всю ширину — четыре подряд превращались
+   в сплошное тревожное поле. */
+.sov-risks { display: grid; gap: 14px; margin-top: 14px; }
+.sov-risks__row { display: flex; align-items: center; gap: 14px; }
+.sov-risks__row strong { display: block; font-size: 1rem; font-weight: 800; }
+.sov-risks__row span { font-size: .9rem; font-weight: 600; color: var(--sov-ink-soft); }
+
+/* Три последних занятия в панели: за «всей историей» теперь ходят по
+   кнопке, а не потому, что на «Прогрессе» её нет. */
+.sov-table--tight td { padding: 10px 6px; }
+.sov-table--tight td:first-child, .sov-table--tight td:last-child { white-space: nowrap; }
+
+/* Заголовок итога: совёнок радуется или сочувствует рядом с ним.
+   Кольцо показывает результат, совёнок — отношение к нему. */
+.sov-result__title { display: flex; align-items: center; gap: 14px; }
+.sov-result__chips { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+/* Разбор, открытый по камешку, стоит на месте — под рядом камешков,
+   а не всплывает поверх экрана. */
+.sov-result .sov-feedback { margin-top: 18px; }
+
+/* Крупное число в панели занятия: подпись мелкая, число — нет. */
+.sov-side__big { font-size: 1.15rem; font-weight: 800; margin-top: 2px; }
+
+/* Неделя и общий счёт тем в шапке ребёнка. Стоят справа от полосы
+   уровня: слева — «сколько до следующего», справа — «как шла неделя». */
+.sov-hollow__week { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+@media (min-width: 900px) {
+  .sov-hollow__week { border-left: 2px solid var(--sov-line); padding-left: 18px; }
+}
+/* Полоса освоения в строке темы не должна тянуться на всю колонку:
+   рядом с ней стоят звёзды, и метровая полоса до них перебивает
+   название темы. */
+.sov-level__text .sov-bar { max-width: 240px; margin-top: 6px; }
+
+/* Счётчик шага на витрине. Моноширинный, как остальные служебные
+   пометки: это не заголовок и не текст, а отметка места. */
+.sov-step-count {
+  font-family: var(--sov-mono); font-size: .95rem; font-weight: 500;
+  color: var(--sov-ink-soft); margin-bottom: 12px;
+}
