@@ -9,7 +9,8 @@ import {
   Stars,
   Wordmark,
 } from "../components/brand";
-import { coinsLabel, SHOP } from "../lib/shop";
+import { TRAINERS } from "../components/trainers";
+import { coinsLabel, plural, SHOP } from "../lib/shop";
 import { AutoSpeakToggle, SpeakButton } from "../components/speak";
 import { Bar, Ring, WeekStrip, weekBuckets } from "../components/figures";
 import { getDiagnostic, getSkillMap, me, submitDiagnostic } from "../lib/api/app.functions";
@@ -26,14 +27,6 @@ function dueLabel(iso: string): string {
   if (days === 0) return "на сегодня";
   if (days === 1) return "на завтра";
   return `осталось ${days} дн.`;
-}
-
-function plural(n: number, one: string, few: string, many: string): string {
-  const mod10 = n % 10;
-  const mod100 = n % 100;
-  if (mod10 === 1 && mod100 !== 11) return one;
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few;
-  return many;
 }
 
 export const Route = createFileRoute("/uchenik")({
@@ -75,6 +68,19 @@ function PupilPage() {
       setHomework(hw.assignments);
     }
   };
+
+  /**
+   * Ответ лавки вживляется в состояние экрана.
+   *
+   * Раньше на покупку и на «надеть» отвечали location.reload(): экран гас
+   * белым, прокрутка улетала наверх, и лавку приходилось искать заново —
+   * ради действия, которое существует ровно для приятного отклика. Сервер
+   * отдаёт свежие пёрышки, список купленного и надетую вещь, эти четыре
+   * поля и подменяем; карта тем и домашка остаются на месте.
+   */
+  const applyOwl = (owl: { coins: number; earned: number; owned: string[]; equipped: string }) =>
+    setData((prev) => (prev ? { ...prev, ...owl } : prev));
+
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -146,7 +152,16 @@ function PupilPage() {
   }
 
   if (!data.child.diagnosticsDone) {
-    return <Diagnostic childId={childId} onDone={() => location.reload()} />;
+    // После диагностики нужна свежая карта: перезагружать ради этого всю
+    // страницу незачем — забираем её тем же запросом, что и при входе.
+    return (
+      <Diagnostic
+        childId={childId}
+        onDone={async () => {
+          setData(await getSkillMap({ data: { childId } }));
+        }}
+      />
+    );
   }
 
   // Темы из активной домашки помечаются прямо на тропе: ребёнок, который
@@ -174,6 +189,59 @@ function PupilPage() {
   );
   const topicsTotal = data.subjects.reduce((sum, s) => sum + s.topics.length, 0);
 
+  /**
+   * Одно дело, которое ребёнок начнёт с этого экрана.
+   *
+   * Сперва смотрим в домашку: если педагог что-то задал, спорить не о чем.
+   * Если задания нет, а карта тем открыта (ученик без репетитора) —
+   * предлагаем продолжить начатую тему, а её нет, так первую доступную.
+   * У ребёнка с репетитором и без домашки карточки не будет: звать его
+   * в темы вперёд плана педагога мы не вправе.
+   */
+  const pendingHw = homework.find((hw) => hw.status !== "done");
+  const pendingItem = pendingHw?.items.find((i) => !i.done);
+  const freeTopic =
+    !pendingItem && !data.hasTutor
+      ? (data.subjects.flatMap((s) => s.topics).find((t) => t.status === "in_progress") ??
+        data.subjects
+          .flatMap((s) => s.topics)
+          .find((t) => !t.locked && t.available && t.status !== "completed"))
+      : undefined;
+
+  const nextUp: {
+    cap: string;
+    name: string;
+    label: string;
+    topicId?: string;
+    to?: string;
+    anchor?: string;
+  } | null = pendingHw && pendingItem
+    ? {
+        cap: [
+          pendingHw.title,
+          pendingHw.dueAt ? dueLabel(pendingHw.dueAt) : "без срока",
+          `сделано ${pendingHw.doneCount} из ${pendingHw.total}`,
+        ].join(" · "),
+        name: pendingItem.name,
+        // Своё задание от педагога проверяет человек, и «начать» его нельзя —
+        // можно только открыть форму ответа ниже на этой же странице.
+        label: pendingItem.kind === "custom" ? "Открыть задание" : "Начать",
+        topicId: pendingItem.kind === "topic" ? pendingItem.refId : undefined,
+        to:
+          pendingItem.kind === "topic" || pendingItem.kind === "custom"
+            ? undefined
+            : (TRAINERS.find((t) => t.id === pendingItem.refId)?.to ?? "/schet"),
+        anchor: pendingItem.kind === "custom" ? `#zadanie-${pendingItem.id}` : undefined,
+      }
+    : freeTopic
+      ? {
+          cap: freeTopic.status === "in_progress" ? "Ты уже начал" : "Можно начать",
+          name: freeTopic.name,
+          label: freeTopic.status === "in_progress" ? "Продолжить" : "Начать",
+          topicId: freeTopic.id,
+        }
+      : null;
+
   return (
     <div className="sov sov-kid">
       <div className="sov-shell">
@@ -200,54 +268,45 @@ function PupilPage() {
           </div>
         </div>
 
-        {/* Приветствие ужато в строку, и синей заливки на нём больше нет.
-            Раньше это была самая заметная плашка экрана, хотя отвечала на
-            вопрос «как меня зовут». Цвет действия отдан домашке — теперь
-            ребёнок первым делом видит, что задал педагог. */}
-        <div className="sov-hollow">
-          <div className="sov-hollow__owl">
-            <Owl size={52} stage={stage} item={item} mood="happy" animated />
-            <span className="sov-hollow__badge">{data.level}</span>
-          </div>
+        {/* Первым делом — что делать сейчас.
 
-          <div className="sov-hollow__info">
-            <strong className="sov-hollow__hi">Привет, {data.child.name}</strong>
-            <span className="sov-hollow__grade">{data.child.grade} класс</span>
-          </div>
+            Раньше экран открывался сводкой о ребёнке: аватар, бейдж уровня,
+            имя, класс, пёрышки, «2 / 5 звёзд», полоса роста, подсказка,
+            неделя занятий и кольцо пройденных тем. Одиннадцать значений,
+            и только под ними — домашка, ради которой экран и открыли.
+            Ребёнок, который читает по слогам, разбирал чужую статистику о
+            себе прежде, чем видел первое задание.
 
-          <div className="sov-hollow__xp">
-            <div className="sov-xp">
-              <div className="sov-xp__row">
-                <span>Уровень {data.level}</span>
-                <span className="sov-coins">{coinsLabel(data.coins)}</span>
-                {/* Эмодзи-звезда была здесь единственным жёлтым пятном в
-                    интерфейсе — счёт словом держит экран одноцветным. */}
-                <span className="sov-mono">
-                  {starsInLevel} / {STARS_PER_LEVEL} звёзд
-                </span>
-              </div>
-              <div className="sov-xp__track">
-                <div className="sov-xp__fill" style={{ width: `${(starsInLevel / STARS_PER_LEVEL) * 100}%` }} />
-              </div>
-              <span className="sov-xp__hint">
-                {toNextLevel === 0
-                  ? "Совёнок вырос до предела — ты молодец!"
-                  : `Ещё ${toNextLevel} ${plural(toNextLevel, "звезда", "звезды", "звёзд")} — и совёнок подрастёт`}
-              </span>
-            </div>
-          </div>
+            Теперь порядок обратный: имя, одна карточка с названием темы и
+            одной кнопкой, список остального, тренажёры — и лишь потом рост
+            совёнка и неделя. Ни одна цифра не потерялась, они просто стоят
+            после действия, а не перед ним. */}
+        <p className="sov-kid__hi">Привет, {data.child.name}!</p>
 
-          {/* Неделя занятий: пропущенный день ребёнок замечает сам, без
-              взрослого и без единой строки текста. Рядом — кольцо со
-              счётом пройденных тем: «5 из 10» вместо «18 звёзд» в
-              пустоте. */}
-          <div className="sov-hollow__week">
-            <WeekStrip days={weekDays} />
-            <Ring value={topicsTotal ? (topicsDone / topicsTotal) * 100 : 0} size={56} label={`Пройдено ${topicsDone} тем из ${topicsTotal}`}>
-              {`${topicsDone}/${topicsTotal}`}
-            </Ring>
-          </div>
-        </div>
+        {nextUp ? (
+          <section className="sov-next">
+            <span className="sov-next__cap">{nextUp.cap}</span>
+            <strong className="sov-next__what">{nextUp.name}</strong>
+            {nextUp.anchor ? (
+              <a href={nextUp.anchor} className="sov-act-child sov-next__go">
+                {nextUp.label}
+              </a>
+            ) : nextUp.topicId ? (
+              <Link
+                to="/urok/$topicId"
+                params={{ topicId: nextUp.topicId }}
+                search={{ mode: "practice" }}
+                className="sov-act-child sov-next__go"
+              >
+                {nextUp.label}
+              </Link>
+            ) : (
+              <Link to={nextUp.to ?? "/schet"} className="sov-act-child sov-next__go">
+                {nextUp.label}
+              </Link>
+            )}
+          </section>
+        ) : null}
 
         {/* Домашка стоит над всем остальным: это то, о чём договорились с
             педагогом, и искать её среди тем ребёнок не должен. */}
@@ -307,13 +366,7 @@ function PupilPage() {
                 ) : (
                   <Link
                     key={item.id}
-                    to={
-                      item.refId === "chtenie"
-                        ? "/chtenie"
-                        : item.refId === "shulte"
-                          ? "/shulte"
-                          : "/schet"
-                    }
+                    to={TRAINERS.find((t) => t.id === item.refId)?.to ?? "/schet"}
                     className="sov-homework__item"
                     data-done={item.done}
                   >
@@ -330,27 +383,62 @@ function PupilPage() {
         {/* Тренажёры стоят до тем: в них заходят «на пять минут», и искать их
             в конце длинной карты неудобно. */}
         <div className="sov-trainers">
-          <Link to="/schet" className="sov-trainer">
-            <span className="sov-trainer__icon" aria-hidden="true">🧮</span>
-            <span>
-              <strong>Устный счёт</strong>
-              <em>Примеры на время, скорость и точность</em>
-            </span>
-          </Link>
-          <Link to="/shulte" className="sov-trainer">
-            <span className="sov-trainer__icon" aria-hidden="true">🔢</span>
-            <span>
-              <strong>Таблица Шульте</strong>
-              <em>Найти числа по порядку, тренируя поле зрения</em>
-            </span>
-          </Link>
-          <Link to="/chtenie" className="sov-trainer">
-            <span className="sov-trainer__icon" aria-hidden="true">📖</span>
-            <span>
-              <strong>Скорочтение</strong>
-              <em>Слова по одному и вопросы по тексту</em>
-            </span>
-          </Link>
+          {TRAINERS.map((trainer) => (
+            <Link key={trainer.id} to={trainer.to} className="sov-trainer">
+              <span className="sov-trainer__icon">
+                <trainer.Icon size={26} />
+              </span>
+              <span>
+                <strong>{trainer.title}</strong>
+                <em>{trainer.blurb}</em>
+              </span>
+            </Link>
+          ))}
+        </div>
+
+        {/* Рост совёнка и неделя занятий. Стоят после действия, а не перед
+            ним: это ответ на вопрос «как у меня дела», который ребёнок
+            задаёт, когда уже позанимался, а не когда сел за стол.
+
+            Пёрышки отсюда ушли в заголовок лавки — там на них смотрят,
+            выбирая покупку, а здесь они были четвёртым числом подряд. */}
+        <div className="sov-hollow">
+          <div className="sov-hollow__owl">
+            <Owl size={52} stage={stage} item={item} mood="happy" animated />
+            <span className="sov-hollow__badge">{data.level}</span>
+          </div>
+
+          <div className="sov-hollow__xp">
+            <div className="sov-xp">
+              <div className="sov-xp__row">
+                <span>Уровень {data.level}</span>
+                {/* Эмодзи-звезда была здесь единственным жёлтым пятном в
+                    интерфейсе — счёт словом держит экран одноцветным. */}
+                <span className="sov-mono">
+                  {starsInLevel} / {STARS_PER_LEVEL} звёзд
+                </span>
+              </div>
+              <div className="sov-xp__track">
+                <div className="sov-xp__fill" style={{ width: `${(starsInLevel / STARS_PER_LEVEL) * 100}%` }} />
+              </div>
+              <span className="sov-xp__hint">
+                {toNextLevel === 0
+                  ? "Совёнок вырос до предела — ты молодец!"
+                  : `Ещё ${toNextLevel} ${plural(toNextLevel, "звезда", "звезды", "звёзд")} — и совёнок подрастёт`}
+              </span>
+            </div>
+          </div>
+
+          {/* Неделя занятий: пропущенный день ребёнок замечает сам, без
+              взрослого и без единой строки текста. Рядом — кольцо со
+              счётом пройденных тем: «5 из 10» вместо «18 звёзд» в
+              пустоте. */}
+          <div className="sov-hollow__week">
+            <WeekStrip days={weekDays} />
+            <Ring value={topicsTotal ? (topicsDone / topicsTotal) * 100 : 0} size={56} label={`Пройдено ${topicsDone} тем из ${topicsTotal}`}>
+              {`${topicsDone}/${topicsTotal}`}
+            </Ring>
+          </div>
         </div>
 
         {/* Карта тем видна только ученику без педагога. Когда занятия ведёт
@@ -495,8 +583,16 @@ function PupilPage() {
                       disabled={worn || busy}
                       onClick={async () => {
                         setBusy(true);
-                        await equipOwlItem({ data: { childId, item: worn ? "none" : goods.id } });
-                        location.reload();
+                        try {
+                          applyOwl(
+                            await equipOwlItem({
+                              data: { childId, item: worn ? "none" : goods.id },
+                            }),
+                          );
+                        } catch (e) {
+                          setError(e instanceof Error ? e.message : "Не получилось переодеть");
+                        }
+                        setBusy(false);
                       }}
                     >
                       {worn ? "Надето" : "Надеть"}
@@ -509,12 +605,11 @@ function PupilPage() {
                       onClick={async () => {
                         setBusy(true);
                         try {
-                          await buyOwlItem({ data: { childId, item: goods.id } });
-                          location.reload();
+                          applyOwl(await buyOwlItem({ data: { childId, item: goods.id } }));
                         } catch (e) {
                           setError(e instanceof Error ? e.message : "Не получилось купить");
-                          setBusy(false);
                         }
+                        setBusy(false);
                       }}
                     >
                       {goods.cost} пёрышек
@@ -532,8 +627,8 @@ function PupilPage() {
                 disabled={busy}
                 onClick={async () => {
                   setBusy(true);
-                  await equipOwlItem({ data: { childId, item: "none" } });
-                  location.reload();
+                  applyOwl(await equipOwlItem({ data: { childId, item: "none" } }));
+                  setBusy(false);
                 }}
               >
                 Снять всё
@@ -704,7 +799,7 @@ function CustomItem({
   const [error, setError] = useState<string | null>(null);
 
   return (
-    <div className="sov-homework__custom" data-done={!!item.grade}>
+    <div id={`zadanie-${item.id}`} className="sov-homework__custom" data-done={!!item.grade}>
       <strong>{item.name}</strong>
       {item.body ? <p>{item.body}</p> : null}
 

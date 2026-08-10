@@ -1,8 +1,9 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 
-import { ChildAction, Owl, Wordmark } from "../components/brand";
+import { ChildAction, Owl } from "../components/brand";
 import { SpeakButton } from "../components/speak";
+import { TrainerTop } from "../components/trainers";
 import { me, readingResult, readingTexts } from "../lib/api/app.functions";
 
 export const Route = createFileRoute("/chtenie")({
@@ -154,7 +155,7 @@ function ReadingPage() {
     return (
       <div className="sov sov-kid">
         <div className="sov-play">
-          <ReadingTop />
+          <TrainerTop current="chtenie" />
           <div className="sov-card">
             <h2>Что запомнилось?</h2>
             <p style={{ marginTop: 10, color: "var(--sov-ink-soft)" }}>
@@ -196,7 +197,7 @@ function ReadingPage() {
     return (
       <div className="sov sov-kid">
         <div className="sov-play">
-          <ReadingTop />
+          <TrainerTop current="chtenie" />
           <div className="sov-card">
             <Owl size={64} mood={outcome.correct === outcome.total ? "happy" : "concerned"} animated />
             <h2 style={{ marginTop: 16 }}>Прочитано</h2>
@@ -255,7 +256,7 @@ function ReadingPage() {
   return (
     <div className="sov sov-kid">
       <div className="sov-play">
-        <ReadingTop />
+        <TrainerTop current="chtenie" />
         <div className="sov-card">
           <h2>Скорочтение</h2>
           <p style={{ marginTop: 10, color: "var(--sov-ink-soft)" }}>
@@ -317,21 +318,3 @@ function ReadingPage() {
   );
 }
 
-function ReadingTop() {
-  return (
-    <div className="sov-demo__top">
-      <Wordmark compact />
-      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-        <Link to="/shulte" className="sov-act-ghost" style={{ textDecoration: "none" }}>
-          Таблица Шульте
-        </Link>
-        <Link to="/schet" className="sov-act-ghost" style={{ textDecoration: "none" }}>
-          Устный счёт
-        </Link>
-        <Link to="/uchenik" className="sov-act-ghost" style={{ textDecoration: "none" }}>
-          Занятия
-        </Link>
-      </div>
-    </div>
-  );
-}

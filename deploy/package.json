@@ -1,0 +1,12 @@
+{
+  "_comment": "Манифест локального стенда (stand.mjs). Контейнер собирается не отсюда, а из runtime.package.json — см. Dockerfile. Зависимость одна и та же, версии держите одинаковыми.",
+  "name": "sovenok-stand",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "stand": "node stand.mjs"
+  },
+  "dependencies": {
+    "miniflare": "^4.20250508.0"
+  }
+}

@@ -8,6 +8,7 @@ import {
   notifySettings, notifyToggle, parentReport, redeemPromo, selectChild, setParentPin, unlockParentCabinet,
   updateChild,
 } from "../lib/api/app.functions";
+import { plural } from "../lib/shop";
 
 export const Route = createFileRoute("/roditel")({
   head: () => ({ meta: [{ title: "Кабинет родителя, Совёнок" }] }),
@@ -18,7 +19,7 @@ type Report = {
   child: { id: string; name: string; grade: number; avatar: string; dailyLimitMin: number; soundOn: boolean; diagnosticsDone: boolean };
   accuracy: number; attempts: number; weekLessons: number; weekMinutes: number;
   topicsDone: number; topicsTotal: number; stars: number;
-  risk: { topic: string; subject: string; percent: number; total: number }[];
+  risk: { topic: string; subject: string; percent: number; total: number; assigned: boolean }[];
   mastery: { topic: string; subject: string; subjectId: string; total: number; percent: number }[];
   weekAccuracy: number | null; prevAccuracy: number | null;
   weekRuns: { startedAt: string; seconds: number }[];
@@ -146,6 +147,7 @@ function ParentPage() {
           <AddChildForm onAdded={load} />
         ) : (
           <>
+            <Verdict report={report} />
             <ReportTiles report={report} />
 
             <div className="sov-tabs">
@@ -285,7 +287,13 @@ function ParentPage() {
   );
 }
 
-const DRILL_NAMES: Record<string, string> = { mental: "Устный счёт", reading: "Скорочтение", shulte: "Таблица Шульте" };
+const DRILL_NAMES: Record<string, string> = {
+  mental: "Устный счёт",
+  reading: "Скорочтение",
+  shulte: "Таблица Шульте",
+  spelling: "Правописание",
+  table: "Таблица умножения",
+};
 
 /**
  * Плитки над вкладками.
@@ -296,6 +304,68 @@ const DRILL_NAMES: Record<string, string> = { mental: "Устный счёт", r
  * воскресенья. Числа остались, но у каждого появилась фигура, которая
  * показывает то, чего число не показывает.
  */
+/**
+ * Вывод словами над цифрами.
+ *
+ * Родитель приходит в кабинет с одним вопросом — «всё нормально или надо
+ * вмешаться». Раньше на него отвечали четыре плитки и таблица, из которых
+ * вывод нужно было собрать самому: 74%, 86 минут, 5 занятий, 3 темы — а
+ * дальше думайте. Здесь тот же отчёт произносится двумя строками, и ни
+ * одной новой цифры для этого не понадобилось.
+ *
+ * Первая строка — про занятия: сколько раз и растёт ли доля верных.
+ * Вторая — про то, что просело, и чья это забота. Если всё выше порога,
+ * второй строки нет: хорошая новость не нуждается в абзаце.
+ */
+function Verdict({ report }: { report: Report }) {
+  const name = report.child.name;
+
+  if (report.weekLessons === 0) {
+    return (
+      <div className="sov-verdict" data-tone="warn">
+        <strong>{name} не занимался на этой неделе.</strong>
+        <span>
+          {report.history.length === 0
+            ? "Занятий пока не было совсем — начните с любой темы или тренажёра."
+            : "Прошлые занятия сохранены, прогресс не потерян."}
+        </span>
+      </div>
+    );
+  }
+
+  const lessons = `${report.weekLessons} ${plural(report.weekLessons, "раз", "раза", "раз")}`;
+  const delta =
+    report.weekAccuracy !== null && report.prevAccuracy !== null
+      ? report.weekAccuracy - report.prevAccuracy
+      : null;
+  const trend =
+    delta === null
+      ? "первая неделя занятий"
+      : delta >= 5
+        ? `доля верных выросла на ${delta} пунктов`
+        : delta <= -5
+          ? `доля верных упала на ${-delta} пунктов`
+          : "доля верных держится на месте";
+
+  const unassigned = report.risk.filter((r) => !r.assigned);
+  const tone = unassigned.length > 0 ? "warn" : "ok";
+
+  return (
+    <div className="sov-verdict" data-tone={tone}>
+      <strong>
+        {name} занимался {lessons} за неделю, {trend}.
+      </strong>
+      <span>
+        {report.risk.length === 0
+          ? "Ни одна тема не просела ниже порога."
+          : unassigned.length === 0
+            ? `Все просевшие темы (${report.risk.length}) педагог уже задавал — вмешиваться не нужно.`
+            : `Ниже порога ${report.risk.length} ${plural(report.risk.length, "тема", "темы", "тем")}, и «${unassigned[0].topic}» педагог пока не задавал.`}
+      </span>
+    </div>
+  );
+}
+
 function ReportTiles({ report }: { report: Report }) {
   const week = weekBuckets(report.weekRuns, (r) => r.startedAt);
   const days = week.map((d) => ({
@@ -434,6 +504,13 @@ function ProgressTab({ report, onHistory }: { report: Report; onHistory: () => v
                           {r.subject} · {r.total} заданий
                         </span>
                       </div>
+                      {/* Чья это забота. Процент без ответа на этот вопрос
+                          заставляет родителя гадать: писать педагогу или он
+                          уже занимается. Тема в работе — метка спокойная,
+                          зелёная; не задана — охряная, как и сама зона. */}
+                      <span className="sov-risks__state" data-tone={r.assigned ? "ok" : "warn"}>
+                        {r.assigned ? "задана" : "не задана"}
+                      </span>
                     </div>
                   ))}
                 </div>

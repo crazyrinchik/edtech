@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 
+import { AvatarFace } from "./avatars";
 import { Owl as Mascot } from "./mascot";
 
 export { currentOwlItem, ForestScene, NightSky, OWL_UNLOCKS, owlStage } from "./mascot";
@@ -119,16 +120,19 @@ export function FormAction({
  * Аватары детей. Фотографий у нас нет и не будет (о ребёнке хранятся только
  * имя, класс и ответы), поэтому лицо профиля — зверёк: его ребёнок узнаёт
  * раньше, чем прочитает своё имя.
+ *
+ * Сам рисунок живёт в components/avatars.tsx — эмодзи здесь не годятся,
+ * причина расписана там же.
  */
-export const CHILD_AVATARS: { id: string; label: string; face: string; tint: string }[] = [
-  { id: "owl", label: "Совёнок", face: "🦉", tint: "#e8eeff" },
-  { id: "fox", label: "Лисёнок", face: "🦊", tint: "#ffe9d9" },
-  { id: "bear", label: "Медвежонок", face: "🐻", tint: "#f1e6d8" },
-  { id: "hare", label: "Зайчонок", face: "🐰", tint: "#f2e6f7" },
-  { id: "cat", label: "Котёнок", face: "🐱", tint: "#ffeef1" },
-  { id: "panda", label: "Панда", face: "🐼", tint: "#eef1f4" },
-  { id: "frog", label: "Лягушонок", face: "🐸", tint: "#e4f6e6" },
-  { id: "penguin", label: "Пингвинёнок", face: "🐧", tint: "#e3f1fb" },
+export const CHILD_AVATARS: { id: string; label: string; tint: string }[] = [
+  { id: "owl", label: "Совёнок", tint: "#e8eeff" },
+  { id: "fox", label: "Лисёнок", tint: "#ffe9d9" },
+  { id: "bear", label: "Медвежонок", tint: "#f1e6d8" },
+  { id: "hare", label: "Зайчонок", tint: "#f2e6f7" },
+  { id: "cat", label: "Котёнок", tint: "#ffeef1" },
+  { id: "panda", label: "Панда", tint: "#dde3ea" },
+  { id: "frog", label: "Лягушонок", tint: "#e4f6e6" },
+  { id: "penguin", label: "Пингвинёнок", tint: "#e3f1fb" },
 ];
 
 export function ChildAvatar({ avatar, size = 56 }: { avatar: string; size?: number }) {
@@ -136,10 +140,10 @@ export function ChildAvatar({ avatar, size = 56 }: { avatar: string; size?: numb
   return (
     <span
       className="sov-avatar"
-      style={{ width: size, height: size, background: found.tint, fontSize: size * 0.56 }}
+      style={{ width: size, height: size, background: found.tint }}
       aria-hidden="true"
     >
-      {found.face}
+      <AvatarFace avatar={found.id} size={Math.round(size * 0.82)} />
     </span>
   );
 }

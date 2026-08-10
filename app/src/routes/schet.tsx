@@ -1,8 +1,9 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 
-import { ChildAction, Owl, Wordmark } from "../components/brand";
+import { ChildAction, Owl } from "../components/brand";
 import { SpeakButton } from "../components/speak";
+import { TrainerTop } from "../components/trainers";
 import { me, saveMentalDrill } from "../lib/api/app.functions";
 
 export const Route = createFileRoute("/schet")({
@@ -195,7 +196,7 @@ function MentalPage() {
     return (
       <div className="sov sov-kid">
         <div className="sov-play">
-          <TrainerTop />
+          <TrainerTop current="schet" />
           <div className="sov-card">
             <h2>Устный счёт</h2>
             <p style={{ marginTop: 10, color: "var(--sov-ink-soft)" }}>
@@ -303,7 +304,7 @@ function MentalPage() {
     return (
       <div className="sov sov-kid">
         <div className="sov-play">
-          <TrainerTop />
+          <TrainerTop current="schet" />
           <div className="sov-card">
             <Owl size={64} mood={percent >= 70 ? "happy" : "concerned"} animated />
             <h2 style={{ marginTop: 16 }}>Готово</h2>
@@ -345,7 +346,7 @@ function MentalPage() {
   return (
     <div className="sov sov-kid">
       <div className="sov-play">
-        <TrainerTop />
+        <TrainerTop current="schet" />
         <div className="sov-play__bar" style={{ marginTop: 14 }}>
           <Owl size={40} mood={verdict ? (verdict.ok ? "happy" : "concerned") : "idle"} />
           <div className="sov-play__track">
@@ -416,25 +417,6 @@ function MentalPage() {
             </>
           ) : null}
         </div>
-      </div>
-    </div>
-  );
-}
-
-function TrainerTop() {
-  return (
-    <div className="sov-demo__top">
-      <Wordmark compact />
-      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-        <Link to="/shulte" className="sov-act-ghost" style={{ textDecoration: "none" }}>
-          Таблица Шульте
-        </Link>
-        <Link to="/chtenie" className="sov-act-ghost" style={{ textDecoration: "none" }}>
-          Скорочтение
-        </Link>
-        <Link to="/uchenik" className="sov-act-ghost" style={{ textDecoration: "none" }}>
-          Занятия
-        </Link>
       </div>
     </div>
   );

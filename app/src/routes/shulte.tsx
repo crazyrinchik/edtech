@@ -1,7 +1,8 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { ChildAction, Owl, SiteFooter, Wordmark } from "../components/brand";
+import { ChildAction, Owl, SiteFooter } from "../components/brand";
+import { TrainerTop } from "../components/trainers";
 import { me, saveShulteDrill } from "../lib/api/app.functions";
 
 export const Route = createFileRoute("/shulte")({
@@ -94,16 +95,8 @@ function ShultePage() {
   return (
     <div className="sov sov-kid">
       <div className="sov-shell">
-        <div className="sov-header" style={{ padding: "18px 0" }}>
-          <Wordmark compact />
-          <div className="sov-header__right">
-            <Link to="/schet" className="sov-act-ghost" style={{ textDecoration: "none" }}>
-              Устный счёт
-            </Link>
-            <Link to="/uchenik" className="sov-act-ghost" style={{ textDecoration: "none" }}>
-              Занятия
-            </Link>
-          </div>
+        <div style={{ padding: "18px 0" }}>
+          <TrainerTop current="shulte" />
         </div>
 
         <div className="sov-play">
