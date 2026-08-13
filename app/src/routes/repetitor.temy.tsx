@@ -268,9 +268,12 @@ function CurriculumPage() {
                           >
                             {openTopic === topic.code ? "Свернуть" : "Задания"}
                           </button>
+                          {/* «Задать» — то, ради чего репетитор сюда пришёл, и
+                              в паре одинаковых тихих плашек оно терялось.
+                              Обводка отличает действие от «посмотреть». */}
                           <button
                             type="button"
-                            className="sov-act-ghost"
+                            className="sov-act-quiet sov-prog__assign"
                             onClick={() => setAssignTo(assignTo === topic.code ? null : topic.code)}
                             disabled={data.students.length === 0}
                           >
