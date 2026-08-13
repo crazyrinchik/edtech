@@ -1,12 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute } from "@tanstack/react-router";
 import { type ReactNode } from "react";
 
-import {
-  QuietAction,
-  SiteFooter,
-  SiteHeader,
-  StartAction,
-} from "../components/brand";
+import { Owl, QuietAction, SiteFooter, SiteHeader, StartAction } from "../components/brand";
+import { TRAINERS } from "../components/trainers";
 
 export const Route = createFileRoute("/")({ component: Landing });
 
@@ -72,6 +68,7 @@ function Landing() {
           для тех, кто уже зарегистрирован; выбор роли — для новых. */}
       <SiteHeader right={<QuietAction to="/vhod">Войти</QuietAction>} />
       <Hero />
+      <Trainers />
       <Steps />
       <Inside />
       <ForParents />
@@ -124,6 +121,62 @@ function Hero() {
             height={900}
           />
         </div>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Тренажёры на витрине, вторым экраном.
+ *
+ * Все пять открыты без аккаунта с самого начала, но снаружи об этом узнать
+ * было неоткуда: ссылки на них стояли только в кабинете ученика и в шапке
+ * самих тренажёров — то есть за регистрацией. Единственное, что посетитель
+ * мог потрогать до аккаунта, — нулевой урок, и тот одной кнопкой.
+ *
+ * Отсюда место: сразу под первым экраном, до рассказа о том, как всё
+ * устроено. Человек, который зашёл посмотреть, попадает в продукт с первого
+ * клика, а не после четырёх шагов и тарифов.
+ */
+function Trainers() {
+  return (
+    <section className="sov-section sov-shell" aria-label="Тренажёры">
+      {/* Заголовок больше не считает тренажёры. Их пять, но в этой же сетке
+          стоит и нулевой урок, и «пять» пришлось бы поправлять каждый раз,
+          когда список меняется. «Доступно уже сейчас» отвечает на вопрос
+          посетителя — что можно потрогать до регистрации. */}
+      <h2>Доступно уже сейчас</h2>
+      <p className="sov-section__lead">
+        Без регистрации: ни почты, ни пароля. Сесть за счёт или таблицу Шульте можно прямо сейчас —
+        аккаунт нужен позже, чтобы результаты сохранялись и их видел педагог.
+      </p>
+      {/* Своя ширина сетки: в кабинете ученика тренажёров пять в две колонки,
+          и последний остаётся в ряду один. На узкой карте это незаметно, на
+          витрине во всю страницу — дыра справа от последней карточки. */}
+      <div className="sov-trainers sov-trainers--wide">
+        {TRAINERS.map((trainer) => (
+          <Link key={trainer.id} to={trainer.to} className="sov-trainer">
+            <span className="sov-trainer__icon">
+              <trainer.Icon size={26} />
+            </span>
+            <span>
+              <strong>{trainer.title}</strong>
+              <em>{trainer.blurb}</em>
+            </span>
+          </Link>
+        ))}
+        {/* Шестая ячейка — нулевой урок. Раньше дыру справа от пятой
+            карточки закрывать было нечем, а он и правда стоит в этом ряду:
+            это второе, что можно открыть без аккаунта. */}
+        <Link to="/demo" className="sov-trainer sov-trainer--demo">
+          <span className="sov-trainer__icon">
+            <Owl size={26} />
+          </span>
+          <span>
+            <strong>Нулевой урок</strong>
+            <em>Семь заданий, тоже без почты и пароля</em>
+          </span>
+        </Link>
       </div>
     </section>
   );

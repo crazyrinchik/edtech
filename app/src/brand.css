@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Nunito+Sans:opsz,wght@6..12,400;6..12,500;6..12,600;6..12,700;6..12,800&family=IBM+Plex+Mono:wght@400;500&display=swap");
 
 /* ═══════════════════════════════════════════════════════════════════
    Совёнок — дизайн-система.
@@ -9,38 +9,72 @@
       и больше ничего. Зелёный и охра появляются только в разборе
       ответа, где цвет несёт смысл «верно / подумай ещё». Никаких
       жёлтых бейджей, оранжевых рамок и разноцветных полос.
-   2. Плоскость. Ни одного градиента. Объём даёт только нижняя грань
-      у нажимаемых элементов (box-shadow: 0 4px 0) — она читается как
-      толщина кнопки, а не как тень, и исчезает при нажатии.
+   2. Плоскость. Ни одного градиента и ни одной многослойной тени. Объём
+      даёт одна мягкая тень (--sov-shadow) на приподнятых поверхностях и
+      её приглушённый вариант на залитых кнопках. Раньше объём давала
+      нижняя грань box-shadow: 0 4px 0: она читалась как толщина кнопки,
+      но требовала второго, тёмного цвета у каждого нажимаемого элемента
+      и не переносилась на карточки — те оставались без иерархии.
+
+   3. Форма говорит о роли. Заливка — всегда пилюля (--sov-radius-pill),
+      карточка — всегда 8 (--sov-radius), поле ввода — 4. По одному
+      силуэту видно, что нажимается, что читается, а что заполняется.
 
    Бумага бежевая, чернила тёмно-синие, кегли крупные: экран должен
    читаться ребёнком, который читает по слогам.
    ═══════════════════════════════════════════════════════════════════ */
 
 :root {
+  /* Палитра не менялась: это ровно те значения, что и были на экране.
+     Часть из них до сих пор жила в styles.css и оттуда перебивала этот
+     файл — теперь они здесь, и других копий нет. */
   --sov-paper: #fbf7f0;
-  --sov-paper-2: #f3ece0;
-  --sov-paper-3: #e8e0d0;
-  --sov-ink: #111f47;
-  --sov-ink-soft: #5b6786;
+  --sov-paper-2: #f2ece0;
+  --sov-paper-3: #e7dfd0;
+  --sov-ink: #12203a;
+  --sov-ink-soft: #52607a;
   --sov-cobalt: #1f4fd8;
   --sov-cobalt-deep: #16389b;
-  --sov-cobalt-soft: #e6ecfd;
-  --sov-line: #e2d9c9;
-  --sov-ok: #1f8a4c;
+  --sov-cobalt-soft: #e2eaff;
+  --sov-line: #dcd3c3;
+  --sov-ok: #146c43;
   --sov-ok-deep: #17683a;
   --sov-ok-bg: #e4f5ea;
-  --sov-warn: #a75a12;
+  --sov-warn: #8a4b12;
   --sov-warn-bg: #fdf0dd;
   --sov-bad: #a3231b;
   --sov-bad-bg: #fdecea;
-  --sov-radius: 16px;
-  --sov-font: "Nunito", ui-sans-serif, system-ui, sans-serif;
+  /* Радиусы разведены по ролям, а не заданы одним числом на весь интерфейс.
+     Карточка и кнопка — разные вещи, и раньше их роднил общий радиус 16:
+     кнопка выглядела карточкой с текстом. Теперь заливка всегда пилюля,
+     карточка всегда 8, поле ввода почти прямое, а 24 остаётся крупным
+     плашкам с картинкой внутри. */
+  --sov-radius: 8px;
+  --sov-radius-pill: 200px;
+  --sov-radius-input: 4px;
+  --sov-radius-feature: 24px;
+  /* Одна тень на весь интерфейс и её приглушённый вариант для кнопок.
+     Раньше объём давала нижняя грань (box-shadow: 0 4px 0) — она читалась
+     как толщина кнопки и требовала, чтобы у каждой кнопки был свой тёмный
+     цвет грани. Мягкая тень делает то же самое, не заводя второй цвет. */
+  --sov-shadow: rgba(17, 31, 71, 0.1) 0 4px 16px 0;
+  --sov-shadow-sm: rgba(17, 31, 71, 0.1) 0 2px 4px 0;
+  --sov-font: "Nunito Sans", "Nunito", ui-sans-serif, system-ui, sans-serif;
   --sov-mono: "IBM Plex Mono", ui-monospace, monospace;
+  /* Колонка содержимого. Полосы по-прежнему тянутся во всю ширину окна,
+     но текст и карточки внутри них стоят в общей колонке: на мониторе
+     шире полутора тысяч строка иначе разъезжается на весь стол. */
+  --sov-rail: 1200px;
   /* Поля страницы. Единственное, что отделяет контент от края экрана:
      полосы тянутся во всю ширину окна, а не стоят колонкой посередине. */
   --sov-gutter: clamp(24px, 3vw, 56px);
 }
+
+/* Кегль всего интерфейса задан здесь, одним числом.
+   Размеры в файле набраны в rem и считаются от корня, поэтому шкала
+   двигается целиком: 18 px вместо браузерных 16 — это +12% каждому
+   заголовку, подписи и полю. Читателю восемь лет, и мельче ему не надо. */
+html { font-size: 18px; }
 
 .sov {
   background: var(--sov-paper);
@@ -52,10 +86,15 @@
 
 .sov h1, .sov h2, .sov h3 { letter-spacing: -0.02em; line-height: 1.1; margin: 0; font-weight: 800; }
 .sov p { margin: 0; line-height: 1.5; }
-/* Оболочка страницы. Ширину строки ограничивают сами блоки текста — в ch,
-   по числу знаков, — а не общая колонка в пикселях: иначе на широком мониторе
-   страница стоит узким прямоугольником, а по краям остаётся пустая бумага. */
-.sov-shell { width: 100%; padding: 0 var(--sov-gutter); }
+/* Оболочка страницы. Ширину строки по-прежнему держат сами блоки текста в ch,
+   но сверх того появился общий предел колонки: на мониторе шире полутора
+   тысяч карточки расползались по всей столешнице, и глазу приходилось
+   ходить от края до края ради одной строки. Полосы (цветные секции,
+   подвал, шапка) остаются во всю ширину — ограничено только содержимое. */
+.sov-shell {
+  width: 100%; max-width: calc(var(--sov-rail) + var(--sov-gutter) * 2);
+  margin-inline: auto; padding: 0 var(--sov-gutter);
+}
 /* Формы — исключение: поле ввода во весь монитор не заполняют, а мажут. */
 .sov-narrow { max-width: 620px; margin: 0 auto; padding: 0 var(--sov-gutter); }
 .sov-mono { font-family: var(--sov-mono); font-size: .88rem; letter-spacing: 0.02em; }
@@ -88,7 +127,26 @@
   gap: 16px; padding: 16px var(--sov-gutter);
   min-height: 72px;
 }
-.sov-header__right { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.sov-header__right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+/* Разделы в шапке — это навигация, а не действия. Обведённая пилюля даёт
+   им вес кнопки: три-четыре штуки в ряд перетягивали на себя весь верх
+   экрана и спорили с единственной настоящей кнопкой справа. В шапке они
+   набраны текстом, вес несёт только текущий раздел. Рамка и пилюля
+   остаются у того же класса везде, где он стоит внутри содержимого. */
+.sov-header .sov-act-quiet {
+  border: none; background: none; padding: 8px 10px;
+  color: var(--sov-ink); font-weight: 600;
+}
+.sov-header .sov-act-quiet:hover { background: none; color: var(--sov-cobalt); }
+.sov-header .sov-act-quiet[aria-current="page"] { color: var(--sov-cobalt); font-weight: 800; }
+/* То же и для тихой плашки: в шапке их бывает три подряд, и три бежевые
+   пилюли в углу читаются как панель кнопок, которой там нет. Заливка
+   возвращается на наведении — цель по-прежнему видно. */
+.sov-header .sov-act-ghost,
+.sov-demo__top .sov-act-ghost { background: none; padding: 8px 10px; }
+.sov-header .sov-act-ghost:hover,
+.sov-demo__top .sov-act-ghost:hover { background: var(--sov-cobalt-soft); }
 /* Логотип — тоже ссылка на главную, и по ней промахиваются так же, как по
    любой другой. Отрицательное поле слева возвращает букву на место: цель
    растёт внутрь, а не сдвигает шапку. */
@@ -101,64 +159,70 @@
 /* ------------------------------------------------------------ кнопки
 
    Три роли и ничего сверх: синяя заливка — главное действие на экране,
-   обводка — второе, подчёркнутый текст — уход в сторону. Капслок с
-   трекингом отличает кнопку от заголовка на расстоянии, не прибавляя
-   ни рамок, ни цвета. */
+   обводка — второе, тихая плашка — уход в сторону. Роль теперь читается
+   формой, а не набором: все три — пилюли, и от заголовка их отличает
+   силуэт, а не капслок. Капслок с трекингом ушёл — он делал кнопку
+   длиннее слова в ней и хуже читался тем, кто читает по слогам. */
 
 .sov-act-start,
 .sov-act-child,
 .sov-act-form {
-  font-family: var(--sov-font); font-weight: 800;
-  text-transform: uppercase; letter-spacing: .05em;
-  border-radius: var(--sov-radius); border: none; cursor: pointer;
+  font-family: var(--sov-font); font-weight: 700;
+  border-radius: var(--sov-radius-pill); border: none; cursor: pointer;
   background: var(--sov-cobalt); color: #fff;
-  box-shadow: 0 4px 0 var(--sov-cobalt-deep);
-  transition: transform .12s, box-shadow .12s, background .12s;
+  box-shadow: var(--sov-shadow-sm);
+  transition: background .12s, box-shadow .12s;
 }
 .sov-act-start:hover, .sov-act-child:hover:not(:disabled), .sov-act-form:hover:not(:disabled) {
-  transform: translateY(-1px); box-shadow: 0 5px 0 var(--sov-cobalt-deep);
+  background: var(--sov-cobalt-deep); box-shadow: var(--sov-shadow);
 }
 .sov-act-start:active, .sov-act-child:active:not(:disabled), .sov-act-form:active:not(:disabled) {
-  transform: translateY(3px); box-shadow: 0 1px 0 var(--sov-cobalt-deep);
+  background: var(--sov-cobalt-deep); box-shadow: none;
 }
 
 /* Витрина: кнопка со стрелкой. Разделителя между текстом и стрелкой
    больше нет — он делал из одной кнопки две. */
 .sov-act-start {
   display: inline-flex; align-items: center; text-decoration: none;
-  font-size: .95rem; padding: 0 8px 0 26px;
+  font-size: 1rem; padding: 0 10px 0 28px;
 }
-.sov-act-start__label { padding: 15px 0; }
+.sov-act-start__label { padding: 14px 0; }
 .sov-act-start__arrow { display: grid; place-items: center; padding: 0 14px; }
 
-/* Детская: та же кнопка, но крупнее и полностью круглая. */
+/* Детская: та же кнопка, но крупнее. */
 .sov-act-child {
-  font-size: 1.05rem; padding: 16px 32px; min-height: 58px; border-radius: 999px;
+  font-size: 1.15rem; padding: 16px 36px; min-height: 58px;
 }
 .sov-act-child:disabled {
   background: var(--sov-paper-2); color: #a49781;
-  box-shadow: 0 4px 0 var(--sov-paper-3); cursor: not-allowed;
+  box-shadow: none; cursor: not-allowed;
 }
 
 /* Формы: во всю ширину, чтобы шаг регистрации читался одной кнопкой. */
-.sov-act-form { width: 100%; padding: 16px 20px; font-size: .95rem; }
+.sov-act-form { width: 100%; padding: 15px 20px; font-size: 1rem; }
 .sov-act-form:disabled { opacity: .55; cursor: progress; }
 
+/* Второе действие. Обводка синяя, а не бежевая: рядом с залитой пилюлей
+   бежевая рамка читалась как выключенная кнопка. */
 .sov-act-quiet {
   display: inline-flex; align-items: center; justify-content: center;
   text-decoration: none; color: var(--sov-cobalt);
-  font-weight: 800; font-size: .95rem; text-transform: uppercase; letter-spacing: .05em;
-  padding: 13px 24px; border: 2px solid var(--sov-line); border-radius: var(--sov-radius);
-  background: transparent; transition: border-color .15s, background .15s;
+  font-weight: 700; font-size: 1rem;
+  padding: 12px 24px; border: 1.5px solid var(--sov-cobalt); border-radius: var(--sov-radius-pill);
+  background: transparent; transition: background .15s;
 }
-.sov-act-quiet:hover { border-color: var(--sov-cobalt); background: var(--sov-cobalt-soft); }
+.sov-act-quiet:hover { background: var(--sov-cobalt-soft); }
 
+/* Тихая плашка в шапках и рядом со статусами: ни рамки, ни заливки цветом —
+   бумага потемнее и пилюля. Раньше это была белая карточка с рамкой,
+   и в шапке она спорила с настоящими кнопками. */
 .sov-act-ghost {
-  background: #fff; border: 2px solid var(--sov-line); border-radius: 12px;
-  padding: 9px 16px; font-family: var(--sov-font); font-size: .9rem; font-weight: 700;
-  color: var(--sov-ink-soft); cursor: pointer; transition: border-color .15s, color .15s;
+  background: var(--sov-paper-2); border: none; border-radius: var(--sov-radius-pill);
+  padding: 9px 18px; font-family: var(--sov-font); font-size: .95rem; font-weight: 600;
+  color: var(--sov-ink-soft); cursor: pointer; transition: background .15s, color .15s;
+  display: inline-flex; align-items: center; gap: 8px;
 }
-.sov-act-ghost:hover { border-color: var(--sov-cobalt); color: var(--sov-cobalt); }
+.sov-act-ghost:hover { background: var(--sov-cobalt-soft); color: var(--sov-cobalt); }
 
 .sov-stars { display: inline-flex; gap: 3px; vertical-align: middle; }
 
@@ -192,7 +256,7 @@
    и мешать её с кнопками репетитора на одном ярусе больше нечем. */
 .sov-hero__parent {
   display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-  margin-top: 26px; padding-top: 22px; border-top: 2px solid var(--sov-line);
+  margin-top: 26px; padding-top: 22px; border-top: 1px solid var(--sov-line);
 }
 .sov-hero__parent > span { color: var(--sov-ink-soft); font-weight: 600; font-size: .98rem; }
 
@@ -202,10 +266,18 @@
 .sov .sov-plan__note { margin-top: 20px; font-size: .95rem; color: var(--sov-ink-soft); font-weight: 500; }
 /* Колонка растянулась во всю ширину, и пропорция 4:3 превращала рисунок
    в картину на пол-экрана. Потолок по высоте держит его в росте человека,
-   а object-fit подрезает акварель сверху и снизу, а не по совёнку. */
+   а object-fit подрезает акварель сверху и снизу, а не по совёнку.
+
+   width: 100% здесь обязателен, хотя блок и так стоит в колонке грида.
+   Без него ширина не задана явно, и как только потолок высоты срабатывает
+   (56vh — это почти всякий ноутбук), браузер пересчитывает по пропорции
+   уже ширину: картинка ужимается до 538 px в колонке шириной 580 и встаёт
+   к её левому краю. Слева всё сходилось, справа между рисунком и краем
+   текста оставалась полоска бумаги в сорок пикселей. С явной шириной
+   пропорция управляет только высотой, а поля страницы держат оба края. */
 .sov-hero__art {
-  position: relative; aspect-ratio: 4 / 3; max-height: min(56vh, 520px);
-  border-radius: 22px; overflow: hidden;
+  position: relative; width: 100%; aspect-ratio: 4 / 3; max-height: min(56vh, 520px);
+  border-radius: var(--sov-radius-feature); overflow: hidden;
   background: var(--sov-cobalt-soft);
 }
 .sov-hero__art img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -213,7 +285,7 @@
 /* Пилюли-факты под кнопками: то же, что теги в путешествии, только на бумаге. */
 .sov-journey__tags { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 30px; }
 .sov-journey__tags span {
-  border: 2px solid var(--sov-line); border-radius: 999px;
+  border: 1px solid var(--sov-line); border-radius: var(--sov-radius-pill);
   padding: 7px 16px; font-size: .92rem; font-weight: 700; color: var(--sov-ink-soft);
 }
 
@@ -238,9 +310,9 @@
 .sov-split--flip > :first-child { order: 2; }
 @media (max-width: 899px) { .sov-split--flip > :first-child { order: 0; } }
 
-.sov-rows { margin-top: 36px; border-top: 2px solid var(--sov-line); }
+.sov-rows { margin-top: 36px; border-top: 1px solid var(--sov-line); }
 .sov-row {
-  display: grid; gap: 8px 32px; padding: 24px 0; border-bottom: 2px solid var(--sov-line);
+  display: grid; gap: 8px 32px; padding: 24px 0; border-bottom: 1px solid var(--sov-line);
   grid-template-columns: 1fr;
 }
 @media (min-width: 780px) { .sov-row { grid-template-columns: 220px 1fr; } }
@@ -248,7 +320,7 @@
 .sov-row p { color: var(--sov-ink-soft); font-weight: 500; }
 
 .sov-panel {
-  border: 2px solid var(--sov-line); border-radius: var(--sov-radius);
+  border: 1px solid var(--sov-line); border-radius: var(--sov-radius);
   background: #fff; padding: 26px;
 }
 .sov-panel h3 { font-size: 1.1rem; }
@@ -258,15 +330,15 @@
 .sov-plans { display: grid; gap: 18px; margin-top: clamp(26px, 3.6vw, 36px); grid-template-columns: 1fr; }
 @media (min-width: 780px) { .sov-plans { grid-template-columns: 1fr 1fr; } }
 .sov-plan {
-  position: relative; border: 2px solid var(--sov-line); border-radius: 22px;
+  position: relative; border: 1px solid var(--sov-line); border-radius: var(--sov-radius-feature);
   padding: clamp(24px, 3vw, 30px); background: #fff;
 }
 .sov-plan--paid { border-color: var(--sov-cobalt); }
 .sov-plan__tag {
   position: absolute; top: -14px; right: 24px;
   background: var(--sov-cobalt); color: #fff;
-  border-radius: 999px; padding: 5px 15px;
-  font-size: .82rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em;
+  border-radius: var(--sov-radius-pill); padding: 5px 15px;
+  font-size: .82rem; font-weight: 800; 
 }
 .sov-plan h3 { font-size: 1.15rem; }
 .sov-plan__price {
@@ -286,9 +358,11 @@
 .sov-form { display: grid; gap: 18px; }
 .sov-field { display: grid; gap: 6px; }
 .sov-field label { font-weight: 700; font-size: .93rem; }
+/* Поле — самая прямая форма в системе: 4 px против 8 у карточки и пилюли
+   у кнопки. По одному силуэту видно, что сюда пишут, а не нажимают. */
 .sov-field input, .sov-field select, .sov-field textarea {
   font-family: var(--sov-font); font-size: 1rem; font-weight: 500; padding: 13px 15px;
-  border: 2px solid var(--sov-line); border-radius: 12px; background: #fff; color: var(--sov-ink);
+  border: 1px solid var(--sov-line); border-radius: var(--sov-radius-input); background: #fff; color: var(--sov-ink);
 }
 /* Обводку с поля больше не снимаем: рамку рисует общее правило фокуса
    выше. Здесь остаётся только смена цвета границы — она отмечает
@@ -313,7 +387,7 @@
   transform: translateY(calc((1.5em - 22px) / 2));
 }
 .sov-check span { flex: 1; min-width: 0; }
-.sov-alert { border-radius: 12px; padding: 13px 16px; font-size: .92rem; font-weight: 600; background: var(--sov-bad-bg); color: var(--sov-bad); }
+.sov-alert { border-radius: var(--sov-radius); padding: 13px 16px; font-size: .92rem; font-weight: 600; background: var(--sov-bad-bg); color: var(--sov-bad); }
 
 /* ---------------------------------------------------- детский интерфейс
 
@@ -332,13 +406,13 @@
 
 .sov-kid__head {
   display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
-  padding: 16px 0; border-bottom: 2px solid var(--sov-line); margin-bottom: 8px;
+  padding: 16px 0; border-bottom: 1px solid var(--sov-line); margin-bottom: 8px;
 }
 .sov-kid__who { display: flex; align-items: center; gap: 12px; }
 .sov-kid__who strong { font-size: 1.3rem; font-weight: 800; }
 .sov-kid__level {
   display: inline-flex; align-items: center; gap: 7px;
-  background: #fff; border: 2px solid var(--sov-line); border-radius: 999px;
+  background: #fff; border: 1px solid var(--sov-line); border-radius: var(--sov-radius-pill);
   padding: 8px 16px; font-weight: 800; font-size: .95rem;
 }
 
@@ -349,7 +423,7 @@
 .sov-hollow {
   display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
   background: var(--sov-cobalt); color: #fff;
-  border-radius: var(--sov-radius); box-shadow: 0 4px 0 var(--sov-cobalt-deep);
+  border-radius: var(--sov-radius); box-shadow: var(--sov-shadow);
   padding: 20px 26px; margin-top: 18px;
 }
 /* Совёнок сам синий: на синей плашке он пропадал, поэтому под ним
@@ -364,13 +438,13 @@
   min-width: 28px; height: 28px; padding: 0 8px;
   display: grid; place-items: center;
   background: #fff; color: var(--sov-cobalt); font-weight: 800; font-size: .9rem;
-  border-radius: 999px;
+  border-radius: var(--sov-radius-pill);
 }
 
 .sov-xp { margin-top: 14px; }
 .sov-xp__row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-weight: 700; font-size: .9rem; }
-.sov-xp__track { margin-top: 8px; height: 14px; border-radius: 999px; background: rgba(255,255,255,.28); overflow: hidden; }
-.sov-xp__fill { height: 100%; background: #fff; border-radius: 999px; transition: width .5s cubic-bezier(.2,.8,.2,1); }
+.sov-xp__track { margin-top: 8px; height: 14px; border-radius: var(--sov-radius-pill); background: rgba(255,255,255,.28); overflow: hidden; }
+.sov-xp__fill { height: 100%; background: #fff; border-radius: var(--sov-radius-pill); transition: width .5s cubic-bezier(.2,.8,.2,1); }
 .sov-xp__hint { display: block; margin-top: 8px; font-size: .92rem; font-weight: 600; color: rgba(255,255,255,.72); }
 
 /* ── полка наград ───────────────────────────────────────────────── */
@@ -379,7 +453,7 @@
   display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: 12px;
 }
 .sov-shelf__item {
-  background: #fff; border: 2px solid var(--sov-line); border-radius: var(--sov-radius);
+  background: #fff; border: 1px solid var(--sov-line); border-radius: var(--sov-radius);
   padding: 14px 12px; text-align: center; display: grid; gap: 2px; justify-items: center;
 }
 .sov-shelf__item strong { font-size: .92rem; font-weight: 800; }
@@ -399,7 +473,7 @@
 .sov-quest__head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .sov-quest__head h2 { font-size: clamp(1.3rem, 3vw, 1.6rem); }
 .sov-quest__count {
-  background: #fff; border: 2px solid var(--sov-line); border-radius: 999px;
+  background: #fff; border: 1px solid var(--sov-line); border-radius: var(--sov-radius-pill);
   padding: 5px 14px; font-weight: 800; font-size: .9rem; white-space: nowrap; color: var(--sov-ink-soft);
 }
 
@@ -416,22 +490,22 @@
   width: 72px; height: 66px; flex: none; border-radius: 50%;
   display: grid; place-items: center;
   background: var(--sov-cobalt); color: #fff; font-weight: 800; font-size: 1.5rem;
-  box-shadow: 0 6px 0 var(--sov-cobalt-deep);
-  transition: transform .14s, box-shadow .14s;
+  box-shadow: var(--sov-shadow-sm);
+  transition: box-shadow .14s, background .14s;
 }
-a.sov-level:hover .sov-level__num { transform: translateY(-2px); box-shadow: 0 8px 0 var(--sov-cobalt-deep); }
-a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2px 0 var(--sov-cobalt-deep); }
+a.sov-level:hover .sov-level__num { background: var(--sov-cobalt-deep); box-shadow: var(--sov-shadow); }
+a.sov-level:active .sov-level__num { box-shadow: none; }
 .sov-level__text { flex: 1; min-width: 0; display: grid; gap: 2px; }
 .sov-level__text strong { font-size: 1.1rem; font-weight: 800; }
 .sov-level__text span { font-size: .95rem; color: var(--sov-ink-soft); font-weight: 600; }
 
 .sov-level[data-state="current"] .sov-level__num {
   background: #fff; color: var(--sov-cobalt);
-  border: 3px solid var(--sov-cobalt); box-shadow: 0 6px 0 var(--sov-paper-3);
+  border: 2px solid var(--sov-cobalt); box-shadow: var(--sov-shadow-sm);
 }
 .sov-level[data-state="locked"] .sov-level__num,
 .sov-level[data-state="wait"] .sov-level__num {
-  background: var(--sov-paper-2); color: #b3a794; box-shadow: 0 6px 0 var(--sov-paper-3);
+  background: var(--sov-paper-2); color: #b3a794; box-shadow: none;
 }
 .sov-level[data-state="locked"] .sov-level__text,
 .sov-level[data-state="wait"] .sov-level__text { color: #a99c85; }
@@ -442,8 +516,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 
 .sov-level__check {
   display: inline-block; margin-top: 6px; font-size: .92rem; font-weight: 800;
-  color: var(--sov-cobalt); text-decoration: none;
-  text-transform: uppercase; letter-spacing: .04em;
+  color: var(--sov-cobalt); text-decoration: none; letter-spacing: .04em;
 }
 .sov-level__check:hover { text-decoration: underline; }
 
@@ -451,7 +524,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 .sov-path { display: grid; gap: 12px; }
 .sov-node {
   display: flex; align-items: center; gap: 16px; background: #fff;
-  border: 2px solid var(--sov-line); border-bottom-width: 4px; border-radius: var(--sov-radius);
+  border: 1px solid var(--sov-line); border-bottom-width: 1px; border-radius: var(--sov-radius);
   padding: 16px 20px; text-decoration: none; color: var(--sov-ink); position: relative;
   transition: border-color .15s;
 }
@@ -459,7 +532,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 .sov-node[data-locked="true"] { color: #a99c85; background: var(--sov-paper-2); border-color: var(--sov-paper-3); }
 .sov-node[data-locked="true"]:hover { border-color: var(--sov-paper-3); }
 .sov-node__badge {
-  width: 44px; height: 44px; flex: none; border-radius: 12px; display: grid; place-items: center;
+  width: 44px; height: 44px; flex: none; border-radius: var(--sov-radius); display: grid; place-items: center;
   background: var(--sov-cobalt-soft); color: var(--sov-cobalt); font-weight: 800; font-size: 1.05rem;
 }
 .sov-node[data-done="true"] .sov-node__badge { background: var(--sov-cobalt); color: #fff; }
@@ -471,12 +544,12 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 
 .sov-play { width: 100%; padding: 24px var(--sov-gutter); position: relative; }
 .sov-play__bar { display: flex; align-items: center; gap: 14px; }
-.sov-play__track { flex: 1; height: 14px; border-radius: 999px; background: var(--sov-paper-2); overflow: hidden; }
-.sov-play__fill { height: 100%; background: var(--sov-cobalt); border-radius: 999px; transition: width .3s cubic-bezier(.2,.8,.2,1); }
+.sov-play__track { flex: 1; height: 14px; border-radius: var(--sov-radius-pill); background: var(--sov-paper-2); overflow: hidden; }
+.sov-play__fill { height: 100%; background: var(--sov-cobalt); border-radius: var(--sov-radius-pill); transition: width .3s cubic-bezier(.2,.8,.2,1); }
 
 .sov-card {
-  margin-top: 26px; background: #fff; border: 2px solid var(--sov-line);
-  border-radius: 22px; padding: 30px;
+  margin-top: 26px; background: #fff; border: 1px solid var(--sov-line);
+  border-radius: var(--sov-radius-feature); padding: 30px;
 }
 .sov-card h2 { font-size: clamp(1.4rem, 3.2vw, 1.85rem); line-height: 1.25; }
 .sov-card__head { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
@@ -495,20 +568,21 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
   grid-template-columns: repeat(auto-fit, minmax(clamp(240px, 40%, 380px), 1fr));
 }
 .sov-option {
-  display: flex; align-items: center; gap: 14px; padding: 15px 20px; min-height: 60px;
-  border: 2px solid var(--sov-line); border-bottom-width: 4px; border-radius: var(--sov-radius);
+  display: flex; align-items: center; gap: 14px; padding: 18px 22px; min-height: 68px;
+  border: 1px solid var(--sov-line); border-radius: var(--sov-radius);
   background: #fff; cursor: pointer; counter-increment: sov-opt;
-  font-family: var(--sov-font); font-size: 1.1rem; font-weight: 700; text-align: left; color: var(--sov-ink);
-  transition: border-color .12s, background .12s;
+  box-shadow: var(--sov-shadow-sm);
+  font-family: var(--sov-font); font-size: 1.15rem; font-weight: 700; text-align: left; color: var(--sov-ink);
+  transition: border-color .12s, background .12s, box-shadow .12s;
 }
 .sov-option::before {
   content: counter(sov-opt, upper-latin);
-  width: 30px; height: 30px; flex: none; border-radius: 9px;
+  width: 34px; height: 34px; flex: none; border-radius: 50%;
   display: grid; place-items: center;
   background: var(--sov-paper-2); color: var(--sov-ink-soft);
   font-size: .9rem; font-weight: 800;
 }
-.sov-option:hover:not(:disabled) { border-color: var(--sov-cobalt); background: var(--sov-cobalt-soft); }
+.sov-option:hover:not(:disabled) { border-color: var(--sov-cobalt); background: var(--sov-cobalt-soft); box-shadow: var(--sov-shadow); }
 .sov-option:hover:not(:disabled)::before { background: var(--sov-cobalt); color: #fff; }
 .sov-option[data-state="right"] { border-color: var(--sov-ok); background: var(--sov-ok-bg); }
 .sov-option[data-state="right"]::before { background: var(--sov-ok); color: #fff; }
@@ -520,8 +594,8 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 .sov-answer-input {
   margin: 24px auto 0; display: block; width: 100%; max-width: 520px;
   font-family: var(--sov-font); font-size: 1.7rem; font-weight: 700;
-  text-align: center; padding: 18px; border: 2px solid var(--sov-line);
-  border-bottom-width: 4px; border-radius: var(--sov-radius); background: #fff; color: var(--sov-ink);
+  text-align: center; padding: 18px; border: 1px solid var(--sov-line);
+  border-radius: var(--sov-radius-input); background: #fff; color: var(--sov-ink);
 }
 .sov-answer-input:focus { border-color: var(--sov-cobalt); }
 
@@ -541,7 +615,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 .sov-feedback[data-kind="wrong"]::before { content: "?"; background: var(--sov-warn); }
 
 .sov-timeup {
-  margin-top: 20px; background: #fff; border: 2px solid var(--sov-line);
+  margin-top: 20px; background: #fff; border: 1px solid var(--sov-line);
   border-radius: var(--sov-radius); padding: 16px 20px; font-size: .95rem; font-weight: 600;
 }
 
@@ -558,7 +632,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
    месту — она всегда рядом с вопросом. */
 .sov-ear {
   display: inline-flex; align-items: center; gap: 9px; flex: none;
-  background: #fff; border: 2px solid var(--sov-line); border-radius: 999px;
+  background: #fff; border: 1px solid var(--sov-line); border-radius: var(--sov-radius-pill);
   padding: 7px 18px 7px 8px; cursor: pointer; color: var(--sov-ink);
   font: 800 .92rem/1 var(--sov-font);
   transition: border-color .15s, background .15s;
@@ -575,7 +649,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 
 .sov-ear-toggle {
   display: inline-flex; align-items: center; gap: 8px;
-  border: 2px solid var(--sov-line); border-radius: 999px;
+  border: 1px solid var(--sov-line); border-radius: var(--sov-radius-pill);
   background: #fff; padding: 7px 15px; cursor: pointer;
   font: 700 .92rem/1 var(--sov-font); color: var(--sov-ink-soft);
 }
@@ -597,7 +671,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 .sov-track { position: relative; margin: 8px 0 22px; height: 74px; padding: 0 40px 0 8px; }
 .sov-track__line {
   position: absolute; left: 8px; right: 40px; top: 50px; height: 6px;
-  background: var(--sov-paper-2); border-radius: 999px;
+  background: var(--sov-paper-2); border-radius: var(--sov-radius-pill);
 }
 .sov-track__stones {
   position: absolute; left: 8px; right: 40px; top: 46px;
@@ -638,8 +712,8 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 }
 .sov-who__card {
   display: grid; justify-items: center; gap: 8px; cursor: pointer;
-  background: #fff; border: 2px solid var(--sov-line); border-bottom-width: 4px;
-  border-radius: 22px; padding: 24px 18px; font-family: var(--sov-font);
+  background: #fff; border: 1px solid var(--sov-line); border-bottom-width: 1px;
+  border-radius: var(--sov-radius-feature); padding: 24px 18px; font-family: var(--sov-font);
   transition: border-color .14s, background .14s;
 }
 .sov-who__card:hover:not(:disabled) { border-color: var(--sov-cobalt); background: var(--sov-cobalt-soft); }
@@ -651,7 +725,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 .sov-avatar-pick { display: flex; flex-wrap: wrap; gap: 10px; }
 .sov-avatar-pick__item {
   display: grid; justify-items: center; gap: 4px; cursor: pointer;
-  border: 2px solid var(--sov-line); border-radius: 14px; background: #fff;
+  border: 1px solid var(--sov-line); border-radius: var(--sov-radius); background: #fff;
   padding: 10px 12px; font: 600 .86rem/1.2 var(--sov-font); color: var(--sov-ink-soft);
   min-width: 84px;
 }
@@ -663,15 +737,19 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 .sov-code {
   margin-top: 12px; display: inline-block; font-family: var(--sov-mono);
   font-size: 1.3rem; letter-spacing: .08em; background: var(--sov-cobalt-soft);
-  border-radius: 12px; padding: 12px 20px; color: var(--sov-cobalt); user-select: all;
+  border-radius: var(--sov-radius); padding: 12px 20px; color: var(--sov-cobalt); user-select: all;
 }
 
 /* ── тренажёры ──────────────────────────────────────────────────── */
 .sov-trainers { display: grid; gap: 12px; margin-top: 30px; grid-template-columns: 1fr; }
 @media (min-width: 720px) { .sov-trainers { grid-template-columns: 1fr 1fr; } }
+/* Витринный вариант: та же сетка во всю ширину страницы, поэтому с 1040 px
+   она разворачивается в три колонки — пять карточек ложатся 3 + 2, а не
+   2 + 2 + 1 с пустым местом справа от последней. */
+@media (min-width: 1040px) { .sov-trainers--wide { grid-template-columns: repeat(3, 1fr); } }
 .sov-trainer {
   display: flex; align-items: center; gap: 16px; text-decoration: none; color: var(--sov-ink);
-  background: #fff; border: 2px solid var(--sov-line); border-bottom-width: 4px;
+  background: #fff; border: 1px solid var(--sov-line); border-bottom-width: 1px;
   border-radius: var(--sov-radius); padding: 16px 20px; transition: border-color .14s;
 }
 .sov-trainer:hover { border-color: var(--sov-cobalt); }
@@ -686,6 +764,24 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 .sov-trainer strong { display: block; font-size: 1.05rem; font-weight: 800; }
 .sov-trainer em { display: block; font-style: normal; font-size: .95rem; color: var(--sov-ink-soft); font-weight: 600; margin-top: 2px; }
 
+/* Нулевой урок в ряду тренажёров: то же место в сетке, но заливка лиловой
+   бумагой — он не тренажёр, а целое занятие, и путать их не надо. */
+.sov-trainer--demo { background: var(--sov-cobalt-soft); border-color: transparent; }
+.sov-trainer--demo .sov-trainer__icon { background: #fff; }
+
+/* Тренажёры в детской — единственное место, где пастель работает как
+   украшение, а не как вердикт. Ребёнок заходит сюда «на пять минут», и
+   пять одинаковых белых карточек он читает построчно; разные плашки он
+   различает боковым зрением и попадает в нужную с первого раза.
+   Цвета взяты из той же пары, что и вердикты, но здесь у них нет
+   пары «верно / подумай ещё» рядом, и спутать не с чем.
+   На витрине и во взрослых экранах карточка остаётся белой. */
+.sov-kid .sov-trainer { background: var(--sov-ok-bg); border-color: transparent; }
+.sov-kid .sov-trainer:nth-child(2n) { background: var(--sov-warn-bg); }
+.sov-kid .sov-trainer:nth-child(3n) { background: var(--sov-cobalt-soft); }
+.sov-kid .sov-trainer:hover { border-color: var(--sov-cobalt); }
+.sov-kid .sov-trainer__icon { background: #fff; }
+
 .sov-setup { display: grid; gap: 22px; margin-top: 24px; }
 .sov-setup__row { display: grid; gap: 10px; }
 .sov-setup__label { font-weight: 800; font-size: .95rem; }
@@ -695,7 +791,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 /* Таймер ответа: полоса тает, последние секунды уходят в охру. */
 .sov-timer {
   position: relative; height: 32px; margin: 14px 0 0;
-  border-radius: 999px; background: var(--sov-paper-2); overflow: hidden;
+  border-radius: var(--sov-radius-pill); background: var(--sov-paper-2); overflow: hidden;
 }
 /* Заливка светлая, а не цвета действия: поверх неё стоит счётчик секунд,
    и на насыщенном синем цифры пропадали. */
@@ -710,13 +806,13 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 /* Скорочтение: одно слово на весь экран. */
 .sov-flash {
   display: grid; place-items: center; min-height: 46vh;
-  background: #fff; border: 2px solid var(--sov-line); border-radius: 22px;
+  background: #fff; border: 1px solid var(--sov-line); border-radius: var(--sov-radius-feature);
 }
 .sov-flash__word { font-size: clamp(2.2rem, 9vw, 4rem); font-weight: 800; letter-spacing: -0.02em; text-align: center; padding: 0 18px; }
 .sov-reading-list { display: grid; gap: 10px; }
 .sov-reading-item {
-  text-align: left; cursor: pointer; background: #fff; border: 2px solid var(--sov-line);
-  border-radius: 14px; padding: 13px 16px; font-family: var(--sov-font);
+  text-align: left; cursor: pointer; background: #fff; border: 1px solid var(--sov-line);
+  border-radius: var(--sov-radius); padding: 13px 16px; font-family: var(--sov-font);
 }
 .sov-reading-item[data-active="true"] { border-color: var(--sov-cobalt); background: var(--sov-cobalt-soft); }
 .sov-reading-item strong { display: block; font-size: 1rem; font-weight: 800; }
@@ -732,16 +828,16 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 
 .sov-metrics { display: grid; gap: 14px; grid-template-columns: repeat(2, 1fr); margin-top: 26px; }
 @media (min-width: 820px) { .sov-metrics { grid-template-columns: repeat(4, 1fr); } }
-.sov-metric { border: 2px solid var(--sov-line); border-radius: var(--sov-radius); padding: 18px 20px; background: #fff; }
+.sov-metric { border: 1px solid var(--sov-line); border-radius: var(--sov-radius); padding: 18px 20px; background: #fff; }
 .sov-metric b { display: block; font-size: 2rem; font-weight: 800; letter-spacing: -.02em; }
 .sov-metric span { font-size: .95rem; color: var(--sov-ink-soft); font-weight: 600; }
 
 .sov-table { width: 100%; border-collapse: collapse; margin-top: 18px; font-size: .93rem; }
-.sov-table th { text-align: left; font-weight: 800; padding: 11px 12px; border-bottom: 2px solid var(--sov-line); }
-.sov-table td { padding: 11px 12px; border-bottom: 2px solid var(--sov-line); color: var(--sov-ink-soft); font-weight: 500; }
+.sov-table th { text-align: left; font-weight: 800; padding: 11px 12px; border-bottom: 1px solid var(--sov-line); }
+.sov-table td { padding: 11px 12px; border-bottom: 1px solid var(--sov-line); color: var(--sov-ink-soft); font-weight: 500; }
 .sov-table td:first-child { color: var(--sov-ink); font-weight: 700; }
 
-.sov-tabs { display: flex; gap: 24px; margin-top: 24px; border-bottom: 2px solid var(--sov-line); flex-wrap: wrap; }
+.sov-tabs { display: flex; gap: 24px; margin-top: 24px; border-bottom: 1px solid var(--sov-line); flex-wrap: wrap; }
 .sov-tabs button {
   background: none; border: none; box-shadow: inset 0 -3px 0 transparent; cursor: pointer;
   font-family: var(--sov-font); font-size: .98rem; font-weight: 700; color: var(--sov-ink-soft);
@@ -751,7 +847,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 
 .sov-chips { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
 .sov-chip {
-  border: 2px solid var(--sov-line); border-radius: 999px; padding: 7px 16px;
+  border: 1px solid var(--sov-line); border-radius: var(--sov-radius-pill); padding: 7px 16px;
   font-size: .95rem; font-weight: 700; background: #fff; cursor: pointer;
   font-family: var(--sov-font); color: var(--sov-ink-soft);
 }
@@ -767,7 +863,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 /* Поиск по темам. Рамка та же, что у полей формы, — это и есть поле. */
 .sov-search {
   display: flex; align-items: center; gap: 9px; margin-top: 12px;
-  border: 2px solid var(--sov-line); border-radius: 12px;
+  border: 1px solid var(--sov-line); border-radius: var(--sov-radius);
   padding: 0 14px; background: #fff; color: var(--sov-ink-soft);
 }
 .sov-search:focus-within { border-color: var(--sov-cobalt); }
@@ -787,7 +883,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 /* ----------------------------------------------------------- подвал */
 
 .sov-footer {
-  border-top: 2px solid var(--sov-line); margin-top: 48px;
+  border-top: 1px solid var(--sov-line); margin-top: 48px;
   padding: 32px var(--sov-gutter); display: grid; gap: 18px;
 }
 .sov-footer > div { display: flex; align-items: center; gap: 14px; }
@@ -808,7 +904,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 .sov-night .sov-section__lead { color: rgba(255,255,255,.78); }
 
 .sov-figures { display: grid; gap: 16px; margin-top: clamp(26px, 3.6vw, 40px); grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
-.sov-fig { border: 2px solid var(--sov-line); border-radius: var(--sov-radius); padding: 24px; background: #fff; }
+.sov-fig { border: 1px solid var(--sov-line); border-radius: var(--sov-radius); padding: 24px; background: #fff; }
 .sov-fig b { display: block; font-size: clamp(2.3rem, 4.4vw, 3.2rem); font-weight: 800; line-height: .95; letter-spacing: -.03em; color: var(--sov-cobalt); }
 .sov-fig span { display: block; margin-top: 10px; color: var(--sov-ink-soft); font-size: .95rem; font-weight: 600; }
 .sov-night .sov-fig { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.28); }
@@ -818,26 +914,26 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 /* Крупные карточки тренажёров. */
 .sov-duo { display: grid; gap: 18px; grid-template-columns: 1fr; margin-top: clamp(26px, 3.6vw, 40px); }
 @media (min-width: 860px) { .sov-duo { grid-template-columns: 1fr 1fr; } }
-.sov-big { border: 2px solid var(--sov-line); border-radius: 22px; padding: clamp(24px, 3vw, 32px); background: #fff; }
+.sov-big { border: 1px solid var(--sov-line); border-radius: var(--sov-radius-feature); padding: clamp(24px, 3vw, 32px); background: #fff; }
 .sov-big--warm { background: var(--sov-cobalt-soft); border-color: var(--sov-cobalt-soft); }
 .sov-big h3 { font-size: clamp(1.35rem, 2.8vw, 1.8rem); }
 .sov-big p { color: var(--sov-ink-soft); font-weight: 500; margin-top: 12px; }
 
 /* ── секция про данные ──────────────────────────────────────────── */
 .sov-guards { display: grid; gap: 16px; margin-top: clamp(26px, 3.6vw, 36px); grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
-.sov-guard { border: 2px solid var(--sov-line); border-radius: var(--sov-radius); padding: 24px; background: #fff; display: grid; gap: 10px; align-content: start; }
-.sov-guard__icon { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: var(--sov-cobalt-soft); color: var(--sov-cobalt); }
+.sov-guard { border: 1px solid var(--sov-line); border-radius: var(--sov-radius); padding: 24px; background: #fff; display: grid; gap: 10px; align-content: start; }
+.sov-guard__icon { width: 44px; height: 44px; border-radius: var(--sov-radius); display: grid; place-items: center; background: var(--sov-cobalt-soft); color: var(--sov-cobalt); }
 .sov-guard h3 { font-size: 1.05rem; }
 .sov-guard p { color: var(--sov-ink-soft); font-size: .92rem; font-weight: 500; }
 
 .sov-data {
-  margin-top: 16px; border: 2px solid var(--sov-line); border-radius: 22px;
+  margin-top: 16px; border: 1px solid var(--sov-line); border-radius: var(--sov-radius-feature);
   padding: clamp(22px, 3vw, 28px); background: #fff;
   display: grid; gap: 20px 32px; grid-template-columns: 1fr;
 }
 @media (min-width: 860px) { .sov-data { grid-template-columns: auto 1fr 1fr; align-items: start; } }
 .sov-data h3 { font-size: 1.15rem; max-width: 14ch; }
-.sov-data__col b { display: block; font-size: .84rem; letter-spacing: .06em; text-transform: uppercase; color: var(--sov-ink-soft); font-weight: 800; }
+.sov-data__col b { display: block; font-size: .84rem; letter-spacing: .06em; color: var(--sov-ink-soft); font-weight: 800; }
 .sov-data__col ul { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 9px; }
 .sov-data__col li { display: flex; gap: 9px; align-items: flex-start; font-size: .95rem; font-weight: 500; }
 .sov-data__col li::before { font-weight: 800; line-height: 1.5; }
@@ -849,22 +945,22 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 .sov-cab { display: grid; gap: 34px; grid-template-columns: 1fr; align-items: start; }
 @media (min-width: 900px) { .sov-cab { grid-template-columns: .95fr 1.05fr; } }
 
-.sov-cab__card { border: 2px solid var(--sov-line); border-radius: 22px; background: #fff; overflow: hidden; }
+.sov-cab__card { border: 1px solid var(--sov-line); border-radius: var(--sov-radius-feature); background: #fff; overflow: hidden; }
 .sov-cab__head {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  padding: 14px 20px; border-bottom: 2px solid var(--sov-line);
+  padding: 14px 20px; border-bottom: 1px solid var(--sov-line);
 }
 .sov-cab__head strong { font-size: .95rem; font-weight: 800; }
 .sov-cab__head span { font-size: .86rem; color: var(--sov-ink-soft); font-weight: 600; }
 
 .sov-cab__metrics { display: grid; grid-template-columns: repeat(3, 1fr); }
-.sov-cab__metric { padding: 20px; border-right: 2px solid var(--sov-line); }
+.sov-cab__metric { padding: 20px; border-right: 1px solid var(--sov-line); }
 .sov-cab__metric:last-child { border-right: none; }
 .sov-cab__metric b { display: block; font-size: 1.7rem; font-weight: 800; line-height: 1; letter-spacing: -.02em; }
 .sov-cab__metric span { display: block; margin-top: 6px; font-size: .86rem; color: var(--sov-ink-soft); font-weight: 600; }
 
-.sov-cab__risk { margin: 16px 20px 18px; background: var(--sov-warn-bg); border-radius: 12px; padding: 12px 16px; }
-.sov-cab__risk em { font-style: normal; display: block; font-size: .8rem; letter-spacing: .06em; text-transform: uppercase; color: var(--sov-warn); font-weight: 800; }
+.sov-cab__risk { margin: 16px 20px 18px; background: var(--sov-warn-bg); border-radius: var(--sov-radius); padding: 12px 16px; }
+.sov-cab__risk em { font-style: normal; display: block; font-size: .8rem; letter-spacing: .06em; color: var(--sov-warn); font-weight: 800; }
 .sov-cab__note { padding: 0 20px 18px; font-size: .86rem; color: var(--sov-ink-soft); font-weight: 500; }
 
 /* ------------------------------------------------------------ прочее */
@@ -901,7 +997,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 @media (min-width: 720px) { .sov-pick { grid-template-columns: 1fr 1fr; } }
 .sov-pick__card {
   display: grid; gap: 8px; text-align: left; cursor: pointer;
-  background: #fff; border: 2px solid var(--sov-line); border-bottom-width: 4px;
+  background: #fff; border: 1px solid var(--sov-line); border-bottom-width: 1px;
   border-radius: var(--sov-radius); padding: 22px 24px; font-family: var(--sov-font);
   color: var(--sov-ink); transition: border-color .14s, background .14s;
 }
@@ -912,10 +1008,10 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 /* Список учеников. */
 .sov-students { display: grid; gap: 14px; margin-top: 26px; grid-template-columns: 1fr; }
 @media (min-width: 900px) { .sov-students { grid-template-columns: 1fr 1fr; } }
-.sov-student { border: 2px solid var(--sov-line); border-radius: var(--sov-radius); background: #fff; overflow: hidden; }
+.sov-student { border: 1px solid var(--sov-line); border-radius: var(--sov-radius); background: #fff; overflow: hidden; }
 .sov-student__head {
   display: flex; align-items: center; gap: 14px; padding: 18px 22px;
-  text-decoration: none; color: var(--sov-ink); border-bottom: 2px solid var(--sov-line);
+  text-decoration: none; color: var(--sov-ink); border-bottom: 1px solid var(--sov-line);
   transition: background .14s;
 }
 .sov-student__head:hover { background: var(--sov-cobalt-soft); }
@@ -932,7 +1028,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 .sov-hw {
   width: 100%; display: grid; gap: 3px; padding: 12px 16px;
   border-left: 4px solid var(--sov-line); background: var(--sov-paper);
-  border-radius: 0 12px 12px 0;
+  border-radius: 0 var(--sov-radius) var(--sov-radius) 0;
 }
 .sov-hw b { font-size: 1rem; font-weight: 800; }
 .sov-hw span { font-size: .94rem; font-weight: 600; color: var(--sov-ink-soft); }
@@ -944,7 +1040,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 /* Карточки домашки в карточке ученика. */
 .sov-hw-list { display: grid; gap: 14px; margin-top: 16px; }
 .sov-hw-card {
-  border: 2px solid var(--sov-line); border-left-width: 4px;
+  border: 1px solid var(--sov-line); border-left-width: 4px;
   border-radius: 0 var(--sov-radius) var(--sov-radius) 0; background: #fff; padding: 18px 22px;
   display: grid; gap: 10px; justify-items: start;
 }
@@ -953,7 +1049,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 .sov-hw-card[data-status="in_progress"] { border-left-color: var(--sov-cobalt); }
 .sov-hw-card header { display: flex; align-items: baseline; gap: 12px; justify-content: space-between; width: 100%; }
 .sov-hw-card header strong { font-size: 1.1rem; font-weight: 800; }
-.sov-hw-card__status { font-size: .82rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--sov-ink-soft); }
+.sov-hw-card__status { font-size: .82rem; font-weight: 800;  color: var(--sov-ink-soft); }
 .sov-hw-card ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .sov-hw-card li { font-size: .95rem; font-weight: 600; color: var(--sov-ink-soft); }
 .sov-hw-card li[data-done="true"] { color: var(--sov-ok); }
@@ -962,12 +1058,12 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 
 /* Домашка на экране ребёнка: стоит над картой тем, поэтому синяя. */
 .sov-homework {
-  margin-top: 18px; background: #fff; border: 2px solid var(--sov-cobalt);
+  margin-top: 18px; background: #fff; border: 1px solid var(--sov-cobalt);
   border-radius: var(--sov-radius); padding: 18px 22px; display: grid; gap: 10px;
 }
 .sov-homework__head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .sov-homework__head strong { font-size: 1.15rem; font-weight: 800; }
-.sov-homework__due { font-size: .88rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--sov-cobalt); }
+.sov-homework__due { font-size: .88rem; font-weight: 800;  color: var(--sov-cobalt); }
 .sov-homework__items { display: grid; gap: 8px; }
 .sov-homework__item {
   display: flex; align-items: center; gap: 10px; text-decoration: none;
@@ -1000,13 +1096,18 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
    ищет глазами именно его, а кнопка — единственная синяя заливка в
    верхней части экрана, мимо неё не пройти. */
 .sov-next {
-  margin-top: 16px; padding: 20px 22px;
-  background: #fff; border: 3px solid var(--sov-cobalt); border-radius: 22px;
-  display: grid; gap: 4px; justify-items: start;
+  margin-top: 16px; padding: 24px 26px;
+  background: var(--sov-ok-bg); border: none; border-radius: var(--sov-radius-feature);
+  display: grid; gap: 6px; justify-items: start;
 }
+/* «Кто задал и до когда» — не строка петитом, а чип: срок ребёнок ищет
+   глазами первым, а моноширинная подпись в 0.82rem терялась над крупным
+   названием темы. Охра здесь значит «ждёт срока» — тот же смысл, что и
+   в разборе ответа, других поводов для охры на экране нет. */
 .sov-next__cap {
-  font-family: var(--sov-mono); font-size: .82rem; letter-spacing: .02em;
-  color: var(--sov-cobalt); font-weight: 500;
+  font-size: .85rem; font-weight: 700;
+  background: var(--sov-warn-bg); color: var(--sov-warn);
+  border-radius: var(--sov-radius-pill); padding: 5px 14px;
 }
 .sov-next__what {
   font-size: clamp(1.5rem, 4vw, 2rem); font-weight: 800;
@@ -1027,13 +1128,13 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 
 .sov-hollow {
   background: #fff; color: var(--sov-ink);
-  border: 2px solid var(--sov-line); box-shadow: none;
+  border: 1px solid var(--sov-line); box-shadow: none;
   padding: 14px 18px; gap: 14px;
 }
 .sov-hollow__owl { background: none; padding: 0; }
 .sov-hollow__badge {
   right: -6px; bottom: -4px; min-width: 24px; height: 24px; font-size: .88rem;
-  background: var(--sov-cobalt); color: #fff; border: 2px solid #fff;
+  background: var(--sov-cobalt); color: #fff; border: 1px solid #fff;
 }
 .sov-hollow__xp { flex: 1; min-width: 220px; }
 .sov-hollow__xp .sov-xp { margin-top: 0; }
@@ -1053,18 +1154,28 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
    системы соблюдено буквально — заливка на экране одна, и она значит
    «нажми сюда». */
 .sov-homework {
-  background: #fff; border: 2px solid var(--sov-cobalt);
+  background: #fff; border: 1px solid var(--sov-cobalt);
   box-shadow: none; color: var(--sov-ink);
   padding: 20px 24px; gap: 12px;
 }
 .sov-homework__head strong { font-size: 1.2rem; }
 .sov-homework__count {
-  font-size: .9rem; font-weight: 800; text-transform: uppercase;
-  letter-spacing: .05em; color: var(--sov-ink-soft);
+  font-size: .9rem; font-weight: 800;
+   color: var(--sov-ink-soft);
+}
+/* Срок — такой же чип, как на карточке «сейчас», и по той же причине:
+   это первое, что спрашивают о домашке. Сделанную домашку правило ниже
+   перекрашивает в зелень, и охра остаётся только у того, что ещё ждёт. */
+.sov-kid .sov-homework__due {
+  background: var(--sov-warn-bg); color: var(--sov-warn);
+  border-radius: var(--sov-radius-pill); padding: 4px 12px; font-size: .85rem;
+}
+.sov-kid .sov-homework[data-status="done"] .sov-homework__due {
+  background: var(--sov-ok-bg); color: var(--sov-ok);
 }
 .sov-homework__item {
-  background: var(--sov-paper); border-radius: 12px; padding: 13px 16px;
-  color: var(--sov-ink); border: 2px solid var(--sov-line);
+  background: var(--sov-paper); border-radius: var(--sov-radius); padding: 13px 16px;
+  color: var(--sov-ink); border: 1px solid var(--sov-line);
 }
 .sov-homework__item[data-done="true"] {
   color: var(--sov-ok); background: var(--sov-ok-bg); border-color: transparent;
@@ -1083,10 +1194,9 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
    видит, какие темы просил педагог. */
 .sov-level__tag {
   display: inline-block; margin-left: 8px; vertical-align: 2px;
-  font-style: normal; font-size: .78rem; font-weight: 800;
-  text-transform: uppercase; letter-spacing: .05em;
+  font-style: normal; font-size: .78rem; font-weight: 800; 
   background: var(--sov-cobalt); color: #fff;
-  border-radius: 999px; padding: 3px 9px;
+  border-radius: var(--sov-radius-pill); padding: 3px 9px;
 }
 
 /* ── обзор программы у репетитора ───────────────────────────────── */
@@ -1096,7 +1206,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
    их нужно видеть рядом, не открывая список. */
 .sov-course { margin-top: 26px; }
 .sov-course__label {
-  font-size: .82rem; font-weight: 800; text-transform: uppercase;
+  font-size: .82rem; font-weight: 800;
   letter-spacing: .06em; color: var(--sov-ink-soft);
 }
 .sov-course__grid {
@@ -1106,7 +1216,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 .sov-course__card {
   display: grid; gap: 4px; text-align: left; cursor: pointer;
   font-family: var(--sov-font); color: var(--sov-ink);
-  border: 2px solid var(--sov-line); border-radius: 14px;
+  border: 1px solid var(--sov-line); border-radius: var(--sov-radius);
   background: #fff; padding: 12px 15px;
 }
 .sov-course__card strong { font-size: 1rem; font-weight: 800; }
@@ -1128,21 +1238,21 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 /* Отличия программы от базового темпа. */
 .sov-diff { display: grid; gap: 10px; margin-top: 16px; }
 .sov-diff__item {
-  display: grid; gap: 3px; padding: 13px 16px; border-radius: 12px;
+  display: grid; gap: 3px; padding: 13px 16px; border-radius: var(--sov-radius);
   background: var(--sov-paper); border-left: 4px solid var(--sov-line);
 }
 .sov-diff__item[data-kind="ahead"] { border-left-color: var(--sov-cobalt); }
 .sov-diff__item[data-kind="extra"] { border-left-color: var(--sov-warn); }
 .sov-diff__item b {
-  font-size: .78rem; font-weight: 800; text-transform: uppercase;
-  letter-spacing: .05em; color: var(--sov-ink-soft);
+  font-size: .78rem; font-weight: 800;
+   color: var(--sov-ink-soft);
 }
 .sov-diff__item strong { font-size: .98rem; font-weight: 800; }
 .sov-diff__item span { font-size: .9rem; font-weight: 500; color: var(--sov-ink-soft); line-height: 1.45; }
 
 .sov-prog { display: grid; gap: 12px; margin-top: 18px; }
 .sov-prog__item {
-  border: 2px solid var(--sov-line); border-radius: var(--sov-radius);
+  border: 1px solid var(--sov-line); border-radius: var(--sov-radius);
   background: #fff; padding: 16px 20px; display: grid; gap: 10px;
 }
 .sov-prog__item[data-locked="true"] { background: var(--sov-paper-2); border-color: var(--sov-paper-3); }
@@ -1154,13 +1264,18 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 .sov-prog__name { display: inline-flex; align-items: center; gap: 9px; }
 .sov-prog__name svg { flex: none; color: var(--sov-cobalt); }
 .sov-prog__meta { font-size: .92rem; font-weight: 600; color: var(--sov-ink-soft); }
-.sov-prog__actions { display: flex; gap: 8px; flex: none; }
+.sov-prog__actions { display: flex; gap: 8px; flex: none; align-items: center; }
+/* В строке темы кнопка идёт в один ряд с названием, и высота действия
+   здесь задаётся строкой, а не самой кнопкой: обычные 12 px по вертикали
+   разгоняют строку темы до высоты карточки. */
+.sov-prog__assign { padding: 7px 18px; font-size: .95rem; }
+.sov-prog__assign:disabled { border-color: var(--sov-line); color: var(--sov-ink-soft); cursor: not-allowed; }
 .sov-prog__summary { font-size: .93rem; font-weight: 500; color: var(--sov-ink-soft); }
 .sov-prog__ok { font-size: .95rem; font-weight: 700; color: var(--sov-ok); }
 
 .sov-prog__assign {
   display: grid; gap: 12px; padding: 14px 16px;
-  background: var(--sov-cobalt-soft); border-radius: 12px;
+  background: var(--sov-cobalt-soft); border-radius: var(--sov-radius);
 }
 .sov-prog__row { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; }
 .sov-prog__row label {
@@ -1168,7 +1283,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 }
 .sov-prog__row input, .sov-prog__row select {
   font-family: var(--sov-font); font-size: .95rem; font-weight: 600; padding: 10px 13px;
-  border: 2px solid var(--sov-line); border-radius: 12px; background: #fff; color: var(--sov-ink);
+  border: 1px solid var(--sov-line); border-radius: var(--sov-radius); background: #fff; color: var(--sov-ink);
 }
 
 /* Задания темы: репетитор читает их подряд, поэтому список, а не карточки. */
@@ -1176,12 +1291,12 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 .sov-tasks li {
   display: grid; gap: 4px; padding: 12px 16px;
   border-left: 4px solid var(--sov-line); background: var(--sov-paper);
-  border-radius: 0 12px 12px 0;
+  border-radius: 0 var(--sov-radius) var(--sov-radius) 0;
 }
 .sov-tasks li[data-check="true"] { border-left-color: var(--sov-cobalt); }
 .sov-tasks b {
-  font-size: .8rem; font-weight: 800; text-transform: uppercase;
-  letter-spacing: .05em; color: var(--sov-ink-soft);
+  font-size: .8rem; font-weight: 800;
+   color: var(--sov-ink-soft);
 }
 .sov-tasks__prompt { font-size: 1rem; font-weight: 700; }
 .sov-tasks__options { font-size: .9rem; font-weight: 600; color: var(--sov-ink-soft); }
@@ -1196,9 +1311,9 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
    а не заливкой: заливка на экране осталась одна, у кнопки «Начать». */
 .sov-homework__check {
   display: grid; place-items: center; flex: none; padding: 0 16px;
-  background: transparent; border: 2px solid var(--sov-line); border-radius: 12px;
+  background: transparent; border: 1px solid var(--sov-line); border-radius: var(--sov-radius);
   color: var(--sov-cobalt);
-  font-size: .86rem; font-weight: 800; text-transform: uppercase;
+  font-size: .86rem; font-weight: 800;
   letter-spacing: .04em; text-decoration: none; text-align: center;
 }
 .sov-homework__check:hover { border-color: var(--sov-cobalt); background: var(--sov-cobalt-soft); }
@@ -1245,7 +1360,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 .sov-match__rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; width: 100%; }
 .sov-match__row {
   display: flex; align-items: center; gap: 12px; padding: 14px 18px;
-  border: 2px solid var(--sov-line); border-bottom-width: 4px; border-radius: var(--sov-radius);
+  border: 1px solid var(--sov-line); border-bottom-width: 1px; border-radius: var(--sov-radius);
   background: #fff; font-size: 1.1rem; font-weight: 700;
 }
 .sov-match__row[data-active="true"] { border-color: var(--sov-cobalt); background: var(--sov-cobalt-soft); }
@@ -1255,14 +1370,14 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 .sov-match__dots { flex: 1; border-bottom: 3px dotted var(--sov-line); }
 .sov-match__right {
   flex: none; min-width: 64px; text-align: center; padding: 6px 14px;
-  border-radius: 10px; background: var(--sov-paper-2); color: var(--sov-ink-soft);
+  border-radius: var(--sov-radius); background: var(--sov-paper-2); color: var(--sov-ink-soft);
 }
 .sov-match__row[data-filled="true"] .sov-match__right { background: var(--sov-cobalt); color: #fff; }
 .sov-match__pool { display: flex; flex-wrap: wrap; gap: 10px; }
 .sov-match__chip {
   font-family: var(--sov-font); font-size: 1.1rem; font-weight: 800; cursor: pointer;
-  padding: 12px 22px; border-radius: 999px; background: #fff; color: var(--sov-ink);
-  border: 2px solid var(--sov-line); border-bottom-width: 4px;
+  padding: 12px 22px; border-radius: var(--sov-radius-pill); background: #fff; color: var(--sov-ink);
+  border: 1px solid var(--sov-line); border-bottom-width: 1px;
 }
 .sov-match__chip:hover:not(:disabled) { border-color: var(--sov-cobalt); background: var(--sov-cobalt-soft); }
 .sov-match__chip:disabled { opacity: .35; cursor: default; }
@@ -1274,7 +1389,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 .sov-shulte__cell {
   aspect-ratio: 1; display: grid; place-items: center; cursor: pointer;
   font-family: var(--sov-font); font-weight: 800; color: var(--sov-ink);
-  background: #fff; border: 2px solid var(--sov-line); border-bottom-width: 4px;
+  background: #fff; border: 1px solid var(--sov-line); border-bottom-width: 1px;
   border-radius: var(--sov-radius); transition: background .1s, border-color .1s;
 }
 .sov-shulte[data-size="3"] .sov-shulte__cell { font-size: 2.4rem; }
@@ -1294,17 +1409,17 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 
 .sov-homework__custom {
   display: grid; gap: 10px; justify-items: start;
-  background: #fff; border-radius: 12px; padding: 16px 18px; color: var(--sov-ink);
+  background: #fff; border-radius: var(--sov-radius); padding: 16px 18px; color: var(--sov-ink);
 }
 .sov-homework__custom strong { font-size: 1.05rem; font-weight: 800; }
 .sov-homework__custom p { font-size: .98rem; font-weight: 500; color: var(--sov-ink-soft); }
 .sov-homework__custom textarea {
   width: 100%; font-family: var(--sov-font); font-size: 1rem; font-weight: 500;
-  padding: 12px 14px; border: 2px solid var(--sov-line); border-radius: 12px;
+  padding: 12px 14px; border: 1px solid var(--sov-line); border-radius: var(--sov-radius);
   background: #fff; color: var(--sov-ink); resize: vertical;
 }
 .sov-homework__file {
-  background: var(--sov-cobalt-soft); border: none; border-radius: 999px; cursor: pointer;
+  background: var(--sov-cobalt-soft); border: none; border-radius: var(--sov-radius-pill); cursor: pointer;
   padding: 9px 18px; font-family: var(--sov-font); font-size: .95rem; font-weight: 800;
   color: var(--sov-cobalt);
 }
@@ -1313,18 +1428,18 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 
 .sov-custom { display: grid; gap: 8px; margin-top: 8px; justify-items: start; }
 .sov-custom__meta {
-  font-size: .8rem; font-weight: 800; text-transform: uppercase;
-  letter-spacing: .05em; color: var(--sov-ink-soft);
+  font-size: .8rem; font-weight: 800;
+   color: var(--sov-ink-soft);
 }
 .sov-custom__answer {
   font-size: .95rem; font-weight: 500; color: var(--sov-ink);
-  background: var(--sov-paper); border-radius: 10px; padding: 10px 14px; width: 100%;
+  background: var(--sov-paper); border-radius: var(--sov-radius); padding: 10px 14px; width: 100%;
 }
 .sov-custom__grade { font-size: .9rem; font-weight: 800; color: var(--sov-ok); }
 .sov-custom__grade-form { display: grid; gap: 8px; width: 100%; }
 .sov-custom__grade-form input {
   font-family: var(--sov-font); font-size: .95rem; padding: 10px 13px;
-  border: 2px solid var(--sov-line); border-radius: 12px; background: #fff;
+  border: 1px solid var(--sov-line); border-radius: var(--sov-radius); background: #fff;
 }
 
 /* Прикрепить фотографию ответа. Родной input[type=file] выглядит
@@ -1332,7 +1447,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
    внутрь подписанной кнопки. */
 .sov-homework__attach {
   display: inline-flex; align-items: center; gap: 10px; cursor: pointer;
-  border: 2px dashed var(--sov-line); border-radius: 12px; padding: 12px 18px;
+  border: 2px dashed var(--sov-line); border-radius: var(--sov-radius); padding: 12px 18px;
   font-size: .92rem; font-weight: 700; color: var(--sov-ink-soft); background: #fff;
 }
 .sov-homework__attach:hover { border-color: var(--sov-cobalt); color: var(--sov-cobalt); }
@@ -1387,8 +1502,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 }
 .sov-ring__mid b { display: block; font-weight: 800; letter-spacing: -.03em; font-size: var(--sov-ring-font, 1.5rem); }
 .sov-ring__mid span {
-  display: block; font-size: .88rem; font-weight: 800;
-  text-transform: uppercase; letter-spacing: .05em; color: var(--sov-ink-soft);
+  display: block; font-size: .88rem; font-weight: 800;  color: var(--sov-ink-soft);
 }
 
 /* ── камешки заданий ─────────────────────────────────────────────────
@@ -1397,7 +1511,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
    что у разбора ответа, — ребёнок уже знает, что они значат. */
 .sov-stones { display: flex; gap: 8px; flex-wrap: wrap; }
 .sov-stone {
-  width: 38px; height: 38px; border-radius: 12px; flex: none;
+  width: 38px; height: 38px; border-radius: var(--sov-radius); flex: none;
   display: grid; place-items: center; border: none;
   font-family: var(--sov-font); font-weight: 800; font-size: .95rem;
   background: var(--sov-paper-2); color: #a99c85;
@@ -1407,7 +1521,7 @@ a.sov-level:active .sov-level__num { transform: translateY(4px); box-shadow: 0 2
 .sov-stone[data-state="now"] { background: #fff; color: var(--sov-cobalt); box-shadow: inset 0 0 0 3px var(--sov-cobalt); }
 button.sov-stone { cursor: pointer; }
 button.sov-stone:disabled { cursor: default; }
-.sov-stones--sm .sov-stone { width: 27px; height: 27px; border-radius: 9px; font-size: .88rem; }
+.sov-stones--sm .sov-stone { width: 27px; height: 27px; border-radius: var(--sov-radius); font-size: .88rem; }
 
 /* Что значат цвета камешков. Одна строка под рядом вместо легенды
    сбоку: ряд короткий, а подпись читают один раз. */
@@ -1447,8 +1561,8 @@ button.sov-stone:disabled { cursor: default; }
 /* ── полоса освоения темы ────────────────────────────────────────────
    Засечка на 70% стоит на каждой полосе: она и есть порог зачёта, и
    благодаря ей полоса читается без цифры рядом. */
-.sov-bar { display: block; position: relative; height: 12px; border-radius: 999px; background: var(--sov-paper-2); overflow: hidden; }
-.sov-bar i { display: block; height: 100%; border-radius: 999px; background: var(--sov-cobalt); }
+.sov-bar { display: block; position: relative; height: 12px; border-radius: var(--sov-radius-pill); background: var(--sov-paper-2); overflow: hidden; }
+.sov-bar i { display: block; height: 100%; border-radius: var(--sov-radius-pill); background: var(--sov-cobalt); }
 .sov-bar[data-risk="true"] i { background: var(--sov-warn); }
 .sov-bar::after { content: ""; position: absolute; left: 70%; top: -3px; bottom: -3px; width: 2px; background: var(--sov-ink); opacity: .35; }
 .sov-bar--plain::after { content: none; }
@@ -1466,7 +1580,7 @@ button.sov-stone:disabled { cursor: default; }
 .sov-spark { display: block; width: 100%; height: 52px; margin: 10px 0; }
 .sov-delta {
   display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
-  font-size: .92rem; font-weight: 800; border-radius: 999px; padding: 3px 11px;
+  font-size: .92rem; font-weight: 800; border-radius: var(--sov-radius-pill); padding: 3px 11px;
   background: var(--sov-ok-bg); color: var(--sov-ok);
 }
 .sov-delta[data-dir="down"] { background: var(--sov-warn-bg); color: var(--sov-warn); }
@@ -1474,8 +1588,8 @@ button.sov-stone:disabled { cursor: default; }
 
 /* ── плитка с цифрой ─────────────────────────────────────────────────
    Заменяет .sov-metric там, где рядом с числом стоит фигура. */
-.sov-tile { border: 2px solid var(--sov-line); border-radius: var(--sov-radius); background: #fff; padding: 20px; }
-.sov-tile__cap { display: block; font-size: .94rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--sov-ink-soft); }
+.sov-tile { border: 1px solid var(--sov-line); border-radius: var(--sov-radius); background: #fff; padding: 20px; }
+.sov-tile__cap { display: block; font-size: .94rem; font-weight: 800;  color: var(--sov-ink-soft); }
 .sov-tile__big { font-size: 2.4rem; font-weight: 800; letter-spacing: -.03em; line-height: 1; margin-top: 10px; }
 .sov-tile__sub { font-size: .94rem; font-weight: 600; color: var(--sov-ink-soft); margin-top: 6px; }
 .sov-tile__row { display: flex; align-items: center; gap: 14px; margin-top: 14px; }
@@ -1487,12 +1601,12 @@ button.sov-stone:disabled { cursor: default; }
 .sov-play__grid { display: grid; gap: 20px; align-items: start; grid-template-columns: 1fr; }
 @media (min-width: 1100px) { .sov-play__grid { grid-template-columns: minmax(0, 1fr) 340px; } }
 .sov-side {
-  border: 2px solid var(--sov-line); border-radius: 22px; background: #fff;
+  border: 1px solid var(--sov-line); border-radius: var(--sov-radius-feature); background: #fff;
   padding: 22px; display: grid; gap: 18px; align-content: start;
 }
 .sov-side__block { display: grid; gap: 10px; }
-.sov-side__block + .sov-side__block { border-top: 2px solid var(--sov-line); padding-top: 18px; }
-.sov-side__cap { font-size: .94rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--sov-ink-soft); }
+.sov-side__block + .sov-side__block { border-top: 1px solid var(--sov-line); padding-top: 18px; }
+.sov-side__cap { font-size: .94rem; font-weight: 800;  color: var(--sov-ink-soft); }
 .sov-side__row { display: flex; align-items: center; gap: 16px; }
 /* На узком экране панель встаёт под карточку, и вертикальная колонка
    из четырёх блоков растягивает страницу. Раскладываем в строку. */
@@ -1504,7 +1618,7 @@ button.sov-stone:disabled { cursor: default; }
 /* Банка мёда крупно — та же, что идёт по тропе, но с подписью. */
 .sov-honey {
   position: relative; width: 56px; height: 74px; flex: none; overflow: hidden;
-  border: 3px solid var(--sov-cobalt); border-radius: 10px 10px 16px 16px;
+  border: 3px solid var(--sov-cobalt); border-radius: var(--sov-radius) 10px 16px 16px;
   background: #fff; display: grid; place-items: end center;
 }
 .sov-honey i { position: absolute; left: 0; right: 0; bottom: 0; background: var(--sov-cobalt); transition: height .45s cubic-bezier(.2,.8,.2,1); }
@@ -1552,7 +1666,7 @@ button.sov-stone:disabled { cursor: default; }
 .sov-verdict {
   display: grid; gap: 5px; margin-top: 22px;
   padding: 16px 20px; background: #fff;
-  border: 2px solid var(--sov-line); border-left-width: 5px;
+  border: 1px solid var(--sov-line); border-left-width: 5px;
   border-radius: 0 var(--sov-radius) var(--sov-radius) 0;
 }
 .sov-verdict[data-tone="ok"] { border-left-color: var(--sov-ok); }
@@ -1565,8 +1679,8 @@ button.sov-stone:disabled { cursor: default; }
 /* Чья это забота: тема уже в домашке или её никто не задавал. */
 .sov-risks__state {
   margin-left: auto; flex: none;
-  font-size: .82rem; font-weight: 800; text-transform: uppercase; letter-spacing: .04em;
-  padding: 5px 11px; border-radius: 999px; white-space: nowrap;
+  font-size: .82rem; font-weight: 800; letter-spacing: .04em;
+  padding: 5px 11px; border-radius: var(--sov-radius-pill); white-space: nowrap;
 }
 .sov-risks__state[data-tone="ok"] { color: var(--sov-ok); background: var(--sov-ok-bg); }
 .sov-risks__state[data-tone="warn"] { color: var(--sov-warn); background: var(--sov-warn-bg); }
@@ -1593,7 +1707,7 @@ button.sov-stone:disabled { cursor: default; }
    уровня: слева — «сколько до следующего», справа — «как шла неделя». */
 .sov-hollow__week { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
 @media (min-width: 900px) {
-  .sov-hollow__week { border-left: 2px solid var(--sov-line); padding-left: 18px; }
+  .sov-hollow__week { border-left: 1px solid var(--sov-line); padding-left: 18px; }
 }
 /* Полоса освоения в строке темы не должна тянуться на всю колонку:
    рядом с ней стоят звёзды, и метровая полоса до них перебивает
@@ -1616,9 +1730,9 @@ button.sov-stone:disabled { cursor: default; }
 /* Название правила над словом: подпись, а не заголовок. */
 .sov-card__tag {
   display: inline-block; margin-bottom: 12px;
-  font: 800 .78rem/1 var(--sov-font); text-transform: uppercase; letter-spacing: .06em;
+  font: 800 .78rem/1 var(--sov-font); letter-spacing: .06em;
   color: var(--sov-cobalt); background: var(--sov-cobalt-soft);
-  border-radius: 999px; padding: 7px 13px;
+  border-radius: var(--sov-radius-pill); padding: 7px 13px;
 }
 
 /* Слово с пропуском. Одно слово идёт крупно, предложение — мельче:
@@ -1659,7 +1773,7 @@ button.sov-stone:disabled { cursor: default; }
 .sov-rule { display: grid; gap: 10px; max-width: 68ch; }
 .sov-rule p { font-size: .98rem; font-weight: 500; color: var(--sov-ink-soft); line-height: 1.55; }
 .sov-rule__hint { font-weight: 800 !important; color: var(--sov-ink) !important; font-size: 1.02rem !important; }
-.sov-rule__ex { display: grid; gap: 6px; margin: 2px 0 0; padding: 14px 16px; list-style: none; background: #fff; border-radius: 12px; }
+.sov-rule__ex { display: grid; gap: 6px; margin: 2px 0 0; padding: 14px 16px; list-style: none; background: #fff; border-radius: var(--sov-radius); }
 .sov-rule__ex li { font-family: var(--sov-mono); font-size: .95rem; color: var(--sov-ink); }
 .sov-rule__caution { border-left: 4px solid var(--sov-warn); padding-left: 12px; color: var(--sov-warn) !important; font-weight: 600 !important; }
 /* Разбор итога: слова и примеры, на которых споткнулись. */
