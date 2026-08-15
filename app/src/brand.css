@@ -769,18 +769,16 @@ a.sov-level:active .sov-level__num { box-shadow: none; }
 .sov-trainer--demo { background: var(--sov-cobalt-soft); border-color: transparent; }
 .sov-trainer--demo .sov-trainer__icon { background: #fff; }
 
-/* Тренажёры в детской — единственное место, где пастель работает как
-   украшение, а не как вердикт. Ребёнок заходит сюда «на пять минут», и
-   пять одинаковых белых карточек он читает построчно; разные плашки он
-   различает боковым зрением и попадает в нужную с первого раза.
-   Цвета взяты из той же пары, что и вердикты, но здесь у них нет
-   пары «верно / подумай ещё» рядом, и спутать не с чем.
-   На витрине и во взрослых экранах карточка остаётся белой. */
-.sov-kid .sov-trainer { background: var(--sov-ok-bg); border-color: transparent; }
-.sov-kid .sov-trainer:nth-child(2n) { background: var(--sov-warn-bg); }
-.sov-kid .sov-trainer:nth-child(3n) { background: var(--sov-cobalt-soft); }
-.sov-kid .sov-trainer:hover { border-color: var(--sov-cobalt); }
-.sov-kid .sov-trainer__icon { background: #fff; }
+/* Тренажёры в детской остаются белыми.
+
+   Один заход они стояли в пастели по nth-child — зелёный, охряный,
+   лиловый по очереди. Цвет зависел от места в списке: переставь тренажёр,
+   и он сменит краску. Значит, он ничего не значил, а ребёнок, который в
+   уроке выучил зелёное «верно» и охряное «подумай ещё», видел те же цвета
+   просто так — и они переставали работать там, где работают.
+
+   Различать пять карточек помогает то, что у них и так разное: свой
+   рисунок в кружке и своё название. */
 
 .sov-setup { display: grid; gap: 22px; margin-top: 24px; }
 .sov-setup__row { display: grid; gap: 10px; }
@@ -1095,20 +1093,34 @@ a.sov-level:active .sov-level__num { box-shadow: none; }
    «кто задал и до когда», название набрано крупно, потому что ребёнок
    ищет глазами именно его, а кнопка — единственная синяя заливка в
    верхней части экрана, мимо неё не пройти. */
+/* Карточка «что делать сейчас» цветом не окрашена вовсе.
+
+   Зелёной она была ровно один заход и врала: зелёный в системе значит
+   «верно / сделано», а красили в него самое несделанное на экране. Лиловой
+   она была следующий заход — и получалось два лиловых пятна подряд, потому
+   что домашка под ней тоже от педагога: карточка повторяла её первый пункт
+   и цветом, и словами.
+
+   Лиловое осталось у домашки — она список, её и нужно отличать от своего
+   выбора. Карточке «сейчас» отличаться не от чего: она на экране одна.
+   Первой её делают белая бумага, тень и размер, а не краска. */
 .sov-next {
   margin-top: 16px; padding: 24px 26px;
-  background: var(--sov-ok-bg); border: none; border-radius: var(--sov-radius-feature);
+  background: #fff; border: none; border-radius: var(--sov-radius-feature);
+  box-shadow: var(--sov-shadow);
   display: grid; gap: 6px; justify-items: start;
 }
-/* «Кто задал и до когда» — не строка петитом, а чип: срок ребёнок ищет
-   глазами первым, а моноширинная подпись в 0.82rem терялась над крупным
-   названием темы. Охра здесь значит «ждёт срока» — тот же смысл, что и
-   в разборе ответа, других поводов для охры на экране нет. */
+
+/* «Что и до когда» — чип, а не строка петитом: срок ребёнок ищет глазами
+   первым, а моноширинная подпись в 0.82rem терялась над крупным названием.
+   Цвет у чипа нейтральный. Охра приходит только на прошедший срок — она
+   значит «требует внимания», и «осталось 3 дн.» этого не требует. */
 .sov-next__cap {
   font-size: .85rem; font-weight: 700;
-  background: var(--sov-warn-bg); color: var(--sov-warn);
+  background: var(--sov-paper-2); color: var(--sov-ink-soft);
   border-radius: var(--sov-radius-pill); padding: 5px 14px;
 }
+.sov-next[data-overdue="true"] .sov-next__cap { background: var(--sov-warn-bg); color: var(--sov-warn); }
 .sov-next__what {
   font-size: clamp(1.5rem, 4vw, 2rem); font-weight: 800;
   letter-spacing: -.02em; line-height: 1.12;
@@ -1150,11 +1162,14 @@ a.sov-level:active .sov-level__num { box-shadow: none; }
    кнопка — а два насыщенных пятна подряд спорят друг с другом, и глаз
    идёт к нижнему, к более крупному, то есть к списку, а не к действию.
 
-   Домашка остаётся списком: белая карточка с синей рамкой. Правило
-   системы соблюдено буквально — заливка на экране одна, и она значит
-   «нажми сюда». */
+   Домашка остаётся списком, но на лиловой бумаге: на детском экране это
+   значит «просил педагог» — та же метка, что у слова «задано» на тропе
+   тем. Ребёнок видит границу между договорённостью и своим выбором, не
+   читая. Пункты внутри — белые панели, потому что карточка на тинте без
+   белой подложки теряет края. Насыщенная заливка на экране по-прежнему
+   одна, и она значит «нажми сюда». */
 .sov-homework {
-  background: #fff; border: 1px solid var(--sov-cobalt);
+  background: var(--sov-cobalt-soft); border: none;
   box-shadow: none; color: var(--sov-ink);
   padding: 20px 24px; gap: 12px;
 }
@@ -1164,18 +1179,22 @@ a.sov-level:active .sov-level__num { box-shadow: none; }
    color: var(--sov-ink-soft);
 }
 /* Срок — такой же чип, как на карточке «сейчас», и по той же причине:
-   это первое, что спрашивают о домашке. Сделанную домашку правило ниже
-   перекрашивает в зелень, и охра остаётся только у того, что ещё ждёт. */
+   это первое, что спрашивают о домашке. Цвет тот же и по тому же правилу:
+   белый, пока идёт срок; зелёный, когда сделано; охряный, когда срок
+   прошёл. Три состояния, три смысла, ни одного лишнего цвета. */
 .sov-kid .sov-homework__due {
-  background: var(--sov-warn-bg); color: var(--sov-warn);
+  background: #fff; color: var(--sov-ink-soft);
   border-radius: var(--sov-radius-pill); padding: 4px 12px; font-size: .85rem;
+}
+.sov-kid .sov-homework[data-status="overdue"] .sov-homework__due {
+  background: var(--sov-warn-bg); color: var(--sov-warn);
 }
 .sov-kid .sov-homework[data-status="done"] .sov-homework__due {
   background: var(--sov-ok-bg); color: var(--sov-ok);
 }
 .sov-homework__item {
-  background: var(--sov-paper); border-radius: var(--sov-radius); padding: 13px 16px;
-  color: var(--sov-ink); border: 1px solid var(--sov-line);
+  background: #fff; border-radius: var(--sov-radius); padding: 13px 16px;
+  color: var(--sov-ink); border: none;
 }
 .sov-homework__item[data-done="true"] {
   color: var(--sov-ok); background: var(--sov-ok-bg); border-color: transparent;
@@ -1194,8 +1213,8 @@ a.sov-level:active .sov-level__num { box-shadow: none; }
    видит, какие темы просил педагог. */
 .sov-level__tag {
   display: inline-block; margin-left: 8px; vertical-align: 2px;
-  font-style: normal; font-size: .78rem; font-weight: 800; 
-  background: var(--sov-cobalt); color: #fff;
+  font-style: normal; font-size: .78rem; font-weight: 800;
+  background: var(--sov-cobalt-soft); color: var(--sov-cobalt);
   border-radius: var(--sov-radius-pill); padding: 3px 9px;
 }
 
