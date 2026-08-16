@@ -212,11 +212,16 @@ function PupilPage() {
     cap: string;
     name: string;
     label: string;
+    /* Срок прошёл. Считает сервер (AssignmentView.status), а не браузер:
+       часы на планшете ребёнка могут врать, а охра значит «требует
+       внимания» — вешать её по ошибке нельзя. */
+    overdue?: boolean;
     topicId?: string;
     to?: string;
     anchor?: string;
   } | null = pendingHw && pendingItem
     ? {
+        overdue: pendingHw.status === "overdue",
         cap: [
           pendingHw.title,
           pendingHw.dueAt ? dueLabel(pendingHw.dueAt) : "без срока",
@@ -284,7 +289,7 @@ function PupilPage() {
         <p className="sov-kid__hi">Привет, {data.child.name}!</p>
 
         {nextUp ? (
-          <section className="sov-next">
+          <section className="sov-next" data-overdue={nextUp.overdue ? "true" : undefined}>
             <span className="sov-next__cap">{nextUp.cap}</span>
             <strong className="sov-next__what">{nextUp.name}</strong>
             {nextUp.anchor ? (
@@ -322,6 +327,8 @@ function PupilPage() {
           <section key={hw.id} className="sov-homework" data-status={hw.status}>
             <div className="sov-homework__head">
               <strong>{hw.status === "done" ? `${hw.title} — сделано!` : hw.title}</strong>
+              {/* Цвет чипа задаётся data-status на карточке выше: охра
+                  достаётся только статусу overdue, который считает сервер. */}
               <span className="sov-homework__due">
                 {hw.status === "done"
                   ? "молодец"
