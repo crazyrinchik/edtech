@@ -70,7 +70,7 @@ function InvitePage() {
   return (
     <div className="sov">
       <SiteHeader right={<QuietAction to="/vhod">Войти</QuietAction>} />
-      <main className="sov-narrow" style={{ paddingTop: 48, paddingBottom: 80 }}>
+      <main className="sov-narrow" style={{ paddingBottom: 80 }}>
         {info?.ok ? (
           <>
             <h1 style={{ fontSize: "2.2rem" }}>{info.childName}, {info.grade} класс</h1>

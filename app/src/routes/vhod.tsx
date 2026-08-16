@@ -41,7 +41,7 @@ function LoginPage() {
   return (
     <div className="sov">
       <SiteHeader right={<QuietAction to="/registraciya">Создать аккаунт</QuietAction>} />
-      <main className="sov-narrow" style={{ paddingTop: 48, paddingBottom: 80 }}>
+      <main className="sov-narrow" style={{ paddingBottom: 80 }}>
         <h1 style={{ fontSize: "2.2rem" }}>Вход</h1>
         <p style={{ marginTop: 12, color: "var(--sov-ink-soft)" }}>
           Одна дверь для репетитора и для родителя — куда попадёте, решит ваша роль.

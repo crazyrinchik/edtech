@@ -133,7 +133,7 @@ function StudentPage() {
     return (
       <div className="sov">
         <SiteHeader right={<QuietAction to="/repetitor">К ученикам</QuietAction>} />
-        <main className="sov-narrow" style={{ paddingTop: 40 }}>
+        <main className="sov-narrow">
           <div className="sov-alert">{error}</div>
         </main>
       </div>
@@ -144,7 +144,7 @@ function StudentPage() {
     return (
       <div className="sov">
         <SiteHeader right={<QuietAction to="/repetitor">К ученикам</QuietAction>} />
-        <main className="sov-narrow" style={{ paddingTop: 40 }}>
+        <main className="sov-narrow">
           <p className="sov-mono">Открываем карточку…</p>
         </main>
       </div>

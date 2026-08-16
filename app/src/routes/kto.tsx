@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
-import { ChildAvatar, Owl, Wordmark } from "../components/brand";
+import { ChildAvatar, Owl, SiteHeader } from "../components/brand";
 import { me, selectChild } from "../lib/api/app.functions";
 
 export const Route = createFileRoute("/kto")({
@@ -54,13 +54,14 @@ function WhoPage() {
 
   return (
     <div className="sov sov-kid">
-      <div className="sov-shell">
-        <div className="sov-header" style={{ padding: "18px 0" }}>
-          <Wordmark compact />
+      <SiteHeader
+        right={
           <Link to="/roditel" className="sov-act-ghost" style={{ textDecoration: "none" }}>
             Кабинет родителя
           </Link>
-        </div>
+        }
+      />
+      <div className="sov-shell">
 
         <div className="sov-who">
           <Owl size={92} mood="happy" animated />

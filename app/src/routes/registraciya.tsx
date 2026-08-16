@@ -109,7 +109,7 @@ function RegisterPage() {
   return (
     <div className="sov">
       <SiteHeader right={<QuietAction to="/vhod">Войти</QuietAction>} />
-      <main className="sov-narrow" style={{ paddingTop: 48, paddingBottom: 80 }}>
+      <main className="sov-narrow" style={{ paddingBottom: 80 }}>
         {/* Пришедшему с витрины по прямой ссылке счётчик врал бы: развилку он
             уже прошёл там, и «шаг 2 из 2» на единственной форме читается
             как потерянный шаг. */}
@@ -121,7 +121,7 @@ function RegisterPage() {
 
         {step === "role" ? (
           <>
-            <h1 style={{ fontSize: "2.2rem", marginTop: 10 }}>Кто вы?</h1>
+            <h1 style={{ fontSize: "2.2rem" }}>Кто вы?</h1>
             <p style={{ marginTop: 12, color: "var(--sov-ink-soft)" }}>
               От этого зависит, что будет дальше: репетитор заводит учеников сам,
               родитель — своего ребёнка.

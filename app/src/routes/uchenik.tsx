@@ -6,8 +6,8 @@ import {
   ChildAvatar,
   Owl,
   owlStage,
+  SiteHeader,
   Stars,
-  Wordmark,
 } from "../components/brand";
 import { TRAINERS } from "../components/trainers";
 import { coinsLabel, plural, SHOP } from "../lib/shop";
@@ -249,10 +249,11 @@ function PupilPage() {
 
   return (
     <div className="sov sov-kid">
-      <div className="sov-shell">
-        <div className="sov-header" style={{ padding: "18px 0" }}>
-          <Wordmark compact />
-          <div className="sov-header__right">
+      {/* Та же шапка, что и на остальных экранах. Своя копия стояла здесь
+          внутри колонки и потому не могла стать полосой во всю ширину. */}
+      <SiteHeader
+        right={
+          <>
             <AutoSpeakToggle />
             {manyChildren ? (
               <Link to="/kto" className="sov-act-ghost" style={{ textDecoration: "none" }}>
@@ -270,8 +271,10 @@ function PupilPage() {
                 Кабинет родителя
               </Link>
             )}
-          </div>
-        </div>
+          </>
+        }
+      />
+      <div className="sov-shell">
 
         {/* Первым делом — что делать сейчас.
 

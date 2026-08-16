@@ -111,7 +111,7 @@ function TrainersPage() {
       />
 
       <main className="sov-shell" style={{ paddingBottom: 60 }}>
-        <h1 style={{ fontSize: "2.2rem", marginTop: 10 }}>Тренажёры</h1>
+        <h1 style={{ fontSize: "2.2rem" }}>Тренажёры</h1>
         <p
           style={{ marginTop: 12, color: "var(--sov-ink-soft)", fontWeight: 500, maxWidth: "62ch" }}
         >
