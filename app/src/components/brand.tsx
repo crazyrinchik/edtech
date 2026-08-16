@@ -166,11 +166,20 @@ export function Stars({ value, max = 3 }: { value: number; max?: number }) {
   );
 }
 
+/**
+ * Шапка. Белая полоса во всю ширину окна, содержимое внутри — в общей
+ * колонке: иначе логотип уезжал бы к самому краю монитора, а разделы
+ * справа — к другому, и шапка переставала бы совпадать со страницей.
+ *
+ * Отсюда две вложенности: цвет живёт на полосе, ширину держит __in.
+ */
 export function SiteHeader({ right }: { right?: ReactNode }) {
   return (
     <header className="sov-header">
-      <Wordmark compact />
-      <div className="sov-header__right">{right}</div>
+      <div className="sov-header__in">
+        <Wordmark compact />
+        <div className="sov-header__right">{right}</div>
+      </div>
     </header>
   );
 }

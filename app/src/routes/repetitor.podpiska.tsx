@@ -54,7 +54,7 @@ function TutorBillingPage() {
   return (
     <div className="sov">
       <SiteHeader right={<QuietAction to="/repetitor">К ученикам</QuietAction>} />
-      <main className="sov-narrow" style={{ paddingTop: 40, paddingBottom: 70 }}>
+      <main className="sov-narrow" style={{ paddingBottom: 70 }}>
         <h1 style={{ fontSize: "2.2rem" }}>Подписка</h1>
 
         {error ? (

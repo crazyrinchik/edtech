@@ -63,7 +63,7 @@ function AdminPage() {
     return (
       <div className="sov">
         <SiteHeader />
-        <main className="sov-shell" style={{ paddingTop: 40 }}>
+        <main className="sov-shell">
           <div className="sov-alert">{error}</div>
         </main>
       </div>

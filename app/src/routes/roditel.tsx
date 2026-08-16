@@ -81,7 +81,7 @@ function ParentPage() {
     return (
       <div className="sov">
         <SiteHeader />
-        <main className="sov-shell" style={{ paddingTop: 40 }}>
+        <main className="sov-shell">
           <p>Загружаем кабинет…</p>
         </main>
       </div>
@@ -703,7 +703,7 @@ function PinGate({ creating, onDone }: { creating: boolean; onDone: () => Promis
   return (
     <div className="sov">
       <SiteHeader />
-      <main className="sov-narrow" style={{ paddingTop: 56, paddingBottom: 80 }}>
+      <main className="sov-narrow" style={{ paddingBottom: 80 }}>
         <Owl size={64} />
         <h1 style={{ fontSize: "2rem", fontWeight: 700, marginTop: 18 }}>
           {creating ? "Придумайте код родителя" : "Кабинет родителя закрыт"}

@@ -117,7 +117,7 @@ function TutorPage() {
       />
 
       <main className="sov-shell" style={{ paddingBottom: 60 }}>
-        <div className="sov-quest__head" style={{ marginTop: 10 }}>
+        <div className="sov-quest__head">
           <h1 style={{ fontSize: "2.2rem" }}>Ученики</h1>
           <button type="button" className="sov-act-child" onClick={() => setAdding((v) => !v)}>
             {adding ? "Отмена" : "Добавить ученика"}

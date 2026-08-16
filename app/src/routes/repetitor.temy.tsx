@@ -113,7 +113,7 @@ function CurriculumPage() {
       />
 
       <main className="sov-shell" style={{ paddingBottom: 60 }}>
-        <h1 style={{ fontSize: "2.2rem", marginTop: 10 }}>Темы и задания</h1>
+        <h1 style={{ fontSize: "2.2rem" }}>Темы и задания</h1>
         <p
           style={{ marginTop: 12, color: "var(--sov-ink-soft)", fontWeight: 500, maxWidth: "62ch" }}
         >

@@ -122,12 +122,35 @@ html { font-size: 18px; }
 
 /* ------------------------------------------------------------- шапка */
 
+/* Шапка отделена от страницы белой полосой и хайрлайном.
+
+   Раньше она лежала на той же бежевой бумаге, что и содержимое, и держалась
+   только воздухом: на длинных экранах — темы, кабинет родителя — верх
+   страницы читался как первый блок списка, а не как шапка. Белая полоса
+   даёт границу, не прибавляя ни рамки, ни тени: бумага здесь тёплая, и
+   чистый белый на ней виден сам по себе.
+
+   Цвет на полосе, ширина — на __in: полоса тянется во всю ширину окна,
+   а логотип и разделы стоят в той же колонке, что и содержимое под ними. */
 .sov-header {
+  background: #fff; border-bottom: 1px solid var(--sov-line);
+}
+.sov-header__in {
+  max-width: calc(var(--sov-rail) + var(--sov-gutter) * 2); margin-inline: auto;
   display: flex; align-items: center; justify-content: space-between;
-  gap: 16px; padding: 16px var(--sov-gutter);
-  min-height: 72px;
+  gap: 16px; padding: 14px var(--sov-gutter);
+  min-height: 68px;
 }
 .sov-header__right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+/* Отступ от шапки до первого заголовка задаётся один раз, здесь.
+   Раньше его ставили инлайном на каждом экране: 40, 48, 56, 60, а на двух
+   не ставили вовсе — плюс пара «marginTop: 10» у самих заголовков. Пока
+   шапка сливалась с бумагой, разнобой не читался; с белой полосой стало
+   видно, что заголовки на соседних экранах стоят на разной высоте. */
+.sov-header + .sov-shell,
+.sov-header + .sov-narrow,
+.sov-header + main { padding-top: 40px; }
 
 /* Разделы в шапке — это навигация, а не действия. Обведённая пилюля даёт
    им вес кнопки: три-четыре штуки в ряд перетягивали на себя весь верх
@@ -1019,7 +1042,7 @@ a.sov-level:active .sov-level__num { box-shadow: none; }
 .sov-student__body { padding: 18px 22px; display: grid; gap: 12px; justify-items: start; }
 .sov-student__risk { font-size: .9rem; font-weight: 600; color: var(--sov-warn); }
 .sov-student__note { font-size: .95rem; font-weight: 600; color: var(--sov-ink-soft); }
-.sov-student__title { display: flex; align-items: center; gap: 16px; margin-top: 10px; }
+.sov-student__title { display: flex; align-items: center; gap: 16px; }
 
 /* Строка домашки в списке: статус несёт левая грань, а не заливка —
    иначе четыре карточки подряд превращаются в светофор. */
@@ -1084,7 +1107,7 @@ a.sov-level:active .sov-level__num { box-shadow: none; }
    классе, а на экране это было третье слово до первого действия. */
 .sov .sov-kid__hi {
   font-size: clamp(1.2rem, 3vw, 1.5rem); font-weight: 800;
-  letter-spacing: -.02em; margin: 4px 0 0;
+  letter-spacing: -.02em; margin: 0;
 }
 
 /* Карточка «что делать сейчас».
