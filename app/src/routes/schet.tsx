@@ -5,6 +5,7 @@ import { ChildAction, Owl } from "../components/brand";
 import { SpeakButton } from "../components/speak";
 import { TrainerTop } from "../components/trainers";
 import { me, saveMentalDrill } from "../lib/api/app.functions";
+import { useEnterAction } from "../lib/keys";
 
 export const Route = createFileRoute("/schet")({
   head: () => ({ meta: [{ title: "Устный счёт, Совёнок" }] }),
@@ -167,6 +168,11 @@ function MentalPage() {
     if (ok) setCorrect((n) => n + 1);
     setVerdict({ ok, answer: example.answer });
   }
+
+
+  /* Enter после ответа значит «дальше»: рука уже на клавише, а поле
+     выключено (см. lib/keys.ts). */
+  useEnterAction(!!verdict, () => void next());
 
   async function next() {
     if (index + 1 >= count) {

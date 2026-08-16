@@ -15,7 +15,6 @@ import { z } from "zod";
 import { SUBJECTS } from "../content/curriculum.data";
 import {
   catalogIndex,
-  deltasFor,
   isFreeTopic,
   programById,
   programList,
@@ -929,7 +928,6 @@ export const curriculum = createServerFn({ method: "GET" })
       missingSubjects: SUBJECTS.filter((s) => program && !program.subjects.includes(s.id)).map(
         (s) => s.name,
       ),
-      deltas: deltasFor(program?.id ?? null, data.grade),
       subjects,
       students: students.results ?? [],
     };

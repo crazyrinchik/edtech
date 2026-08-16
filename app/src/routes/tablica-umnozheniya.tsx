@@ -5,6 +5,7 @@ import { ChildAction, Owl } from "../components/brand";
 import { SpeakButton } from "../components/speak";
 import { TrainerTop } from "../components/trainers";
 import { me, saveTableDrill } from "../lib/api/app.functions";
+import { useEnterAction } from "../lib/keys";
 
 export const Route = createFileRoute("/tablica-umnozheniya")({
   head: () => ({
@@ -186,6 +187,11 @@ function TablePage() {
     }
     setVerdict({ ok, answer: question.answer });
   }
+
+
+  /* Enter после ответа значит «дальше»: рука уже на клавише, а поле
+     выключено (см. lib/keys.ts). */
+  useEnterAction(!!verdict, () => void next());
 
   async function next() {
     if (index + 1 >= count) {

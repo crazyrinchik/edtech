@@ -184,37 +184,6 @@ function CurriculumPage() {
               </div>
             ) : null}
 
-            {data.deltas.length ? (
-              <section className="sov-quest">
-                <header className="sov-quest__head">
-                  <h2>
-                    Чем {data.program?.short} отличается в {data.grade} классе
-                  </h2>
-                </header>
-                <div className="sov-diff">
-                  {data.deltas.map((d, i) => (
-                    <article key={i} className="sov-diff__item" data-kind={d.type}>
-                      <b>
-                        {d.type === "ahead"
-                          ? "Опережение"
-                          : d.type === "extra"
-                            ? "Своя тема"
-                            : d.type === "behind"
-                              ? "Отставание"
-                              : d.type === "terminology"
-                                ? "Другие термины"
-                                : "Базовый темп"}
-                        {" · "}
-                        {d.subject === "math" ? "математика" : "русский язык"}
-                      </b>
-                      <strong>{d.what}</strong>
-                      <span>{d.impact}</span>
-                    </article>
-                  ))}
-                </div>
-              </section>
-            ) : null}
-
             {data.missingSubjects.length ? (
               <div className="sov-save-hint" style={{ marginTop: 22 }}>
                 <strong>{data.missingSubjects.join(" и ")}: программа не задаёт порядок</strong>
@@ -281,19 +250,6 @@ function CurriculumPage() {
                           </button>
                         </div>
                       </div>
-
-                      {topic.chapters.length ? (
-                        <p className="sov-prog__chapters">
-                          <b>В учебнике:</b> {topic.chapters.join(" · ")}
-                        </p>
-                      ) : null}
-
-                      {!topic.inProgram && data.program ? (
-                        <p className="sov-prog__chapters" data-tone="soft">
-                          В оглавлении этого учебника отдельной главы нет — тема идёт внутри других
-                          или в повторении.
-                        </p>
-                      ) : null}
 
                       {assignTo === topic.code ? (
                         <AssignPanel

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { ChildAction, Owl } from "../components/brand";
 import { TrainerTop } from "../components/trainers";
 import { me, saveSpellingDrill } from "../lib/api/app.functions";
+import { useEnterAction } from "../lib/keys";
 import type { SpellingItem, SpellingRule } from "../lib/content/spelling";
 import { filled, SPELLING_RULES } from "../lib/content/spelling";
 
@@ -126,6 +127,11 @@ function SpellingPage() {
       },
     ]);
   }
+
+
+  /* Enter после ответа значит «дальше»: рука уже на клавише, а поле
+     выключено (см. lib/keys.ts). */
+  useEnterAction(given !== null, () => void next());
 
   async function next() {
     if (index + 1 >= queue.length) {
