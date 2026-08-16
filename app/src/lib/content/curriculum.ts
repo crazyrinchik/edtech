@@ -8,13 +8,18 @@
  * «Табличное умножение» в Школе России и в Петерсон — одна и та же тема, но
  * в разных местах года и под разными названиями.
  *
- * Тем от выбора программы не становится больше и меньше: набор задан ФОП НОО.
- * Отличия программы показываются отдельно (DELTAS) — этого достаточно, чтобы
- * репетитор понял, где ученик опережает класс, а где отстаёт.
+ * Тем от выбора программы не становится больше и меньше: набор задан ФОП НОО,
+ * программа меняет только порядок и названия.
+ *
+ * Разбор отличий (DELTAS в curriculum.data) экран больше не показывает:
+ * репетитор приходит сюда за списком тем и кнопкой «задать», а не за
+ * сравнением учебника с базовым темпом. Данные в каталоге остались — если
+ * отличия снова понадобятся, это будет отдельный экран, а не приписка
+ * поверх списка.
  */
 
 import type { ProgramInfo, SubjectId } from "./curriculum.data";
-import { CATALOG, DELTAS, PROGRAMS } from "./curriculum.data";
+import { CATALOG, PROGRAMS } from "./curriculum.data";
 
 export type { ProgramInfo, SubjectId };
 export { GRADES, SUBJECTS } from "./curriculum.data";
@@ -104,12 +109,6 @@ export function programSubjects(programId: string | null): SubjectId[] {
   const program = programById(programId);
   if (!program) return ["math", "rus"];
   return program.subjects;
-}
-
-/** Чем программа отличается от базового темпа в этом классе. */
-export function deltasFor(programId: string | null, grade: number) {
-  if (!programId) return [];
-  return DELTAS.filter((d) => d.program === programId && d.grade === grade);
 }
 
 export function topicByCode(code: string) {

@@ -1225,6 +1225,24 @@ a.sov-level:active .sov-level__num { box-shadow: none; }
 .sov-homework__mark { background: var(--sov-paper-2); }
 .sov-homework__comment { color: var(--sov-ink-soft); }
 
+/* Свёрнутое сделанное. Строка зелёная, потому что зелёное на этом экране
+   значит «сделано»: похвала видна и не открывая список. Треугольник рисуем
+   сами — системный маркер details в разных браузерах разный и мелкий. */
+.sov-homework__past { margin-top: 2px; }
+.sov-homework__past summary {
+  cursor: pointer; list-style: none; display: inline-flex; align-items: center; gap: 8px;
+  font-size: .95rem; font-weight: 700; color: var(--sov-ok); background: var(--sov-ok-bg);
+  border-radius: var(--sov-radius-pill); padding: 7px 16px;
+}
+.sov-homework__past summary::-webkit-details-marker { display: none; }
+.sov-homework__past summary::after {
+  content: ""; width: 0; height: 0; margin-left: 2px;
+  border-left: 5px solid transparent; border-right: 5px solid transparent;
+  border-top: 6px solid currentColor; transition: transform .15s;
+}
+.sov-homework__past[open] summary::after { transform: rotate(180deg); }
+.sov-homework__past .sov-homework__items { margin-top: 10px; }
+
 /* Нет задания — не пустое место, а разрешение выбрать самому. */
 .sov-kid__free {
   margin-top: 18px; padding: 16px 20px; border-radius: var(--sov-radius);
@@ -1427,7 +1445,29 @@ a.sov-level:active .sov-level__num { box-shadow: none; }
 /* ── таблица Шульте ─────────────────────────────────────────────────
    Клетки крупные и квадратные: ребёнок ищет числа боковым зрением, и
    мелкая сетка заставляла бы водить по ней глазами вместо поиска. */
-.sov-shulte { display: grid; gap: 10px; margin-top: 24px; }
+/* Таблица целиком помещается в окно — иначе тренажёр теряет смысл.
+
+   Сетка тянулась во всю ширину колонки, а клетки квадратные: 5×5 на
+   ноутбуке уходило под сгиб, и числа приходилось искать прокруткой. Это
+   ровно то, чему тренажёр учит не делать: числа ищут боковым зрением по
+   всей таблице сразу, а не водят по ней глазами.
+
+   Сторону квадрата ограничивает высота окна: 260 px отданы шапке,
+   отступу, строке «Ищи 7» и воздуху снизу. Потолок в 560 px держит
+   клетки в размере руки на большом мониторе. */
+.sov-shulte {
+  display: grid; gap: 10px; margin-top: 24px;
+  width: var(--sov-shulte-side); aspect-ratio: 1; margin-inline: auto;
+}
+/* Сторона квадрата считается один раз и здесь же выравнивает строку
+   «Ищи 7»: без этого статус оставался в левом углу страницы, а таблица
+   стояла по центру — и они переставали читаться как одно. */
+.sov-play:has(.sov-shulte) {
+  --sov-shulte-side: min(100%, calc(100dvh - 260px), 560px);
+}
+.sov-play:has(.sov-shulte) .sov-play__bar {
+  width: var(--sov-shulte-side); margin-inline: auto;
+}
 .sov-shulte__cell {
   aspect-ratio: 1; display: grid; place-items: center; cursor: pointer;
   font-family: var(--sov-font); font-weight: 800; color: var(--sov-ink);

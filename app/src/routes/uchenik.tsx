@@ -345,8 +345,18 @@ function PupilPage() {
             <span className="sov-homework__count">
               Сделано {hw.doneCount} из {hw.total}
             </span>
+            {/* Сделанное сворачивается.
+                Список домашки читается сверху вниз ради одного вопроса —
+                «что ещё осталось», — а сделанные пункты стояли в нём
+                наравне с несделанными и отодвигали ответ вниз. Теперь
+                наверху только то, что ждёт, а сделанное лежит под строкой,
+                которую можно открыть: похвалу видно и в свёрнутом виде,
+                а место она больше не занимает.
+
+                details, а не своё состояние: раскрывашка переживает
+                перерисовку после ответа и открывается с клавиатуры. */}
             <div className="sov-homework__items">
-              {hw.items.map((item) =>
+              {hw.items.filter((i) => !i.done).map((item) =>
                 item.kind === "custom" ? (
                   <CustomItem key={item.id} item={item} onDone={reload} />
                 ) : item.kind === "topic" ? (
@@ -386,6 +396,44 @@ function PupilPage() {
                 ),
               )}
             </div>
+
+            {hw.items.some((i) => i.done) ? (
+              <details className="sov-homework__past">
+                <summary>
+                  Сделано: {hw.items.filter((i) => i.done).length}{" "}
+                  {plural(
+                    hw.items.filter((i) => i.done).length,
+                    "задание",
+                    "задания",
+                    "заданий",
+                  )}
+                </summary>
+                <div className="sov-homework__items">
+                  {hw.items.filter((i) => i.done).map((item) =>
+                    item.kind === "custom" ? (
+                      <CustomItem key={item.id} item={item} onDone={reload} />
+                    ) : (
+                      <Link
+                        key={item.id}
+                        to={
+                          item.kind === "topic"
+                            ? "/urok/$topicId"
+                            : (TRAINERS.find((t) => t.id === item.refId)?.to ?? "/schet")
+                        }
+                        params={item.kind === "topic" ? { topicId: item.refId } : undefined}
+                        search={item.kind === "topic" ? { mode: "practice" } : undefined}
+                        className="sov-homework__item"
+                        data-done={true}
+                      >
+                        <span className="sov-homework__mark">✓</span>
+                        {item.name}
+                      </Link>
+                    ),
+                  )}
+                </div>
+              </details>
+            ) : null}
+
             {hw.comment ? <p className="sov-homework__comment">{hw.comment}</p> : null}
           </section>
         ))}
