@@ -410,10 +410,17 @@ export const addStudent = createServerFn({ method: "POST" })
       name: z.string().trim().min(1, "Как зовут ученика?"),
       grade: z.number().int().min(1).max(2),
       avatar: z.string().min(1),
+      parentConsent: z.boolean(),
     }),
   )
   .handler(async ({ data }) => {
     const user = await requireTutor();
+    // Заверение по п. 9.5 оферты: данные ребёнка вносятся только после того,
+    // как семья дала согласие. Галочка в браузере — удобство, проверка живёт
+    // здесь, а факт заверения остаётся в events вместе с учеником.
+    if (!data.parentConsent) {
+      throw new Error("Сначала получите согласие родителя ученика — без него профиль завести нельзя");
+    }
     const id = uid("chd");
     // parent_id — владелец записи, и он NOT NULL с самой первой миграции:
     // снять это ограничение одинаково в SQLite и PostgreSQL нельзя. Поэтому
@@ -428,7 +435,11 @@ export const addStudent = createServerFn({ method: "POST" })
       .bind(id, user.id, data.name.trim(), data.avatar, data.grade, nowIso())
       .run();
     await grantChildAccess(id, user.id, "tutor");
-    await track("student_created", { userId: user.id, childId: id });
+    await track("student_created", {
+      userId: user.id,
+      childId: id,
+      props: { parentConsentConfirmed: true },
+    });
     return { id };
   });
 
@@ -1148,6 +1159,19 @@ export const submitCustomAnswer = createServerFn({ method: "POST" })
 
     if (!data.answer && !data.file) throw new Error("Напиши ответ или приложи фотографию");
     if (data.file) {
+      // Фото тетради — самое чувствительное в профиле. Пока родитель не
+      // принял приглашение, у ученика, заведённого репетитором, хранится
+      // только минимум под заверение п. 9.5 оферты; согласия законного
+      // представителя на фотографии ещё нет — вложения не принимаются.
+      const parent = await db()
+        .prepare("SELECT 1 AS ok FROM child_access WHERE child_id = ? AND role = 'parent' LIMIT 1")
+        .bind(row.child_id)
+        .first<{ ok: number }>();
+      if (!parent) {
+        throw new Error(
+          "Фотографию можно приложить после того, как родитель примет приглашение. Пока ответь словами",
+        );
+      }
       const bytes = Math.floor((data.file.data.length * 3) / 4);
       if (bytes > MAX_FILE_BYTES) throw new Error("Файл больше 1,5 МБ — приложи файл поменьше");
     }

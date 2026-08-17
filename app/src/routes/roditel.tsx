@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { CHILD_AVATARS, ChildAvatar, FormAction, Owl, SiteFooter, SiteHeader } from "../components/brand";
 import { Bar, DayBars, Delta, PASS_PERCENT, Ring, Spark, WeekStrip, weekBuckets } from "../components/figures";
+import { PayForm } from "../components/pay-form";
 import {
   addChild, cancelSubscription, lockParentCabinet, logout, me, notifyConnect, notifyDisconnect,
   notifySettings, notifyToggle, parentReport, redeemPromo, selectChild, setParentPin, unlockParentCabinet,
@@ -242,17 +243,24 @@ function ParentPage() {
                   Сейчас: {report.subscription === "active" ? "подписка активна, открыты все темы" : "бесплатный доступ, открыта первая тема каждого предмета"}.
                 </p>
                 {report.subscription === "active" ? (
-                  <button className="sov-act-ghost" style={{ marginTop: 20 }} onClick={async () => {
-                    await cancelSubscription();
-                    setNotice("Подписка отменена");
-                    await load();
-                  }}>
-                    Отменить подписку
-                  </button>
+                  <>
+                    {/* Продлить можно, не дожидаясь конца срока: остаток
+                        оплаченного периода прибавляется к новому. */}
+                    <PayForm onDone={load} />
+                    <button className="sov-act-ghost" style={{ marginTop: 28 }} onClick={async () => {
+                      await cancelSubscription();
+                      setNotice("Подписка отменена");
+                      await load();
+                    }}>
+                      Отменить подписку
+                    </button>
+                  </>
                 ) : (
+                  <>
+                  <PayForm onDone={load} />
                   <form
                     className="sov-form"
-                    style={{ marginTop: 20 }}
+                    style={{ marginTop: 34 }}
                     onSubmit={async (e) => {
                       e.preventDefault();
                       const code = String(new FormData(e.currentTarget).get("code") ?? "");
@@ -271,11 +279,12 @@ function ParentPage() {
                       <label htmlFor="code">Промокод</label>
                       <input id="code" name="code" placeholder="SOVENOK" required />
                       <span className="sov-field__hint">
-                        На пилоте подписка активируется промокодом. Платёжный шлюз подключается после MVP.
+                        Если подписку выдали промокодом, введите его здесь — платить не нужно.
                       </span>
                     </div>
                     <FormAction pending={pending}>Активировать</FormAction>
                   </form>
+                  </>
                 )}
               </section>
             ) : null}

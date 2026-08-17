@@ -3,6 +3,7 @@ import { type ReactNode } from "react";
 
 import { Owl, QuietAction, SiteFooter, SiteHeader, StartAction } from "../components/brand";
 import { TRAINERS } from "../components/trainers";
+import { planById, priceLabel } from "../lib/billing";
 
 export const Route = createFileRoute("/")({ component: Landing });
 
@@ -416,6 +417,9 @@ function Safety() {
 }
 
 function Plans() {
+  const month = planById("month")!;
+  const year = planById("year")!;
+
   return (
     <section className="sov-section sov-shell">
       <h2>Сколько это стоит</h2>
@@ -445,20 +449,20 @@ function Plans() {
           <span className="sov-plan__tag">Открывает всё</span>
           <h3>Подписка</h3>
           <div className="sov-plan__price">
-            490 ₽ <small>в месяц</small>
+            {priceLabel(month.amount)} <small>в месяц</small>
           </div>
           <ul>
             <li>Все темы 1 и 2 класса — всем вашим ученикам</li>
             <li>Проверочные работы и звёзды</li>
             <li>Зоны риска по каждой теме</li>
-            <li>Отмена в один клик</li>
+            <li>Год — {priceLabel(year.amount)}, два месяца в подарок</li>
           </ul>
-          {/* Предложение набрано как предложение. Моноширинным остался только
-              сам промокод — это литерал, который перепечатывают вручную, и
-              там разрядка помогает не спутать O с 0. */}
+          {/* Цена здесь и цена в форме оплаты — одно число из lib/billing.ts.
+              Пока она стояла в разметке витрины отдельным литералом, любая
+              правка тарифа означала два места и один забытый. */}
           <p className="sov-plan__note">
-            На пилоте оплата подключается промокодом: введите{" "}
-            <span className="sov-mono">SOVENOK</span> в кабинете.
+            Оплата картой в кабинете. Подписка разовая: сама не продлевается и списаний без
+            вашего ведома не будет.
           </p>
         </div>
       </div>

@@ -58,6 +58,11 @@ export default defineConfig(({ command, mode }) => {
     resolve: {
       alias: [{ find: /^@higgsfield-ai\/icons(\/.*)?$/, replacement: QUANTA_ICONS_SHIM }],
     },
+    // Страница /oferta импортирует свой исходник из docs/legal как есть
+    // (?raw): единственная копия оферты в проекте — та, что правит юрист.
+    // Корень Vite — app/, поэтому дев-серверу нужно разрешить читать каталог
+    // выше, иначе он ответит 403 на этот импорт (в сборке ограничения нет).
+    server: { fs: { allow: [".", ".."] } },
     // The server bundle runs as a Cloudflare Worker — there is no node_modules
     // at runtime. Vite's default SSR build leaves npm deps as bare external
     // imports (h3, react, @tanstack/*, seroval, …), which resolve on a Node

@@ -187,9 +187,27 @@ function RegisterPage() {
                 <input id="password" name="password" type="password" required minLength={8} autoComplete="new-password" />
                 <span className="sov-field__hint">Не короче 8 символов.</span>
               </div>
+              {/* Ссылки ведут на полные тексты: согласие по ч. 1 ст. 9 152-ФЗ
+                  должно быть информированным, а акцепт оферты — привязанным к
+                  её тексту. Клик по ссылке внутри label не трогает галочку:
+                  активация label не срабатывает на интерактивных элементах. */}
               <label className="sov-check">
                 <input type="checkbox" name="consentPd" required />
-                <span>Даю согласие на обработку моих персональных данных по 152-ФЗ.</span>
+                <span>
+                  Мне исполнилось 18 лет, я принимаю условия{" "}
+                  <a href="/oferta" target="_blank" rel="noreferrer">
+                    публичной оферты
+                  </a>{" "}
+                  и даю согласие на обработку моих персональных данных на условиях{" "}
+                  <a href="/soglasie" target="_blank" rel="noreferrer">
+                    Согласия
+                  </a>{" "}
+                  и{" "}
+                  <a href="/politika" target="_blank" rel="noreferrer">
+                    Политики
+                  </a>
+                  .
+                </span>
               </label>
               {/* Согласие за ребёнка подписывает только законный представитель.
                   У репетитора его спрашивать не за кого: данные учеников
@@ -198,8 +216,13 @@ function RegisterPage() {
                 <label className="sov-check">
                   <input type="checkbox" name="consentChildPd" required />
                   <span>
-                    Как законный представитель даю согласие на обработку данных моего ребёнка: имя,
-                    класс, ответы на задания и время занятий.
+                    Я родитель или иной законный представитель и даю согласие на обработку
+                    персональных данных ребёнка — имя, класс, аватар, ответы и время занятий,
+                    фотографии работ — на условиях раздела II{" "}
+                    <a href="/soglasie" target="_blank" rel="noreferrer">
+                      Согласия
+                    </a>
+                    .
                   </span>
                 </label>
               ) : null}

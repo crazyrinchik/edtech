@@ -45,6 +45,16 @@ type AppEnv = {
   MAX_BOT_TOKEN?: string;
   /** Общий секрет в адресе вебхука: без него бот-обработчик отвечает 404. */
   NOTIFY_WEBHOOK_SECRET?: string;
+  /**
+   * Приём платежей: CloudPayments (карты) с кассой CloudKassir (чеки по
+   * 54-ФЗ). Обе строки — из личного кабинета CloudPayments, раздел «Сайты».
+   * Без них форма оплаты не показывается, остаётся промокод
+   * (см. billingReady() в cloudpayments.server.ts).
+   */
+  CLOUDPAYMENTS_PUBLIC_ID?: string;
+  CLOUDPAYMENTS_API_SECRET?: string;
+  /** Система налогообложения в чеке; умолчание 1 — УСН доход. */
+  CLOUDPAYMENTS_TAXATION_SYSTEM?: string;
 };
 
 export function bindings(): AppEnv {

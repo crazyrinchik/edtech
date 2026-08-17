@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
 import { FormAction, QuietAction, SiteFooter, SiteHeader } from "../components/brand";
+import { PayForm } from "../components/pay-form";
 import { me } from "../lib/api/app.functions";
 import {
   tutorCancelSubscription,
@@ -98,9 +99,15 @@ function TutorBillingPage() {
 
             {data.active ? (
               <div style={{ marginTop: 28 }}>
+                {/* Продление доступно, не дожидаясь конца срока: оплаченный
+                    остаток при этом не сгорает, новый период считается от
+                    старой даты окончания (extendSubscription). */}
+                <h2 style={{ fontSize: "1.15rem", fontWeight: 600 }}>Продлить</h2>
+                <PayForm onDone={load} />
                 <button
                   type="button"
                   className="sov-act-ghost"
+                  style={{ marginTop: 28 }}
                   disabled={pending}
                   onClick={async () => {
                     setPending(true);
@@ -113,32 +120,35 @@ function TutorBillingPage() {
                 </button>
               </div>
             ) : (
-              <form
-                className="sov-form"
-                style={{ marginTop: 28 }}
-                onSubmit={async (event) => {
-                  event.preventDefault();
-                  const form = new FormData(event.currentTarget);
-                  setPending(true);
-                  setError(null);
-                  try {
-                    await tutorRedeemPromo({ data: { code: String(form.get("code") ?? "") } });
-                    await load();
-                  } catch (e) {
-                    setError(e instanceof Error ? e.message : "Не получилось активировать");
-                  }
-                  setPending(false);
-                }}
-              >
-                <div className="sov-field">
-                  <label htmlFor="code">Промокод</label>
-                  <input id="code" name="code" required autoComplete="off" />
-                  <span className="sov-field__hint">
-                    На пилоте подписка включается промокодом. Оплата картой появится позже.
-                  </span>
-                </div>
-                <FormAction pending={pending}>Активировать</FormAction>
-              </form>
+              <>
+                <PayForm onDone={load} />
+                <form
+                  className="sov-form"
+                  style={{ marginTop: 34 }}
+                  onSubmit={async (event) => {
+                    event.preventDefault();
+                    const form = new FormData(event.currentTarget);
+                    setPending(true);
+                    setError(null);
+                    try {
+                      await tutorRedeemPromo({ data: { code: String(form.get("code") ?? "") } });
+                      await load();
+                    } catch (e) {
+                      setError(e instanceof Error ? e.message : "Не получилось активировать");
+                    }
+                    setPending(false);
+                  }}
+                >
+                  <div className="sov-field">
+                    <label htmlFor="code">Промокод</label>
+                    <input id="code" name="code" required autoComplete="off" />
+                    <span className="sov-field__hint">
+                      Если подписку выдали промокодом, введите его здесь — платить не нужно.
+                    </span>
+                  </div>
+                  <FormAction pending={pending}>Активировать</FormAction>
+                </form>
+              </>
             )}
           </>
         )}

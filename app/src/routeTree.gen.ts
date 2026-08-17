@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as VhodRouteImport } from './routes/vhod'
 import { Route as UchenikRouteImport } from './routes/uchenik'
 import { Route as TablicaUmnozheniyaRouteImport } from './routes/tablica-umnozheniya'
+import { Route as SoglasieRouteImport } from './routes/soglasie'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as ShulteRouteImport } from './routes/shulte'
 import { Route as SchetRouteImport } from './routes/schet'
@@ -20,6 +21,9 @@ import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as RegistraciyaRouteImport } from './routes/registraciya'
 import { Route as PriglashenieRouteImport } from './routes/priglashenie'
 import { Route as PravopisanieRouteImport } from './routes/pravopisanie'
+import { Route as PolitikaRouteImport } from './routes/politika'
+import { Route as OplataRouteImport } from './routes/oplata'
+import { Route as OfertaRouteImport } from './routes/oferta'
 import { Route as KtoRouteImport } from './routes/kto'
 import { Route as DemoRouteImport } from './routes/demo'
 import { Route as ChtenieRouteImport } from './routes/chtenie'
@@ -45,6 +49,11 @@ const UchenikRoute = UchenikRouteImport.update({
 const TablicaUmnozheniyaRoute = TablicaUmnozheniyaRouteImport.update({
   id: '/tablica-umnozheniya',
   path: '/tablica-umnozheniya',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SoglasieRoute = SoglasieRouteImport.update({
+  id: '/soglasie',
+  path: '/soglasie',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
@@ -85,6 +94,21 @@ const PriglashenieRoute = PriglashenieRouteImport.update({
 const PravopisanieRoute = PravopisanieRouteImport.update({
   id: '/pravopisanie',
   path: '/pravopisanie',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PolitikaRoute = PolitikaRouteImport.update({
+  id: '/politika',
+  path: '/politika',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OplataRoute = OplataRouteImport.update({
+  id: '/oplata',
+  path: '/oplata',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OfertaRoute = OfertaRouteImport.update({
+  id: '/oferta',
+  path: '/oferta',
   getParentRoute: () => rootRouteImport,
 } as any)
 const KtoRoute = KtoRouteImport.update({
@@ -149,6 +173,9 @@ export interface FileRoutesByFullPath {
   '/chtenie': typeof ChtenieRoute
   '/demo': typeof DemoRoute
   '/kto': typeof KtoRoute
+  '/oferta': typeof OfertaRoute
+  '/oplata': typeof OplataRoute
+  '/politika': typeof PolitikaRoute
   '/pravopisanie': typeof PravopisanieRoute
   '/priglashenie': typeof PriglashenieRoute
   '/registraciya': typeof RegistraciyaRoute
@@ -157,6 +184,7 @@ export interface FileRoutesByFullPath {
   '/schet': typeof SchetRoute
   '/shulte': typeof ShulteRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/soglasie': typeof SoglasieRoute
   '/tablica-umnozheniya': typeof TablicaUmnozheniyaRoute
   '/uchenik': typeof UchenikRoute
   '/vhod': typeof VhodRoute
@@ -173,6 +201,9 @@ export interface FileRoutesByTo {
   '/chtenie': typeof ChtenieRoute
   '/demo': typeof DemoRoute
   '/kto': typeof KtoRoute
+  '/oferta': typeof OfertaRoute
+  '/oplata': typeof OplataRoute
+  '/politika': typeof PolitikaRoute
   '/pravopisanie': typeof PravopisanieRoute
   '/priglashenie': typeof PriglashenieRoute
   '/registraciya': typeof RegistraciyaRoute
@@ -181,6 +212,7 @@ export interface FileRoutesByTo {
   '/schet': typeof SchetRoute
   '/shulte': typeof ShulteRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/soglasie': typeof SoglasieRoute
   '/tablica-umnozheniya': typeof TablicaUmnozheniyaRoute
   '/uchenik': typeof UchenikRoute
   '/vhod': typeof VhodRoute
@@ -198,6 +230,9 @@ export interface FileRoutesById {
   '/chtenie': typeof ChtenieRoute
   '/demo': typeof DemoRoute
   '/kto': typeof KtoRoute
+  '/oferta': typeof OfertaRoute
+  '/oplata': typeof OplataRoute
+  '/politika': typeof PolitikaRoute
   '/pravopisanie': typeof PravopisanieRoute
   '/priglashenie': typeof PriglashenieRoute
   '/registraciya': typeof RegistraciyaRoute
@@ -206,6 +241,7 @@ export interface FileRoutesById {
   '/schet': typeof SchetRoute
   '/shulte': typeof ShulteRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/soglasie': typeof SoglasieRoute
   '/tablica-umnozheniya': typeof TablicaUmnozheniyaRoute
   '/uchenik': typeof UchenikRoute
   '/vhod': typeof VhodRoute
@@ -224,6 +260,9 @@ export interface FileRouteTypes {
     | '/chtenie'
     | '/demo'
     | '/kto'
+    | '/oferta'
+    | '/oplata'
+    | '/politika'
     | '/pravopisanie'
     | '/priglashenie'
     | '/registraciya'
@@ -232,6 +271,7 @@ export interface FileRouteTypes {
     | '/schet'
     | '/shulte'
     | '/sitemap.xml'
+    | '/soglasie'
     | '/tablica-umnozheniya'
     | '/uchenik'
     | '/vhod'
@@ -248,6 +288,9 @@ export interface FileRouteTypes {
     | '/chtenie'
     | '/demo'
     | '/kto'
+    | '/oferta'
+    | '/oplata'
+    | '/politika'
     | '/pravopisanie'
     | '/priglashenie'
     | '/registraciya'
@@ -256,6 +299,7 @@ export interface FileRouteTypes {
     | '/schet'
     | '/shulte'
     | '/sitemap.xml'
+    | '/soglasie'
     | '/tablica-umnozheniya'
     | '/uchenik'
     | '/vhod'
@@ -272,6 +316,9 @@ export interface FileRouteTypes {
     | '/chtenie'
     | '/demo'
     | '/kto'
+    | '/oferta'
+    | '/oplata'
+    | '/politika'
     | '/pravopisanie'
     | '/priglashenie'
     | '/registraciya'
@@ -280,6 +327,7 @@ export interface FileRouteTypes {
     | '/schet'
     | '/shulte'
     | '/sitemap.xml'
+    | '/soglasie'
     | '/tablica-umnozheniya'
     | '/uchenik'
     | '/vhod'
@@ -297,6 +345,9 @@ export interface RootRouteChildren {
   ChtenieRoute: typeof ChtenieRoute
   DemoRoute: typeof DemoRoute
   KtoRoute: typeof KtoRoute
+  OfertaRoute: typeof OfertaRoute
+  OplataRoute: typeof OplataRoute
+  PolitikaRoute: typeof PolitikaRoute
   PravopisanieRoute: typeof PravopisanieRoute
   PriglashenieRoute: typeof PriglashenieRoute
   RegistraciyaRoute: typeof RegistraciyaRoute
@@ -305,6 +356,7 @@ export interface RootRouteChildren {
   SchetRoute: typeof SchetRoute
   ShulteRoute: typeof ShulteRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  SoglasieRoute: typeof SoglasieRoute
   TablicaUmnozheniyaRoute: typeof TablicaUmnozheniyaRoute
   UchenikRoute: typeof UchenikRoute
   VhodRoute: typeof VhodRoute
@@ -337,6 +389,13 @@ declare module '@tanstack/react-router' {
       path: '/tablica-umnozheniya'
       fullPath: '/tablica-umnozheniya'
       preLoaderRoute: typeof TablicaUmnozheniyaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/soglasie': {
+      id: '/soglasie'
+      path: '/soglasie'
+      fullPath: '/soglasie'
+      preLoaderRoute: typeof SoglasieRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sitemap.xml': {
@@ -393,6 +452,27 @@ declare module '@tanstack/react-router' {
       path: '/pravopisanie'
       fullPath: '/pravopisanie'
       preLoaderRoute: typeof PravopisanieRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/politika': {
+      id: '/politika'
+      path: '/politika'
+      fullPath: '/politika'
+      preLoaderRoute: typeof PolitikaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/oplata': {
+      id: '/oplata'
+      path: '/oplata'
+      fullPath: '/oplata'
+      preLoaderRoute: typeof OplataRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/oferta': {
+      id: '/oferta'
+      path: '/oferta'
+      fullPath: '/oferta'
+      preLoaderRoute: typeof OfertaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/kto': {
@@ -481,6 +561,9 @@ const rootRouteChildren: RootRouteChildren = {
   ChtenieRoute: ChtenieRoute,
   DemoRoute: DemoRoute,
   KtoRoute: KtoRoute,
+  OfertaRoute: OfertaRoute,
+  OplataRoute: OplataRoute,
+  PolitikaRoute: PolitikaRoute,
   PravopisanieRoute: PravopisanieRoute,
   PriglashenieRoute: PriglashenieRoute,
   RegistraciyaRoute: RegistraciyaRoute,
@@ -489,6 +572,7 @@ const rootRouteChildren: RootRouteChildren = {
   SchetRoute: SchetRoute,
   ShulteRoute: ShulteRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  SoglasieRoute: SoglasieRoute,
   TablicaUmnozheniyaRoute: TablicaUmnozheniyaRoute,
   UchenikRoute: UchenikRoute,
   VhodRoute: VhodRoute,

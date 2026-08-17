@@ -1,5 +1,6 @@
 import "./lib/error-capture";
 
+import { BILLING_WEBHOOK_PREFIX, handleBillingWebhook } from "./lib/billing-webhook.server";
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
 import { handleHealth, HEALTH_PATH } from "./lib/health.server";
@@ -47,6 +48,11 @@ export default {
       const { pathname } = new URL(request.url);
       if (pathname.startsWith(NOTIFY_WEBHOOK_PREFIX)) {
         return await handleNotifyWebhook(request);
+      }
+      // Уведомление кассы об оплате — тоже внешний POST, и ему тем более
+      // нечего делать в роутере: от него зависит, открыть ли подписку.
+      if (pathname.startsWith(BILLING_WEBHOOK_PREFIX)) {
+        return await handleBillingWebhook(request);
       }
       // Живость для выкладки — тоже мимо роутера: ручка должна отвечать даже
       // тогда, когда со страницами что-то не так.

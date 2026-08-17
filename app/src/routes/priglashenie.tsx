@@ -110,8 +110,25 @@ function InvitePage() {
                   onChange={(e) => setConsentPd(e.target.checked)}
                   required
                 />
-                <span>Даю согласие на обработку моих персональных данных по 152-ФЗ.</span>
+                <span>
+                  Мне исполнилось 18 лет, я принимаю условия{" "}
+                  <a href="/oferta" target="_blank" rel="noreferrer">
+                    публичной оферты
+                  </a>{" "}
+                  и даю согласие на обработку моих персональных данных на условиях{" "}
+                  <a href="/soglasie" target="_blank" rel="noreferrer">
+                    Согласия
+                  </a>{" "}
+                  и{" "}
+                  <a href="/politika" target="_blank" rel="noreferrer">
+                    Политики
+                  </a>
+                  .
+                </span>
               </label>
+              {/* Профиль завёл репетитор, поэтому согласие прямо охватывает и
+                  уже внесённые им данные (п. 6.4 Согласия) — родитель должен
+                  видеть, что подтверждает, а не догадываться. */}
               <label className="sov-check">
                 <input
                   type="checkbox"
@@ -121,8 +138,14 @@ function InvitePage() {
                   required
                 />
                 <span>
-                  Как законный представитель даю согласие на обработку данных моего ребёнка: имя,
-                  класс, ответы на задания и время занятий.
+                  Я родитель или иной законный представитель и даю согласие на обработку
+                  персональных данных ребёнка, включая внесённые репетитором до этого момента, —
+                  имя, класс, аватар, ответы и время занятий, фотографии работ — на условиях
+                  раздела II{" "}
+                  <a href="/soglasie" target="_blank" rel="noreferrer">
+                    Согласия
+                  </a>
+                  .
                 </span>
               </label>
               <FormAction pending={pending} disabled={!consentPd || !consentChildPd}>

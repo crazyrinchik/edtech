@@ -88,6 +88,13 @@ const mf = new Miniflare({
     SOVENOK_DB: "d1",
     DB_GATEWAY_URL: "",
     DB_GATEWAY_TOKEN: "",
+    // Ключи кассы прокидываются из окружения: с ними на стенде видна
+    // настоящая форма оплаты, без них она прячется — ровно как в проде.
+    // Боевые сюда класть незачем, счёт создаётся настоящий; для осмотра
+    // формы годится любая пара строк.
+    CLOUDPAYMENTS_PUBLIC_ID: process.env.CLOUDPAYMENTS_PUBLIC_ID ?? "",
+    CLOUDPAYMENTS_API_SECRET: process.env.CLOUDPAYMENTS_API_SECRET ?? "",
+    CLOUDPAYMENTS_TAXATION_SYSTEM: process.env.CLOUDPAYMENTS_TAXATION_SYSTEM ?? "",
   },
 });
 

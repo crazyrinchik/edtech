@@ -410,7 +410,51 @@ html { font-size: 18px; }
   transform: translateY(calc((1.5em - 22px) / 2));
 }
 .sov-check span { flex: 1; min-width: 0; }
+/* Ссылки на оферту и согласия: префлайт Tailwind снимает подчёркивание,
+   и без этого правила ссылку в галочке не отличить от текста — а согласие
+   должно быть информированным, то есть полный текст должен быть находим. */
+.sov-check a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
+.sov-check a:hover { color: var(--sov-ink); }
 .sov-alert { border-radius: var(--sov-radius); padding: 13px 16px; font-size: .92rem; font-weight: 600; background: var(--sov-bad-bg); color: var(--sov-bad); }
+
+/* ------------------------------------------------------- выбор тарифа
+
+   Плитка, а не выпадающий список: сроков всего два, и цену за каждый нужно
+   видеть рядом, не открывая ничего. Сам кружок радио оставлен на месте —
+   он объясняет, что вариант один из двух, и работает с клавиатуры. */
+
+.sov-tariffs { display: grid; gap: 12px; grid-template-columns: 1fr; }
+@media (min-width: 520px) { .sov-tariffs { grid-template-columns: 1fr 1fr; } }
+.sov-tariff {
+  display: flex; gap: 12px; align-items: flex-start; cursor: pointer;
+  border: 1px solid var(--sov-line); border-radius: var(--sov-radius);
+  padding: 16px 18px; background: #fff;
+}
+.sov-tariff:hover { border-color: var(--sov-cobalt); }
+.sov-tariff--on { border-color: var(--sov-cobalt); background: var(--sov-cobalt-soft); }
+.sov-tariff input { flex: none; width: 20px; height: 20px; margin: 2px 0 0; accent-color: var(--sov-cobalt); cursor: pointer; }
+.sov-tariff__body { display: grid; gap: 2px; }
+.sov-tariff__body b { font-size: .95rem; }
+.sov-tariff__price { font-size: 1.45rem; font-weight: 800; letter-spacing: -.02em; }
+.sov-tariff__body small { font-size: .88rem; color: var(--sov-ink-soft); font-weight: 600; }
+
+/* ------------------------------------------------- юридические тексты
+
+   Оферта и политика печатаются из markdown (см. legal-doc.tsx). Ширина та
+   же, что у форм, а не как у витрины: длинную строку договора читают
+   абзац за абзацем, и мера здесь важнее ощущения простора. */
+
+.sov-legal h1 { font-size: 1.9rem; line-height: 1.25; }
+.sov-legal h2 { font-size: 1.2rem; margin-top: 34px; }
+.sov-legal h3 { font-size: 1.02rem; margin-top: 24px; }
+.sov-legal p { margin-top: 14px; font-weight: 500; line-height: 1.65; }
+.sov-legal ul { margin: 14px 0 0; padding-left: 22px; display: grid; gap: 8px; font-weight: 500; line-height: 1.6; }
+.sov-legal pre {
+  margin-top: 14px; padding: 14px 16px; overflow-x: auto;
+  background: var(--sov-paper); border-radius: var(--sov-radius);
+  font-family: var(--sov-mono); font-size: .9rem; line-height: 1.5;
+}
+.sov-legal hr { margin: 26px 0; border: none; border-top: 1px solid var(--sov-line); }
 
 /* ---------------------------------------------------- детский интерфейс
 
@@ -910,6 +954,12 @@ a.sov-level:active .sov-level__num { box-shadow: none; }
 .sov-footer > div { display: flex; align-items: center; gap: 14px; }
 .sov-footer p { color: var(--sov-ink-soft); font-size: .95rem; font-weight: 500; }
 .sov-footer__legal { font-size: .92rem; max-width: 70ch; }
+.sov-footer__links { display: flex; flex-wrap: wrap; gap: 6px 20px; }
+.sov-footer__links a {
+  color: var(--sov-ink-soft); font-size: .92rem; font-weight: 500;
+  text-decoration: underline; text-underline-offset: 3px;
+}
+.sov-footer__links a:hover { color: var(--sov-ink); }
 
 /* ═══════════════════════════════════════════════════════════════════
    Витрина: синяя полоса и крупные цифры.

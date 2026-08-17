@@ -20,6 +20,11 @@ COPY app/packages ./packages
 RUN bun install --frozen-lockfile
 
 COPY app/ ./
+# Юридические тексты лежат вне app/, а страница /oferta импортирует свой
+# исходник как есть (?raw) — второй копии оферты в проекте быть не должно.
+# app/ распакован в /src, поэтому соседний с ним docs/ ложится в /docs:
+# путь `../../../docs` из src/routes/oferta.tsx сходится и здесь, и локально.
+COPY docs /docs
 # Только vite build: скрипт "build" из package.json параллельно гоняет tsc,
 # для образа нужен артефакт, а не тайпчек (он живёт в CI).
 RUN bunx vite build
