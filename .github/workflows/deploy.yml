@@ -142,11 +142,16 @@ jobs:
           echo "158.160.175.29 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILuYsIYvKps/xisoXi4nny2DskJVJEsO4qOdtGi6W7DH" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
 
-      # Единственный файл, который живёт на сервере: сам код туда не едет,
-      # он уже внутри образов.
-      - name: Обновить docker-compose.yml на сервере
+      # Два файла, которые живут на сервере вне образов: сам код туда не едет,
+      # он уже внутри них. backup-db.sh запускается из crontab пользователя
+      # sovenok, поэтому в образ ему не попасть — но и расходиться с
+      # репозиторием он не должен, иначе правки в нём остались бы только
+      # на диске сервера.
+      - name: Обновить файлы на сервере
         run: |
           scp docker-compose.yml "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_DIR/docker-compose.yml"
+          scp deploy/backup-db.sh "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_DIR/deploy/backup-db.sh"
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" "chmod 755 $DEPLOY_DIR/deploy/backup-db.sh"
 
       - name: Переключить прод на новый тег
         run: |
