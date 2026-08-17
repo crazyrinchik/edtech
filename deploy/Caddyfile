@@ -14,6 +14,15 @@ www.sovenok.space {
 }
 
 sovenok.space {
+	# Точка подмены сертификата. Пусто — работает автоматика Let's Encrypt
+	# выше. Появился файл caddy/tls.d/*.conf на сервере со строкой
+	#   tls /certs/<файл>.pem /certs/<файл>.key
+	# — Caddy отдаёт этот сертификат и за ACME больше не ходит. Сделано
+	# глобом, а не `import` одного файла: отсутствующий файл ронял бы Caddy
+	# целиком ("File to import not found"), а пустой каталог он переживает.
+	# Откат — убрать файл из tls.d и перезапустить web, без пересборки.
+	import /etc/caddy/tls.d/*.conf
+
 	encode zstd gzip
 	root * /srv/www
 

@@ -199,9 +199,22 @@ jobs:
           # отдаёт 200 и {"ok":true,"db":"postgres"} только если приложение
           # действительно разговаривает с PostgreSQL (проверено запросом к самой
           # базе, а не чтением переменной). Данных ручка не раскрывает.
+          # Сертификат, выпущенный не Let's Encrypt, а руками (НУЦ Минцифры),
+          # системный CA-бандл сервера не знает: curl ниже вернул бы exit 60 и
+          # код 000, проверка сочла бы живой прод мёртвым и откатила выкладку.
+          # Поэтому, если сертификат подменён (certs/ca.pem положен рядом с
+          # ним), проверяем цепочку по его корню. Файла нет — обычный Let's
+          # Encrypt и обычная проверка по системному бандлу. Заменять на -k
+          # нельзя: тогда сломанный TLS перестал бы отличаться от рабочего.
+          CA_OPT=""
+          if [ -s certs/ca.pem ]; then
+            CA_OPT="--cacert certs/ca.pem"
+            echo "проверка живости — по корню из certs/ca.pem"
+          fi
+
           healthy=0
           for i in \$(seq 1 20); do
-            code="\$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 \\
+            code="\$(curl -s \$CA_OPT -o /dev/null -w '%{http_code}' --max-time 10 \\
               --resolve "$HEALTHCHECK_HOST:443:127.0.0.1" \\
               "https://$HEALTHCHECK_HOST/" || true)"
             if [ "\$code" != "200" ]; then
@@ -210,7 +223,7 @@ jobs:
               continue
             fi
 
-            db="\$(curl -s --max-time 10 \\
+            db="\$(curl -s \$CA_OPT --max-time 10 \\
               --resolve "$HEALTHCHECK_HOST:443:127.0.0.1" \\
               "https://$HEALTHCHECK_HOST$HEALTHCHECK_DB_PATH" || true)"
             case "\$db" in

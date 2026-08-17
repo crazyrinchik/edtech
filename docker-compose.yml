@@ -89,6 +89,13 @@ services:
       # Сертификаты Let's Encrypt должны пережить пересборку образа.
       - caddy-data:/data
       - caddy-config:/config
+      # Сертификат, выпущенный не автоматикой, а руками (НУЦ Минцифры).
+      # Оба пути — с хоста, а не из образа: ключ не должен попадать ни в
+      # репозиторий, ни в слои, которые лежат в публичном ghcr.
+      # tls.d включает сертификат (см. import в deploy/Caddyfile), certs
+      # хранит саму пару. Пустой tls.d = обычный Let's Encrypt.
+      - ./caddy/tls.d:/etc/caddy/tls.d:ro
+      - ./certs:/certs:ro
     depends_on:
       - app
 
