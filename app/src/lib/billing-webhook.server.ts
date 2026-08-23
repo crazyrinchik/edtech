@@ -17,7 +17,7 @@
  * доменом, с которого человек пришёл платить.
  */
 
-import { applyPaidPayment, markPaymentFailed, paymentById } from "./billing.server";
+import { applyPaidPayment, applyRefund, markPaymentFailed, paymentById } from "./billing.server";
 import {
   amountMatches,
   terminalMatches,
@@ -40,12 +40,15 @@ const notFound = () => new Response("not found", { status: 404 });
 /**
  * Статусы одностадийной оплаты. Деньги списаны в CONFIRMED; AUTHORIZED при
  * ней приходит следом за ним (банк шлёт оба) и сам по себе ничего не
- * открывает. REFUNDED и PARTIAL_REFUNDED сюда тоже приходят, но возврат —
- * отдельная операция в кассе, и подписку он не отзывает: этим занимается
- * человек, а не обработчик.
+ * открывает.
+ *
+ * Возврат обрывает подписку: по пункту 7.2 оферты возвращается остаток за
+ * неиспользованный срок, и день возврата — последний день доступа. Решение
+ * принимает applyRefund(), здесь только разбор статуса.
  */
 const PAID = "CONFIRMED";
 const FAILED = new Set(["REJECTED", "DEADLINE_EXPIRED", "CANCELED", "AUTH_FAIL"]);
+const REFUNDED = new Set(["REFUNDED", "PARTIAL_REFUNDED"]);
 
 export async function handleBillingWebhook(request: Request): Promise<Response> {
   if (request.method !== "POST") return notFound();
@@ -102,11 +105,13 @@ export async function handleBillingWebhook(request: Request): Promise<Response> 
       await applyPaidPayment(payment, String(notification.PaymentId ?? ""));
     } else if (FAILED.has(status)) {
       await markPaymentFailed(payment, notification.ErrorCode ?? status);
+    } else if (REFUNDED.has(status)) {
+      // Сумма здесь не сверяется намеренно: в уведомлении о возврате приходит
+      // остаток по счёту, после полного возврата — ноль.
+      await applyRefund(payment);
     }
-    // Остальные статусы (NEW, FORM_SHOWED, AUTHORIZING, AUTHORIZED, возвраты)
-    // подтверждаем и не трогаем базу: подписку двигают только два исхода.
-    // Возврат в их числе намеренно — деньги возвращает человек через кассу,
-    // и доступ он же закрывает; автоматически подписку это не отзывает.
+    // Остальные статусы (NEW, FORM_SHOWED, AUTHORIZING, AUTHORIZED)
+    // подтверждаем и не трогаем базу: подписку двигают только три исхода.
     return ok();
   } catch (error) {
     // База недоступна — просим повторить. «OK» здесь означал бы, что деньги

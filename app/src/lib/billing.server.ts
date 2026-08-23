@@ -91,6 +91,48 @@ export async function applyPaidPayment(
   return { until };
 }
 
+/**
+ * Деньги вернули: закрываем счёт и обрываем доступ.
+ *
+ * По пункту 7.2 оферты возврат считается пропорционально неиспользованному
+ * сроку, а днём отказа считается день заявления — значит, подписка кончается
+ * в момент возврата, а не доживает оплаченный период. Иначе человек получал
+ * бы деньги назад и доступ впридачу.
+ *
+ * Частичный возврат закрывает подписку так же, как полный: по оферте частями
+ * возвращается именно остаток при отказе от договора. Если когда-нибудь
+ * понадобится вернуть часть денег, не отбирая доступ (жест доброй воли), это
+ * придётся делать мимо этого пути — например, выдав промокод.
+ *
+ * Идемпотентно по статусу счёта: банк повторяет уведомления, а «уже
+ * возвращён» — не повод закрывать подписку второй раз, которую человек мог
+ * успеть оплатить заново.
+ */
+export async function applyRefund(payment: PaymentRow): Promise<boolean> {
+  if (payment.status !== "paid") return false;
+
+  await db().batch([
+    db().prepare("UPDATE payments SET status = 'refunded' WHERE id = ?").bind(payment.id),
+    db()
+      .prepare("UPDATE users SET subscription_status = 'free' WHERE id = ?")
+      .bind(payment.user_id),
+    // Тот же переход, что у кнопки «Отменить подписку» в кабинете, но со
+    // своим статусом: отмена по заявлению и возврат денег в отчётности
+    // выглядят по-разному.
+    db()
+      .prepare(
+        "UPDATE subscriptions SET status = 'refunded', end_date = ? WHERE user_id = ? AND status = 'active'",
+      )
+      .bind(nowIso(), payment.user_id),
+  ]);
+
+  await track("subscription_refunded", {
+    userId: payment.user_id,
+    props: { plan: payment.plan, amount: payment.amount, paymentId: payment.id },
+  });
+  return true;
+}
+
 export async function markPaymentFailed(payment: PaymentRow, reason: string): Promise<void> {
   if (payment.status !== "pending") return;
   await db().prepare("UPDATE payments SET status = 'failed' WHERE id = ?").bind(payment.id).run();

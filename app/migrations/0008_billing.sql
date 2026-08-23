@@ -18,8 +18,9 @@ CREATE TABLE IF NOT EXISTS payments (
   months INTEGER NOT NULL,
   amount INTEGER NOT NULL,
   currency TEXT NOT NULL DEFAULT 'RUB',
-  -- pending → paid | failed. Обратных переходов нет: оплаченный счёт
-  -- закрыт навсегда, возврат заводится отдельной операцией в кассе.
+  -- pending → paid | failed, и paid → refunded, когда деньги вернули.
+  -- Дальше refunded переходов нет: возврат закрывает счёт навсегда, а
+  -- новая оплата заводит новую строку.
   status TEXT NOT NULL,
   email TEXT,
   order_id TEXT,

@@ -138,7 +138,7 @@ export const paymentStatus = createServerFn({ method: "POST" })
     const payment = await paymentById(data.id);
     if (!payment || payment.user_id !== user.id) throw new Error("Счёт не найден");
     return {
-      status: payment.status as "pending" | "paid" | "failed",
+      status: payment.status as "pending" | "paid" | "failed" | "refunded",
       amount: payment.amount,
       plan: payment.plan,
       until: payment.status === "paid" ? await activeUntil(user.id) : null,

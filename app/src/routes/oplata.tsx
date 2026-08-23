@@ -36,6 +36,7 @@ type State =
   | { kind: "waiting" }
   | { kind: "paid"; until: string | null }
   | { kind: "failed" }
+  | { kind: "refunded" }
   | { kind: "slow" }
   | { kind: "error"; message: string };
 
@@ -72,6 +73,13 @@ function PaymentResultPage() {
           }
           if (result.status === "failed") {
             setState({ kind: "failed" });
+            return;
+          }
+          // Открыть эту страницу по старой ссылке можно и после возврата.
+          // «Платёж не прошёл» здесь было бы неправдой: он прошёл, а потом
+          // деньги вернули.
+          if (result.status === "refunded") {
+            setState({ kind: "refunded" });
             return;
           }
           tries.current += 1;
@@ -141,6 +149,19 @@ function PaymentResultPage() {
             </p>
             <div style={{ marginTop: 26 }}>
               <QuietAction to={home}>Вернуться к оплате</QuietAction>
+            </div>
+          </>
+        ) : null}
+
+        {state.kind === "refunded" ? (
+          <>
+            <h1 style={{ fontSize: "2rem" }}>Деньги возвращены</h1>
+            <p style={{ marginTop: 14, color: "var(--sov-ink-soft)", fontWeight: 500 }}>
+              Возврат по этому счёту проведён, подписка по нему закрыта. Деньги приходят на карту в
+              срок до десяти календарных дней — так требует закон о защите прав потребителей.
+            </p>
+            <div style={{ marginTop: 26 }}>
+              <QuietAction to={home}>В кабинет</QuietAction>
             </div>
           </>
         ) : null}
