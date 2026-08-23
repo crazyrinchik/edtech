@@ -6,7 +6,7 @@
 // crypto.subtle, prepare().bind().run(), batch()) работает без единой правки.
 
 import { Miniflare } from "miniflare";
-import { mkdir, readdir, readFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -74,8 +74,33 @@ function passthrough() {
 
 await mkdir(D1_PERSIST, { recursive: true });
 
+// Точка входа воркера — обёртка в одну строку, а не сам server.js.
+//
+// Vite сливает общий SSR-чанк в entry, и server.js экспортирует, кроме
+// default-обработчика, полсотни хелперов: `db`, `track`, `PLANS`,
+// `CHECK_SIZE` и так далее. Пока workerd смотрел только на default, это
+// никому не мешало. С лета 2026 он считает КАЖДЫЙ именованный экспорт
+// главного модуля отдельным entrypoint'ом и падает на первой же
+// константе:
+//
+//   service core:user:: Uncaught TypeError: Incorrect type for map entry
+//   'Y': the provided value is not of type 'function or ExportedHandler'
+//
+// Воркер не стартует вообще, наружу это выглядит как 502.
+//
+// Обёртка оставляет workerd ровно один экспорт. Остальные чанки
+// продолжают импортировать server.js напрямую — для них ничего не
+// меняется, и бандл трогать не нужно.
+//
+// Файл пишется на старте, а не кладётся в образ: так serve.mjs и
+// stand.mjs остаются одинаковыми, и обёртка не может разойтись с тем
+// бандлом, рядом с которым лежит. Если однажды контейнеру дадут
+// read-only корень, запись упадёт здесь и громко, а не тихо позже.
+const ENTRY = path.join(SERVER_DIR, "entry.workerd.js");
+await writeFile(ENTRY, 'export { default } from "./server.js";\n');
+
 const mf = new Miniflare({
-  scriptPath: path.join(SERVER_DIR, "server.js"),
+  scriptPath: ENTRY,
   modules: true,
   modulesRoot: SERVER_DIR,
   // Vite бьёт SSR-бандл на чанки — workerd должен принять их все как ES-модули.

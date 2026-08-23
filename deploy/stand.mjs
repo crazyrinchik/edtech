@@ -25,7 +25,7 @@
 
 import { createServer } from "node:http";
 import { createReadStream, readFileSync } from "node:fs";
-import { mkdir, readdir, readFile, stat } from "node:fs/promises";
+import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -68,8 +68,17 @@ try {
 
 await mkdir(DATA_DIR, { recursive: true });
 
+// Vite сливает общий чанк SSR в entry, и server.js экспортирует, кроме
+// default-обработчика, десятки хелперов. Новый workerd (miniflare с лета
+// 2026) считает каждый именованный экспорт главного модуля отдельным
+// entrypoint'ом и падает на первой же константе. Обёртка оставляет ему
+// ровно один default; остальные чанки продолжают импортировать server.js
+// напрямую, для них ничего не меняется.
+const ENTRY = path.join(SERVER_DIR, "entry.workerd.js");
+await writeFile(ENTRY, 'export { default } from "./server.js";\n');
+
 const mf = new Miniflare({
-  scriptPath: path.join(SERVER_DIR, "server.js"),
+  scriptPath: ENTRY,
   modules: true,
   modulesRoot: SERVER_DIR,
   // Vite бьёт SSR-бандл на чанки — workerd должен принять их все как ES-модули.
