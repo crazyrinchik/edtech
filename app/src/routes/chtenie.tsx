@@ -1,12 +1,14 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 
-import { ChildAction, Owl } from "../components/brand";
+import { ChildAction, Owl, SiteFooter } from "../components/brand";
 import { SpeakButton } from "../components/speak";
 import { TrainerTop } from "../components/trainers";
 import { me, readingResult, readingTexts } from "../lib/api/app.functions";
+import { drillSearch, pickNumber } from "../lib/drill-search";
 
 export const Route = createFileRoute("/chtenie")({
+  validateSearch: (search: Record<string, unknown>) => drillSearch(search, ["wpm"] as const),
   head: () => ({ meta: [{ title: "Скорочтение, Совёнок" }] }),
   component: ReadingPage,
 });
@@ -42,6 +44,7 @@ const LEVEL_NAMES = ["", "простой", "средний", "сложный"];
  */
 function ReadingPage() {
   const navigate = useNavigate();
+  const given = Route.useSearch();
   const [texts, setTexts] = useState<TextItem[] | null>(null);
   const [signedIn, setSignedIn] = useState(false);
   const [lockedLevels, setLockedLevels] = useState(0);
@@ -49,23 +52,43 @@ function ReadingPage() {
 
   const [stage, setStage] = useState<"setup" | "read" | "quiz" | "done">("setup");
   const [textId, setTextId] = useState<string | null>(null);
-  const [wpm, setWpm] = useState(80);
+  // Скорость задаёт педагог — см. lib/drill-search.ts.
+  const [wpm, setWpm] = useState(() => pickNumber(given.wpm, SPEEDS, 80));
   const [wordIndex, setWordIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [pending, setPending] = useState(false);
+  /*
+   * Сбой отделён от пустоты.
+   *
+   * Раньше здесь стояло `.catch(() => setTexts([]))`: упавший запрос молча
+   * превращался в пустой список, и экран выглядел так же, как если бы
+   * текстов действительно не было — заголовок «Текст», под ним ничего и
+   * намертво выключенная кнопка. Ребёнок не мог понять, сломалось оно,
+   * не догрузилось или так задумано, а внятная ошибка в это время лежала
+   * в консоли, где её никто не видит.
+   */
+  const [loadError, setLoadError] = useState(false);
 
   const startedAt = useRef(Date.now());
 
-  useEffect(() => {
-    (async () => {
+  async function load() {
+    setLoadError(false);
+    setTexts(null);
+    try {
       const [list, account] = await Promise.all([readingTexts(), me().catch(() => null)]);
       setTexts(list.texts as TextItem[]);
       setSignedIn(list.signedIn);
       setLockedLevels(list.lockedLevels);
       setTextId(list.texts[0]?.id ?? null);
       if (account?.user) setChildId(account.activeChildId ?? account.children[0]?.id ?? null);
-    })().catch(() => setTexts([]));
+    } catch {
+      setLoadError(true);
+    }
+  }
+
+  useEffect(() => {
+    void load();
   }, []);
 
   const text = texts?.find((t) => t.id === textId) ?? null;
@@ -115,12 +138,73 @@ function ReadingPage() {
     setPending(false);
   }
 
-  if (!texts) {
+  /* Три состояния до основного экрана, и все три говорят разное:
+     не получилось — что делать; грузится — сколько ждать и чего;
+     пусто — почему пусто. Шапка стоит во всех трёх: из тупика должен
+     быть выход в соседний тренажёр, а не только назад в браузере. */
+  if (loadError) {
     return (
       <div className="sov sov-kid">
         <div className="sov-play">
-          <div className="sov-card">
-            <h2>Готовим тексты…</h2>
+          <TrainerTop current="chtenie" />
+          <div className="sov-card sov-state">
+            <h2>Тексты не загрузились</h2>
+            <p>
+              Похоже, пропала связь. Проверьте интернет и нажмите ещё раз — результаты прошлых
+              занятий на месте.
+            </p>
+            <ChildAction onClick={() => void load()}>Попробовать ещё раз</ChildAction>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!texts) {
+    /* Скелетон повторяет форму будущей карточки: заголовок, строка
+       описания, ряд скоростей, список текстов. Строчка «Готовим
+       тексты…» на пустой бумаге не давала понять, чего ждать, и
+       контент потом появлялся рывком. */
+    return (
+      <div className="sov sov-kid">
+        <div className="sov-play">
+          <TrainerTop current="chtenie" />
+          <div className="sov-card" aria-busy="true" aria-label="Готовим тексты">
+            <span className="sov-skel" style={{ width: "42%", height: 30 }} />
+            <span className="sov-skel" style={{ width: "78%", height: 14, marginTop: 14 }} />
+            <span className="sov-skel" style={{ width: "24%", height: 13, marginTop: 26 }} />
+            <div className="sov-skel-row">
+              {SPEEDS.map((s) => (
+                <span key={s} className="sov-skel sov-skel--pill" style={{ width: 96 }} />
+              ))}
+            </div>
+            <span className="sov-skel" style={{ width: "18%", height: 13, marginTop: 26 }} />
+            <div className="sov-skel-stack">
+              <span className="sov-skel" style={{ height: 52 }} />
+              <span className="sov-skel" style={{ height: 52 }} />
+              <span className="sov-skel" style={{ height: 52 }} />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (texts.length === 0) {
+    return (
+      <div className="sov sov-kid">
+        <div className="sov-play">
+          <TrainerTop current="chtenie" />
+          <div className="sov-card sov-state">
+            <Owl size={84} />
+            <h2>Тексты пока не добавлены</h2>
+            <p>
+              Здесь появятся рассказы для чтения по одному слову. Пока их нет, попробуйте устный
+              счёт или таблицу умножения.
+            </p>
+            <ChildAction onClick={() => void navigate({ to: "/schet" })}>
+              К устному счёту
+            </ChildAction>
           </div>
         </div>
       </div>
@@ -135,9 +219,15 @@ function ReadingPage() {
             <span className="sov-flash__word">{words[wordIndex]}</span>
           </div>
           <div className="sov-play__track" style={{ marginTop: 20 }}>
-            <div className="sov-play__fill" style={{ width: `${((wordIndex + 1) / words.length) * 100}%` }} />
+            <div
+              className="sov-play__fill"
+              style={{ width: `${((wordIndex + 1) / words.length) * 100}%` }}
+            />
           </div>
-          <p className="sov-mono" style={{ marginTop: 14, color: "var(--sov-ink-soft)", textAlign: "center" }}>
+          <p
+            className="sov-mono"
+            style={{ marginTop: 14, color: "var(--sov-ink-soft)", textAlign: "center" }}
+          >
             {wpm} слов в минуту · {wordIndex + 1} из {words.length}
           </p>
           <div style={{ marginTop: 20, textAlign: "center" }}>
@@ -173,7 +263,10 @@ function ReadingPage() {
                       key={option}
                       type="button"
                       className="sov-option"
-                      data-state={answers[q.index] === option ? "right" : undefined}
+                      /* «picked», а не «right»: ответ ещё не проверен,
+                         зелёное «верно» здесь было бы неправдой. */
+                      data-state={answers[q.index] === option ? "picked" : undefined}
+                      aria-pressed={answers[q.index] === option}
                       onClick={() => setAnswers((prev) => ({ ...prev, [q.index]: option }))}
                     >
                       {option}
@@ -199,7 +292,11 @@ function ReadingPage() {
         <div className="sov-play">
           <TrainerTop current="chtenie" />
           <div className="sov-card">
-            <Owl size={64} mood={outcome.correct === outcome.total ? "happy" : "concerned"} animated />
+            <Owl
+              size={64}
+              mood={outcome.correct === outcome.total ? "happy" : "concerned"}
+              animated
+            />
             <h2 style={{ marginTop: 16 }}>Прочитано</h2>
             <div className="sov-metrics" style={{ gridTemplateColumns: "repeat(2, 1fr)" }}>
               <div className="sov-metric">
@@ -215,7 +312,11 @@ function ReadingPage() {
             </div>
             <div style={{ marginTop: 18 }}>
               {outcome.details.map((d) => (
-                <div key={d.prompt} className="sov-risk" style={{ borderLeftColor: d.correct ? "var(--sov-ok)" : "var(--sov-warn)" }}>
+                <div
+                  key={d.prompt}
+                  className="sov-risk"
+                  style={{ borderLeftColor: d.correct ? "var(--sov-ok)" : "var(--sov-warn)" }}
+                >
                   <strong>{d.prompt}</strong>
                   <div className="sov-mono" style={{ marginTop: 4 }}>
                     {d.correct ? "верно" : `правильный ответ: ${d.answer}`}
@@ -269,7 +370,13 @@ function ReadingPage() {
               <span className="sov-setup__label">Скорость</span>
               <div className="sov-chips" style={{ marginTop: 0 }}>
                 {SPEEDS.map((s) => (
-                  <button key={s} type="button" className="sov-chip" data-active={wpm === s} onClick={() => setWpm(s)}>
+                  <button
+                    key={s}
+                    type="button"
+                    className="sov-chip"
+                    data-active={wpm === s}
+                    onClick={() => setWpm(s)}
+                  >
                     {s} сл/мин
                   </button>
                 ))}
@@ -307,14 +414,19 @@ function ReadingPage() {
             <div className="sov-save-hint" style={{ marginTop: 22 }}>
               <strong>Ещё {lockedLevels} текста посложнее — в аккаунте</strong>
               <span>
-                Без регистрации открыт простой уровень: этого хватит, чтобы понять механику.
-                С аккаунтом добавляются средний и сложный тексты, а результаты сохраняются.
+                Без регистрации открыт простой уровень: этого хватит, чтобы понять механику. С
+                аккаунтом добавляются средний и сложный тексты, а результаты сохраняются.
               </span>
             </div>
           ) : null}
         </div>
       </div>
+      {/* Подвал стоит на всех пяти тренажёрах, а не только на Шульте:
+          соседние экраны одного раздела не должны отличаться глубиной,
+          а строчка про 152-ФЗ уместна именно там, где занимается
+          ребёнок. На экранах самого упражнения его нет — там читают
+          задание, а не реквизиты. */}
+      <SiteFooter />
     </div>
   );
 }
-

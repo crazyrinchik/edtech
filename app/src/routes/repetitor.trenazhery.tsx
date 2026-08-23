@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { QuietAction, SiteFooter, SiteHeader } from "../components/brand";
 import { AbacusIcon, BookIcon, GridIcon, MultiplyIcon, PencilIcon } from "../components/icons";
 import { me } from "../lib/api/app.functions";
+import type { DrillId, DrillSettings } from "../lib/drills";
+import { defaultDrillSettings, DRILL_OPTIONS, trimDrillSettings } from "../lib/drills";
 import { assignDrill, tutorStudents } from "../lib/api/tutor.functions";
 
 export const Route = createFileRoute("/repetitor/trenazhery")({
@@ -21,54 +23,41 @@ function defaultDue(): string {
  * Тренажёры отдельным разделом рядом с темами.
  *
  * Раньше задать их можно было только из карточки ученика, вперемешку с
- * темами, и что именно тренирует каждый — нигде не написано. Здесь они
- * выдаются сразу группе, как и темы: на занятии тренажёр назначают всем,
- * а не по одному.
+ * темами. Здесь они выдаются сразу группе, как и темы: на занятии тренажёр
+ * назначают всем, а не по одному.
  *
- * На каждый — две строки: что тренирует и по какому признаку его пора
- * задавать. Настройки (уровни, скорость, таймер) отсюда убраны: их видно
- * в самом тренажёре, а на этом экране решают не «как он устроен», а
- * «кому из четверых он сейчас нужен». Порядок тот же, что у ребёнка в
- * занятиях: сначала счёт и таблица, потом русский, потом чтение.
+ * Подписи «что тренирует» и «когда задавать» с карточек убраны: педагог
+ * знает свои тренажёры и приходит сюда за кнопкой «задать», а не за
+ * описанием. Порядок тот же, что у ребёнка в занятиях: сначала счёт и
+ * таблица, потом русский, потом чтение.
  */
 const TRAINERS = [
   {
     id: "schet" as const,
     Icon: AbacusIcon,
     title: "Устный счёт",
-    what: "Скорость и точность вычислений",
-    when: "Считает верно, но медленно — и теряет мысль в задаче",
   },
   {
     id: "tablica" as const,
     Icon: MultiplyIcon,
     title: "Таблица умножения",
-    what: "Умножение и деление в обе стороны",
-    when: "Таблица выучена строчками, деление не узнаётся",
   },
   {
     id: "pravopisanie" as const,
     Icon: PencilIcon,
     title: "Правописание",
-    what: "Тринадцать правил с подсказкой на месте",
-    when: "Правило назвать может, а применить в слове — нет",
   },
   {
     id: "chtenie" as const,
     Icon: BookIcon,
     title: "Скорочтение",
-    what: "Скорость чтения и понимание",
-    when: "Читает по слогам и забывает начало предложения",
   },
   {
     id: "shulte" as const,
     Icon: GridIcon,
     title: "Таблица Шульте",
-    what: "Поле зрения и внимание",
-    when: "Слово читается по буквам, а не схватывается целиком",
   },
 ];
-
 
 function TrainersPage() {
   const navigate = useNavigate();
@@ -107,12 +96,12 @@ function TrainersPage() {
       />
 
       <main className="sov-shell" style={{ paddingBottom: 60 }}>
-        <h1 style={{ fontSize: "2.2rem" }}>Тренажёры</h1>
+        <h1 style={{ fontSize: "var(--sov-t-display)" }}>Тренажёры</h1>
         <p
           style={{ marginTop: 12, color: "var(--sov-ink-soft)", fontWeight: 500, maxWidth: "62ch" }}
         >
-          Не привязаны к темам и работают без подписки. Задать можно сразу нескольким
-          ученикам — так же, как тему.
+          Не привязаны к темам и работают без подписки. Задать можно сразу нескольким ученикам — так
+          же, как тему.
         </p>
 
         {error ? (
@@ -130,7 +119,6 @@ function TrainersPage() {
                     <t.Icon size={20} />
                     {t.title}
                   </strong>
-                  <span className="sov-prog__meta">{t.what} · без подписки</span>
                 </div>
                 <div className="sov-prog__actions">
                   <button
@@ -143,10 +131,6 @@ function TrainersPage() {
                   </button>
                 </div>
               </div>
-
-              <p className="sov-prog__summary">
-                <b>Когда:</b> {t.when}
-              </p>
 
               {openFor === t.id ? (
                 <AssignDrillPanel kind={t.id} students={students} onDone={() => setOpenFor(null)} />
@@ -172,7 +156,7 @@ function AssignDrillPanel({
   students,
   onDone,
 }: {
-  kind: "schet" | "tablica" | "pravopisanie" | "chtenie" | "shulte";
+  kind: DrillId;
   students: Students;
   onDone: () => void;
 }) {
@@ -181,6 +165,21 @@ function AssignDrillPanel({
   const [pending, setPending] = useState(false);
   const [done, setDone] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Настройки те же, что внутри тренажёра: педагог задаёт не «скорочтение
+  // вообще», а конкретный заход — 120 слов в минуту, тридцать примеров.
+  const [settings, setSettings] = useState<DrillSettings>(() => defaultDrillSettings(kind));
+
+  function setValue(key: string, value: string, multi: boolean) {
+    setSettings((prev) => {
+      if (!multi) return { ...prev, [key]: value };
+      const chosen = (prev[key] ?? "").split(",").filter(Boolean);
+      const next = chosen.includes(value) ? chosen.filter((v) => v !== value) : [...chosen, value];
+      // Последнюю галочку не снимаем: без единого действия тренажёру нечего
+      // показывать, и он просто не запустится.
+      if (next.length === 0) return prev;
+      return { ...prev, [key]: next.join(",") };
+    });
+  }
 
   if (done !== null) {
     return <p className="sov-prog__ok">Задано ученикам: {done}.</p>;
@@ -207,6 +206,30 @@ function AssignDrillPanel({
         ))}
       </div>
 
+      <div className="sov-drill-setup">
+        {DRILL_OPTIONS[kind].map((option) => {
+          const chosen = (settings[option.key] ?? "").split(",");
+          return (
+            <div key={option.key} className="sov-drill-setup__row">
+              <span className="sov-drill-setup__label">{option.label}</span>
+              <div className="sov-chips">
+                {option.values.map((value) => (
+                  <button
+                    key={value.value}
+                    type="button"
+                    className="sov-chip"
+                    data-active={chosen.includes(value.value)}
+                    onClick={() => setValue(option.key, value.value, option.multi)}
+                  >
+                    {value.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
       <div className="sov-prog__row">
         <label>
           Срок
@@ -224,7 +247,12 @@ function AssignDrillPanel({
             setError(null);
             try {
               const res = await assignDrill({
-                data: { kind, childIds: picked, dueAt: due ? new Date(due).toISOString() : null },
+                data: {
+                  kind,
+                  childIds: picked,
+                  dueAt: due ? new Date(due).toISOString() : null,
+                  settings: trimDrillSettings(kind, settings),
+                },
               });
               setDone(res.count);
             } catch (e) {

@@ -1,13 +1,21 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 
-import { ChildAction, Owl } from "../components/brand";
+import { ChildAction, Owl, SiteFooter } from "../components/brand";
 import { SpeakButton } from "../components/speak";
 import { TrainerTop } from "../components/trainers";
 import { me, saveMentalDrill } from "../lib/api/app.functions";
+import { drillSearch, pickMany, pickNumber } from "../lib/drill-search";
 import { useEnterAction } from "../lib/keys";
 
+/**
+ * Настройки приезжают в адресе: тренажёр задал педагог и выставил их за
+ * ребёнка. Ключи необязательные — по прямой ссылке из шапки тренажёр
+ * открывается со своими обычными настройками.
+ */
 export const Route = createFileRoute("/schet")({
+  validateSearch: (search: Record<string, unknown>) =>
+    drillSearch(search, ["digits", "ops", "limit", "count"] as const),
   head: () => ({ meta: [{ title: "Устный счёт, Совёнок" }] }),
   component: MentalPage,
 });
@@ -22,7 +30,12 @@ const OPERATIONS: { id: Operation; label: string; sign: string; word: string }[]
 ];
 
 /** Значения по умолчанию: то, с чего начинает второклассник без настройки. */
-const DEFAULTS = { digits: 1 as 1 | 2 | 3, operations: ["add", "sub"] as Operation[], limitSec: 10, count: 10 };
+const DEFAULTS = {
+  digits: 1 as 1 | 2 | 3,
+  operations: ["add", "sub"] as Operation[],
+  limitSec: 10,
+  count: 10,
+};
 
 const LIMITS = [5, 10, 15, 20, 0];
 const COUNTS = [10, 20, 30];
@@ -95,11 +108,18 @@ function spoken(example: Example): string {
  */
 function MentalPage() {
   const navigate = useNavigate();
+  const given = Route.useSearch();
   const [stage, setStage] = useState<"setup" | "play" | "done">("setup");
-  const [digits, setDigits] = useState<1 | 2 | 3>(DEFAULTS.digits);
-  const [operations, setOperations] = useState<Operation[]>(DEFAULTS.operations);
-  const [limitSec, setLimitSec] = useState(DEFAULTS.limitSec);
-  const [count, setCount] = useState(DEFAULTS.count);
+  const [digits, setDigits] = useState<1 | 2 | 3>(() =>
+    pickNumber(given.digits, [1, 2, 3] as const, DEFAULTS.digits),
+  );
+  const [operations, setOperations] = useState<Operation[]>(() =>
+    pickMany(given.ops, ["add", "sub", "mul", "div"] as const, DEFAULTS.operations),
+  );
+  const [limitSec, setLimitSec] = useState(() =>
+    pickNumber(given.limit, LIMITS, DEFAULTS.limitSec),
+  );
+  const [count, setCount] = useState(() => pickNumber(given.count, COUNTS, DEFAULTS.count));
 
   const [childId, setChildId] = useState<string | null>(null);
   const [signedIn, setSignedIn] = useState(false);
@@ -169,7 +189,6 @@ function MentalPage() {
     setVerdict({ ok, answer: example.answer });
   }
 
-
   /* Enter после ответа значит «дальше»: рука уже на клавише, а поле
      выключено (см. lib/keys.ts). */
   useEnterAction(!!verdict, () => void next());
@@ -206,8 +225,8 @@ function MentalPage() {
           <div className="sov-card">
             <h2>Устный счёт</h2>
             <p style={{ marginTop: 10, color: "var(--sov-ink-soft)" }}>
-              Примеры появляются по одному. На каждый ответ даётся время — его можно увеличить
-              или убрать совсем.
+              Примеры появляются по одному. На каждый ответ даётся время — его можно увеличить или
+              убрать совсем.
             </p>
 
             <div className="sov-setup">
@@ -301,6 +320,7 @@ function MentalPage() {
             ) : null}
           </div>
         </div>
+        <SiteFooter />
       </div>
     );
   }

@@ -1,12 +1,13 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 
-import { ChildAction, Owl } from "../components/brand";
+import { ChildAction, Owl, SiteFooter } from "../components/brand";
 import { TrainerTop } from "../components/trainers";
 import { me, saveSpellingDrill } from "../lib/api/app.functions";
+import { drillSearch, pickMany, pickNumber } from "../lib/drill-search";
 import { useEnterAction } from "../lib/keys";
 import type { SpellingItem, SpellingRule } from "../lib/content/spelling";
-import { filled, SPELLING_RULES } from "../lib/content/spelling";
+import { filled, groupRules, SPELLING_GROUPS, SPELLING_RULES } from "../lib/content/spelling";
 
 export const Route = createFileRoute("/pravopisanie")({
   head: () => ({
@@ -19,6 +20,8 @@ export const Route = createFileRoute("/pravopisanie")({
       },
     ],
   }),
+  validateSearch: (search: Record<string, unknown>) =>
+    drillSearch(search, ["rules", "count"] as const),
   component: SpellingPage,
 });
 
@@ -66,9 +69,29 @@ function buildQueue(ruleIds: string[], count: number): Card[] {
  */
 function SpellingPage() {
   const navigate = useNavigate();
+  // Настройки задания приезжают в адресе — см. lib/drill-search.ts.
+  // Имя `given` здесь уже занято ответом ребёнка, поэтому `assigned`.
+  const assigned = Route.useSearch();
   const [stage, setStage] = useState<"setup" | "play" | "done">("setup");
-  const [picked, setPicked] = useState<string[]>(SPELLING_RULES.map((r) => r.id));
-  const [count, setCount] = useState(10);
+  const [picked, setPicked] = useState<string[]>(() =>
+    pickMany(
+      assigned.rules,
+      SPELLING_RULES.map((r) => r.id),
+      SPELLING_RULES.map((r) => r.id),
+    ),
+  );
+  const [count, setCount] = useState(() => pickNumber(assigned.count, COUNTS, 10));
+  /* Какие темы раскрыты. Считается один раз, от того набора правил, с
+     которым экран открылся: тема, выбранная целиком (обычный случай — по
+     умолчанию отмечено всё), свёрнута, а тема, из которой педагог взял
+     часть, раскрыта. Дальше состоянием распоряжается сам ребёнок, поэтому
+     это useState с начальным значением, а не вычисление на каждый рендер. */
+  const [openGroups, setOpenGroups] = useState<string[]>(() =>
+    SPELLING_GROUPS.filter((g) => {
+      const chosen = g.ruleIds.filter((id) => picked.includes(id)).length;
+      return chosen > 0 && chosen < g.ruleIds.length;
+    }).map((g) => g.id),
+  );
 
   const [queue, setQueue] = useState<Card[]>([]);
   const [index, setIndex] = useState(0);
@@ -128,7 +151,6 @@ function SpellingPage() {
     ]);
   }
 
-
   /* Enter после ответа значит «дальше»: рука уже на клавише, а поле
      выключено (см. lib/keys.ts). */
   useEnterAction(given !== null, () => void next());
@@ -169,32 +191,78 @@ function SpellingPage() {
             <div className="sov-setup">
               <div className="sov-setup__row">
                 <span className="sov-setup__label">Правила</span>
-                <div className="sov-chips" style={{ marginTop: 0 }}>
-                  {SPELLING_RULES.map((r) => (
-                    <button
-                      key={r.id}
-                      type="button"
-                      className="sov-chip"
-                      data-active={picked.includes(r.id)}
-                      onClick={() =>
-                        setPicked((prev) =>
-                          prev.includes(r.id) ? prev.filter((x) => x !== r.id) : [...prev, r.id],
-                        )
-                      }
-                    >
-                      {r.title}
-                    </button>
-                  ))}
+                {/* Правила сложены по темам и свёрнуты.
+
+                    Раньше все тринадцать стояли одним рядом и все были
+                    отмечены: экран открывался стеной сплошного кобальта, в
+                    которой не читалось, что здесь вообще можно выбирать —
+                    синий значит «выбрано», а выбрано было всё. Теперь видно
+                    три строки со счётом «выбрано 5 из 5», и до пилюль
+                    ребёнок доходит, только если правда хочет менять набор.
+
+                    Тема раскрыта заранее, если выбрана не целиком: так
+                    выглядит набор, присланный педагогом по ссылке, и
+                    прятать его было бы обманом. */}
+                <div className="sov-rulegroups">
+                  {SPELLING_GROUPS.map((group) => {
+                    const rules = groupRules(group);
+                    const chosen = rules.filter((r) => picked.includes(r.id)).length;
+                    return (
+                      <details
+                        key={group.id}
+                        className="sov-rulegroup"
+                        open={openGroups.includes(group.id)}
+                        onToggle={(e) => {
+                          const on = e.currentTarget.open;
+                          setOpenGroups((prev) =>
+                            on
+                              ? [...new Set([...prev, group.id])]
+                              : prev.filter((id) => id !== group.id),
+                          );
+                        }}
+                      >
+                        <summary>
+                          <span className="sov-rulegroup__name">{group.title}</span>
+                          <span className="sov-rulegroup__count" data-empty={chosen === 0}>
+                            выбрано {chosen} из {rules.length}
+                          </span>
+                        </summary>
+                        <div className="sov-chips">
+                          {rules.map((r) => (
+                            <button
+                              key={r.id}
+                              type="button"
+                              className="sov-chip"
+                              data-active={picked.includes(r.id)}
+                              aria-pressed={picked.includes(r.id)}
+                              onClick={() =>
+                                setPicked((prev) =>
+                                  prev.includes(r.id)
+                                    ? prev.filter((x) => x !== r.id)
+                                    : [...prev, r.id],
+                                )
+                              }
+                            >
+                              {r.title}
+                            </button>
+                          ))}
+                        </div>
+                      </details>
+                    );
+                  })}
                 </div>
+                {/* «Выбрать все» и «Снять все» — такие же пилюли, только
+                    контурные: подчёркнутые ссылки мелким кеглем выпадали
+                    из ряда чипов, рядом с которыми стояли. */}
                 <div className="sov-setup__aside">
                   <button
                     type="button"
-                    className="sov-linkish"
+                    className="sov-chip"
                     onClick={() => setPicked(SPELLING_RULES.map((r) => r.id))}
                   >
                     Выбрать все
                   </button>
-                  <button type="button" className="sov-linkish" onClick={() => setPicked([])}>
+                  <button type="button" className="sov-chip" onClick={() => setPicked([])}>
                     Снять все
                   </button>
                 </div>
@@ -235,6 +303,7 @@ function SpellingPage() {
             ) : null}
           </div>
         </div>
+        <SiteFooter />
       </div>
     );
   }

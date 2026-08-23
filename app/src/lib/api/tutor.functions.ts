@@ -12,7 +12,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-import { SUBJECTS } from "../content/curriculum.data";
+import { CATALOG, SUBJECTS } from "../content/curriculum.data";
 import {
   catalogIndex,
   isFreeTopic,
@@ -28,6 +28,7 @@ import {
   childHasPaidAccess,
   db,
   ensureSeeded,
+  materializeTopic,
   grantChildAccess,
   hashPassword,
   nowIso,
@@ -144,6 +145,8 @@ export type AssignmentItemView = {
   submittedAt?: string | null;
   grade?: number | null;
   comment?: string | null;
+  /** Настройки тренажёра, с которыми его задали. Только у kind='drill'. */
+  settings?: Record<string, string> | null;
 };
 
 export type AssignmentView = {
@@ -201,6 +204,29 @@ async function buildAssignments(childId: string, rows: AssignmentRow[]): Promise
     .prepare("SELECT kind, created_at FROM drills WHERE child_id = ? ORDER BY created_at")
     .bind(childId)
     .all<{ kind: string; created_at: string }>();
+
+  // Настройки тренажёра лежат отдельной таблицей: колонку в assignment_items
+  // не добавить — миграции идемпотентны, а ADD COLUMN IF NOT EXISTS в SQLite
+  // нет. Строка есть только у пунктов, которые задали не «как обычно».
+  const itemIds = (items.results ?? []).map((i) => i.id);
+  const settings = new Map<string, Record<string, string>>();
+  if (itemIds.length) {
+    const rows = await db()
+      .prepare(
+        `SELECT item_id, settings FROM assignment_item_settings
+          WHERE item_id IN (${itemIds.map(() => "?").join(", ")})`,
+      )
+      .bind(...itemIds)
+      .all<{ item_id: string; settings: string }>();
+    for (const row of rows.results ?? []) {
+      try {
+        settings.set(row.item_id, JSON.parse(row.settings) as Record<string, string>);
+      } catch {
+        // Битую строку молча пропускаем: ребёнок откроет тренажёр с его
+        // обычными настройками, а не увидит ошибку вместо задания.
+      }
+    }
+  }
 
   // Свои задания проверяет педагог, поэтому «сделано» здесь означает
   // «оценено», а не «доля верных выше порога».
@@ -268,6 +294,7 @@ async function buildAssignments(childId: string, rows: AssignmentRow[]): Promise
           targetPercent: item.target_percent,
           done: hit,
           bestPercent: null,
+          settings: settings.get(item.id) ?? null,
         };
       }
       const best = (lessons.results ?? [])
@@ -329,7 +356,7 @@ export const tutorStudents = createServerFn({ method: "GET" }).handler(async () 
   const user = await requireTutor();
   const children = await db()
     .prepare(
-      `SELECT c.id, c.name, c.avatar, c.grade, c.diagnostics_done,
+      `SELECT c.id, c.name, c.avatar, c.grade,
               EXISTS (SELECT 1 FROM child_access p
                        WHERE p.child_id = c.id AND p.role = 'parent') AS parent_linked
          FROM children c JOIN child_access a ON a.child_id = c.id
@@ -343,7 +370,6 @@ export const tutorStudents = createServerFn({ method: "GET" }).handler(async () 
       avatar: string;
       grade: number;
       parent_linked: number;
-      diagnostics_done: number;
     }>();
 
   const students = [];
@@ -392,7 +418,6 @@ export const tutorStudents = createServerFn({ method: "GET" }).handler(async () 
       name: child.name,
       avatar: child.avatar,
       grade: child.grade,
-      diagnosticsDone: !!child.diagnostics_done,
       parentLinked: !!child.parent_linked,
       inviteCode: invite?.code ?? null,
       lastLessonAt: last?.started_at ?? null,
@@ -408,19 +433,17 @@ export const addStudent = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
       name: z.string().trim().min(1, "Как зовут ученика?"),
-      grade: z.number().int().min(1).max(2),
+      grade: z.number().int().min(1).max(4),
       avatar: z.string().min(1),
-      parentConsent: z.boolean(),
     }),
   )
   .handler(async ({ data }) => {
     const user = await requireTutor();
-    // Заверение по п. 9.5 оферты: данные ребёнка вносятся только после того,
-    // как семья дала согласие. Галочка в браузере — удобство, проверка живёт
-    // здесь, а факт заверения остаётся в events вместе с учеником.
-    if (!data.parentConsent) {
-      throw new Error("Сначала получите согласие родителя ученика — без него профиль завести нельзя");
-    }
+    // Отдельной галочки «у меня есть согласие родителя» здесь больше нет.
+    // Заверение по п. 9.5 оферты репетитор даёт один раз, принимая оферту при
+    // регистрации, а спрашивать его на каждом ученике было нечестно: профиль
+    // заводится до того, как в системе вообще появляется родитель, и
+    // настоящее согласие семья подписывает в приглашении.
     const id = uid("chd");
     // parent_id — владелец записи, и он NOT NULL с самой первой миграции:
     // снять это ограничение одинаково в SQLite и PostgreSQL нельзя. Поэтому
@@ -429,17 +452,13 @@ export const addStudent = createServerFn({ method: "POST" })
     // там же, где живут все остальные роли.
     await db()
       .prepare(
-        `INSERT INTO children (id, parent_id, name, avatar, grade, birth_year, diagnostics_done, created_at)
-         VALUES (?, ?, ?, ?, ?, NULL, 0, ?)`,
+        `INSERT INTO children (id, parent_id, name, avatar, grade, birth_year, created_at)
+         VALUES (?, ?, ?, ?, ?, NULL, ?)`,
       )
       .bind(id, user.id, data.name.trim(), data.avatar, data.grade, nowIso())
       .run();
     await grantChildAccess(id, user.id, "tutor");
-    await track("student_created", {
-      userId: user.id,
-      childId: id,
-      props: { parentConsentConfirmed: true },
-    });
+    await track("student_created", { userId: user.id, childId: id, props: { grade: data.grade } });
     return { id };
   });
 
@@ -578,6 +597,7 @@ export const studentCard = createServerFn({ method: "GET" })
       .prepare("SELECT 1 AS ok FROM child_access WHERE child_id = ? AND role = 'parent' LIMIT 1")
       .bind(child.id)
       .first<{ ok: number }>();
+    const paid = await childHasPaidAccess(child.id);
 
     const subjects = await db()
       .prepare("SELECT id, name FROM subjects ORDER BY sort_order")
@@ -600,7 +620,7 @@ export const studentCard = createServerFn({ method: "GET" })
     // двух чисел на тему незачем.
     const topics = await db()
       .prepare(
-        `SELECT t.id, t.subject_id, t.name, t.summary, t.grade, t.is_free,
+        `SELECT t.id, t.subject_id, t.name, t.summary, t.grade, t.is_free, t.sort_order,
                 COALESCE(p.status, 'new') AS status,
                 COALESCE(p.best_percent, 0) AS best_percent,
                 COALESCE(a.total, 0) AS attempts,
@@ -621,11 +641,45 @@ export const studentCard = createServerFn({ method: "GET" })
         summary: string | null;
         grade: number;
         is_free: number;
+        sort_order: number;
         status: string;
         best_percent: number;
         attempts: number;
         correct: number;
       }>();
+
+    /*
+     * Каталог дописывается к тому, что уже есть в базе.
+     *
+     * В базе лежат только сид и те темы каталога, которые кому-то уже
+     * задавали: остальные семьдесят с лишним материализуются в момент
+     * выдачи. Форма выдачи брала список прямо из базы — и педагог видел в
+     * ней десяток тем вместо всей начальной школы, притом что на соседнем
+     * экране «Темы и задания» лежала вся программа. Теперь списки совпадают,
+     * а строка в базе по-прежнему заводится только когда тему задали.
+     */
+    const known = new Set((topics.results ?? []).map((t) => t.id));
+    const fromCatalog = CATALOG.filter((t) => !known.has(t.code)).map((t) => ({
+      id: t.code,
+      subject_id: t.subject as string,
+      name: t.title,
+      summary: t.hours ? `${t.hours} ч по федеральной рабочей программе` : null,
+      grade: t.grade,
+      is_free: isFreeTopic(t.code) ? 1 : 0,
+      // Тот же порядок, что и у материализованной темы: сид в начале
+      // дорожки, каталог следом за ним.
+      sort_order: 1000 + catalogIndex(t.code),
+      status: "new",
+      best_percent: 0,
+      attempts: 0,
+      correct: 0,
+    }));
+    const allTopics = [...(topics.results ?? []), ...fromCatalog].sort(
+      (a, b) =>
+        a.subject_id.localeCompare(b.subject_id) ||
+        a.grade - b.grade ||
+        a.sort_order - b.sort_order,
+    );
 
     // Остальные ученики педагога — для выдачи одной домашки сразу группе.
     // Только имя и аватар: список нужен, чтобы отметить галочками, а не
@@ -663,14 +717,17 @@ export const studentCard = createServerFn({ method: "GET" })
         grade: child.grade,
         parentLinked: !!parent,
       },
-      paid: await childHasPaidAccess(child.id),
+      paid,
       subjects: subjects.results ?? [],
-      topics: (topics.results ?? []).map((t) => ({
+      topics: allTopics.map((t) => ({
         ...t,
         // Доля верных считается тут, а не в SQL: делить на ноль в запросе
         // пришлось бы через CASE, а «попыток не было» — это не 0%, это
         // «нечего показывать», и на клиенте отличать null от нуля проще.
         percent: t.attempts >= 4 ? Math.round((t.correct / t.attempts) * 100) : null,
+        // Закрытую тему форма выдачи гасит: сервер её всё равно не примет,
+        // и лучше это видно до нажатия, чем после.
+        locked: !paid && !t.is_free,
       })),
       classmates: classmates.results ?? [],
       lessons: lessons.results ?? [],
@@ -703,6 +760,8 @@ export const createAssignment = createServerFn({ method: "POST" })
             kind: z.enum(["topic", "drill"]),
             refId: z.string().min(1),
             targetPercent: z.number().int().min(0).max(100).default(70),
+            /** Настройки тренажёра: разрядность, действия, таймер и прочее. */
+            settings: z.record(z.string(), z.string()).nullable().default(null),
           }),
         )
         .min(1, "Добавьте хотя бы один пункт"),
@@ -715,8 +774,17 @@ export const createAssignment = createServerFn({ method: "POST" })
     const childIds = [...new Set(data.childIds)];
     for (const childId of childIds) await requireStudent(childId, user.id);
 
+    // Тема каталога до первой выдачи в базе не существует: без этого ученик
+    // получал бы пункт домашки, ведущий в никуда.
+    const topicIds = data.items.filter((i) => i.kind === "topic").map((i) => i.refId);
+    for (const code of new Set(topicIds)) {
+      if (topicByCode(code)) await materializeTopic(code);
+    }
+    await requireTopicsOpen(childIds, topicIds);
+
     const now = nowIso();
     const ids: string[] = [];
+    const settingRows: { itemId: string; settings: string }[] = [];
     const statements = childIds.flatMap((childId) => {
       const id = uid("asg");
       ids.push(id);
@@ -735,17 +803,28 @@ export const createAssignment = createServerFn({ method: "POST" })
             data.dueAt,
             now,
           ),
-        ...data.items.map((item, index) =>
-          db()
+        ...data.items.map((item, index) => {
+          const itemId = uid("ai");
+          if (item.settings && Object.keys(item.settings).length) {
+            settingRows.push({ itemId, settings: JSON.stringify(item.settings) });
+          }
+          return db()
             .prepare(
               `INSERT INTO assignment_items (id, assignment_id, kind, ref_id, target_percent, sort_order)
                VALUES (?, ?, ?, ?, ?, ?)`,
             )
-            .bind(uid("ai"), id, item.kind, item.refId, item.targetPercent, index),
-        ),
+            .bind(itemId, id, item.kind, item.refId, item.targetPercent, index);
+        }),
       ];
     });
-    await db().batch(statements);
+    await db().batch([
+      ...statements,
+      ...settingRows.map((row) =>
+        db()
+          .prepare("INSERT INTO assignment_item_settings (item_id, settings) VALUES (?, ?)")
+          .bind(row.itemId, row.settings),
+      ),
+    ]);
     for (const childId of childIds) {
       await track("assignment_created", {
         userId: user.id,
@@ -819,58 +898,38 @@ export const programs = createServerFn({ method: "GET" }).handler(async () => {
 });
 
 /**
- * Тема каталога появляется в базе при первом обращении к ней.
+ * Тему, закрытую подпиской, задать нельзя.
  *
- * Сидить весь каталог на старте не нужно: это семьдесят девять тем и две с
- * половиной тысячи заданий, которые в большинстве своём не понадобятся
- * конкретному репетитору. Строки создаются в тот момент, когда тему выдают
- * ученику, — тогда же они и нужны, потому что попытки ссылаются на task_id.
+ * Раньше выдача ничего не проверяла, и педагог без подписки спокойно
+ * задавал платную тему: у ребёнка она появлялась в домашке, а по нажатию
+ * встречала надписью «доступно по подписке». Тупик получался у того, кто в
+ * нём ни при чём, — поэтому проверка стоит на выдаче, в единственном месте,
+ * где ещё есть кому показать причину.
+ *
+ * Проверяется доступ ученика, а не подписка педагога: платить может и
+ * семья, и тогда репетитору без подписки задавать не запрещено.
  */
-async function materializeTopic(code: string): Promise<void> {
-  const topic = topicByCode(code);
-  if (!topic) throw new Error("Тема не найдена");
-  const existing = await db()
-    .prepare("SELECT id FROM topics WHERE id = ?")
-    .bind(code)
-    .first<{ id: string }>();
-  if (existing) return;
+async function requireTopicsOpen(childIds: string[], topicIds: string[]): Promise<void> {
+  const unique = [...new Set(topicIds)];
+  if (unique.length === 0) return;
+  const rows = await db()
+    .prepare(
+      `SELECT id, name, is_free FROM topics WHERE id IN (${unique.map(() => "?").join(", ")})`,
+    )
+    .bind(...unique)
+    .all<{ id: string; name: string; is_free: number }>();
+  const closed = (rows.results ?? []).filter((t) => !t.is_free);
+  if (closed.length === 0) return;
 
-  const tasks = catalogTasks(code);
-  await db().batch([
-    db()
-      .prepare(
-        `INSERT INTO topics (id, subject_id, grade, sort_order, name, summary, is_free)
-         VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
-      )
-      .bind(
-        code,
-        topic.subject,
-        topic.grade,
-        // Сид ложится в начало дорожки, каталог — следом за ним.
-        1000 + catalogIndex(code),
-        topic.title,
-        topic.hours ? `${topic.hours} ч по федеральной рабочей программе` : null,
-        isFreeTopic(code) ? 1 : 0,
-      ),
-    ...tasks.map((task, index) =>
-      db()
-        .prepare(
-          `INSERT INTO tasks (id, topic_id, kind, sort_order, prompt, payload, answer, explanation, is_check)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
-        )
-        .bind(
-          `${code}#${index}`,
-          code,
-          task.kind,
-          index,
-          task.prompt,
-          JSON.stringify(task.payload),
-          task.answer,
-          task.explanation,
-          task.isCheck ? 1 : 0,
-        ),
-    ),
-  ]);
+  for (const childId of childIds) {
+    if (await childHasPaidAccess(childId)) continue;
+    const names = closed.map((t) => `«${t.name}»`).join(", ");
+    throw new Error(
+      closed.length === 1
+        ? `Тема ${names} откроется ученику только с подпиской. Оформите подписку или выберите открытую тему.`
+        : `Темы ${names} откроются ученику только с подпиской. Оформите подписку или выберите открытые темы.`,
+    );
+  }
 }
 
 /**
@@ -994,8 +1053,10 @@ export const assignTopic = createServerFn({ method: "POST" })
       .first<{ id: string; name: string }>();
     if (!topic) throw new Error("Тема не найдена");
 
+    for (const childId of data.childIds) await requireStudent(childId, user.id);
+    await requireTopicsOpen(data.childIds, [topic.id]);
+
     for (const childId of data.childIds) {
-      await requireStudent(childId, user.id);
       const id = uid("asg");
       await db().batch([
         db()
@@ -1336,15 +1397,19 @@ export const assignDrill = createServerFn({ method: "POST" })
       kind: z.enum(["schet", "tablica", "pravopisanie", "chtenie", "shulte"]),
       childIds: z.array(z.string()).min(1, "Выберите хотя бы одного ученика"),
       dueAt: z.string().nullable(),
+      settings: z.record(z.string(), z.string()).nullable().default(null),
     }),
   )
   .handler(async ({ data }) => {
     const user = await requireTutor();
     const title = DRILL_TITLES[data.kind] ?? "Устный счёт";
+    const settings =
+      data.settings && Object.keys(data.settings).length ? JSON.stringify(data.settings) : null;
 
     for (const childId of data.childIds) {
       await requireStudent(childId, user.id);
       const id = uid("asg");
+      const itemId = uid("ai");
       await db().batch([
         db()
           .prepare(
@@ -1357,7 +1422,14 @@ export const assignDrill = createServerFn({ method: "POST" })
             `INSERT INTO assignment_items (id, assignment_id, kind, ref_id, target_percent, sort_order)
              VALUES (?, ?, 'drill', ?, 0, 0)`,
           )
-          .bind(uid("ai"), id, data.kind),
+          .bind(itemId, id, data.kind),
+        ...(settings
+          ? [
+              db()
+                .prepare("INSERT INTO assignment_item_settings (item_id, settings) VALUES (?, ?)")
+                .bind(itemId, settings),
+            ]
+          : []),
       ]);
     }
     await track("drill_assigned", {

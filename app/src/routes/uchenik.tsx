@@ -2,7 +2,6 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
 import {
-  ChildAction,
   ChildAvatar,
   Owl,
   owlStage,
@@ -11,9 +10,8 @@ import {
 } from "../components/brand";
 import { TRAINERS } from "../components/trainers";
 import { coinsLabel, plural, SHOP } from "../lib/shop";
-import { AutoSpeakToggle, SpeakButton } from "../components/speak";
 import { Bar, Ring, WeekStrip, weekBuckets } from "../components/figures";
-import { getDiagnostic, getSkillMap, me, submitDiagnostic } from "../lib/api/app.functions";
+import { getSkillMap, me } from "../lib/api/app.functions";
 import { buyOwlItem, equipOwlItem } from "../lib/api/app.functions";
 import { childAssignments, customTaskFile, submitCustomAnswer } from "../lib/api/tutor.functions";
 
@@ -40,18 +38,12 @@ type TopicItem = {
   reason: string | null; needsTopic: string;
 };
 type MapData = {
-  child: { id: string; name: string; avatar: string; grade: number; soundOn: boolean; dailyLimitMin: number; diagnosticsDone: boolean };
+  child: { id: string; name: string; avatar: string; grade: number; soundOn: boolean; dailyLimitMin: number };
   subjects: { id: string; name: string; topics: TopicItem[] }[];
   totalStars: number; level: number; paid: boolean; hasTutor: boolean; weekRuns: string[];
   coins: number; earned: number; owned: string[]; equipped: string;
 };
-type DiagData = {
-  childName: string; grade: number;
-  blocks: { subjectId: string; subjectName: string; tasks: { id: string; kind: string; prompt: string; payload: Record<string, unknown>; explanation: string }[] }[];
-};
 type Homework = Awaited<ReturnType<typeof childAssignments>>["assignments"];
-
-type DiagResult = { subjectId: string; subjectName: string; correct: number; total: number; percent: number; level: string }[];
 
 function PupilPage() {
   const navigate = useNavigate();
@@ -151,19 +143,6 @@ function PupilPage() {
     );
   }
 
-  if (!data.child.diagnosticsDone) {
-    // После диагностики нужна свежая карта: перезагружать ради этого всю
-    // страницу незачем — забираем её тем же запросом, что и при входе.
-    return (
-      <Diagnostic
-        childId={childId}
-        onDone={async () => {
-          setData(await getSkillMap({ data: { childId } }));
-        }}
-      />
-    );
-  }
-
   // Темы из активной домашки помечаются прямо на тропе: ребёнок, который
   // пролистал задание и пошёл выбирать сам, всё равно видит, что задано.
   const assignedTopics = new Set(
@@ -218,6 +197,8 @@ function PupilPage() {
     overdue?: boolean;
     topicId?: string;
     to?: string;
+    /** Настройки тренажёра, с которыми его задал педагог. */
+    search?: Record<string, string>;
     anchor?: string;
   } | null = pendingHw && pendingItem
     ? {
@@ -236,6 +217,10 @@ function PupilPage() {
           pendingItem.kind === "topic" || pendingItem.kind === "custom"
             ? undefined
             : (TRAINERS.find((t) => t.id === pendingItem.refId)?.to ?? "/schet"),
+        // Тренажёр открывается с настройками задания: разрядность, действия,
+        // таймер уезжают в адрес, и ребёнку не приходится их выставлять
+        // самому — он их и не помнит.
+        search: pendingItem.kind === "drill" ? (pendingItem.settings ?? undefined) : undefined,
         anchor: pendingItem.kind === "custom" ? `#zadanie-${pendingItem.id}` : undefined,
       }
     : freeTopic
@@ -254,7 +239,6 @@ function PupilPage() {
       <SiteHeader
         right={
           <>
-            <AutoSpeakToggle />
             {manyChildren ? (
               <Link to="/kto" className="sov-act-ghost" style={{ textDecoration: "none" }}>
                 <ChildAvatar avatar={data.child.avatar} size={22} /> Сменить
@@ -309,7 +293,11 @@ function PupilPage() {
                 {nextUp.label}
               </Link>
             ) : (
-              <Link to={nextUp.to ?? "/schet"} className="sov-act-child sov-next__go">
+              <Link
+                to={nextUp.to ?? "/schet"}
+                search={(nextUp.search ?? {}) as never}
+                className="sov-act-child sov-next__go"
+              >
                 {nextUp.label}
               </Link>
             )}
@@ -387,6 +375,7 @@ function PupilPage() {
                   <Link
                     key={item.id}
                     to={TRAINERS.find((t) => t.id === item.refId)?.to ?? "/schet"}
+                    search={(item.settings ?? {}) as never}
                     className="sov-homework__item"
                     data-done={item.done}
                   >
@@ -421,7 +410,11 @@ function PupilPage() {
                             : (TRAINERS.find((t) => t.id === item.refId)?.to ?? "/schet")
                         }
                         params={item.kind === "topic" ? { topicId: item.refId } : undefined}
-                        search={item.kind === "topic" ? { mode: "practice" } : undefined}
+                        search={
+                          (item.kind === "topic"
+                            ? { mode: "practice" }
+                            : (item.settings ?? {})) as never
+                        }
                         className="sov-homework__item"
                         data-done={true}
                       >
@@ -439,7 +432,9 @@ function PupilPage() {
         ))}
 
         {/* Тренажёры стоят до тем: в них заходят «на пять минут», и искать их
-            в конце длинной карты неудобно. */}
+            в конце длинной карты неудобно. Заголовок над ними нужен по той же
+            причине: без него ряд карточек читался продолжением домашки. */}
+        <h2 className="sov-kid__section">Тренажёры</h2>
         <div className="sov-trainers">
           {TRAINERS.map((trainer) => (
             <Link key={trainer.id} to={trainer.to} className="sov-trainer">
@@ -631,7 +626,7 @@ function PupilPage() {
                   className="sov-shelf__item"
                   data-open={owned || (levelOk && enough)}
                 >
-                  <Owl size={44} stage={stage} item={goods.id} mood={owned ? "happy" : "sleepy"} />
+                  <Owl size={78} stage={stage} item={goods.id} mood={owned ? "happy" : "sleepy"} />
                   <strong>{goods.title}</strong>
                   <span>{!levelOk ? `Откроется на уровне ${goods.minLevel}` : goods.note}</span>
                   {owned ? (
@@ -699,130 +694,6 @@ function PupilPage() {
             кружке и подпись «Откроется с подпиской» под ним говорят то же
             самое там, где ребёнок на это смотрит, — а не абзацем в конце
             страницы, до которого он не доскроллит. */}
-      </div>
-    </div>
-  );
-}
-
-function Diagnostic({ childId, onDone }: { childId: string; onDone: () => void }) {
-  const [diag, setDiag] = useState<DiagData | null>(null);
-  const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [result, setResult] = useState<DiagResult | null>(null);
-  const [pending, setPending] = useState(false);
-
-  useEffect(() => {
-    getDiagnostic({ data: { childId } }).then(setDiag).catch(() => setDiag(null));
-  }, [childId]);
-
-  if (!diag) {
-    return (
-      <div className="sov sov-kid">
-        <div className="sov-play">
-          <p>Готовим короткий тест…</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (result) {
-    return (
-      <div className="sov sov-kid">
-        <div className="sov-play">
-          <div className="sov-card">
-            <Owl size={56} />
-            <h2 style={{ marginTop: 16 }}>Готово, {diag.childName}</h2>
-            <p style={{ marginTop: 12, color: "var(--sov-ink-soft)" }}>
-              Мы поняли, с чего начать. Вот твой стартовый уровень.
-            </p>
-            <div style={{ marginTop: 22, display: "grid", gap: 12 }}>
-              {result.map((r) => (
-                <div key={r.subjectId} className="sov-save-hint">
-                  <strong>{r.subjectName}</strong>
-                  <div className="sov-mono" style={{ marginTop: 4 }}>
-                    {r.correct} из {r.total} верно, уровень {r.level}
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div style={{ marginTop: 28 }}>
-              <ChildAction onClick={onDone}>К занятиям</ChildAction>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const total = diag.blocks.reduce((n, b) => n + b.tasks.length, 0);
-  const filled = Object.keys(answers).length;
-
-  return (
-    <div className="sov sov-kid">
-      <div className="sov-play">
-        <div className="sov-play__bar">
-          <Owl size={40} />
-          <div className="sov-play__track">
-            <div className="sov-play__fill" style={{ width: `${(filled / total) * 100}%` }} />
-          </div>
-        </div>
-        <div className="sov-card">
-          <h2>Короткий тест, чтобы не начинать со скучного</h2>
-          <p style={{ marginTop: 10, color: "var(--sov-ink-soft)" }}>
-            Если не знаешь ответ, пропусти. Это не оценка. Не читаешь — нажми ушко, вопрос
-            прочитают вслух.
-          </p>
-          {diag.blocks.map((block) => (
-            <div key={block.subjectId} style={{ marginTop: 30 }}>
-              <h3 style={{ fontSize: "1.2rem" }}>{block.subjectName}</h3>
-              {block.tasks.map((task) => (
-                <div key={task.id} style={{ marginTop: 18 }}>
-                  <div className="sov-ask">
-                    <p style={{ fontWeight: 700 }}>{task.prompt}</p>
-                    <SpeakButton compact text={task.prompt} />
-                  </div>
-                  {task.kind === "choice" ? (
-                    <div className="sov-chips">
-                      {((task.payload as { options?: string[] }).options ?? []).map((option) => (
-                        <button
-                          key={option}
-                          type="button"
-                          className="sov-chip"
-                          data-active={answers[task.id] === option}
-                          onClick={() => setAnswers((prev) => ({ ...prev, [task.id]: option }))}
-                        >
-                          {option}
-                        </button>
-                      ))}
-                    </div>
-                  ) : (
-                    <input
-                      className="sov-field__input"
-                      style={{ marginTop: 8, padding: "12px 15px", border: "2px solid var(--sov-line)", borderRadius: 12, fontSize: "1rem", fontWeight: 600, fontFamily: "var(--sov-font)" }}
-                      value={answers[task.id] ?? ""}
-                      onChange={(e) => setAnswers((prev) => ({ ...prev, [task.id]: e.target.value }))}
-                      inputMode="text"
-                      aria-label={task.prompt}
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
-          ))}
-          <div style={{ marginTop: 32 }}>
-            <ChildAction
-              disabled={pending}
-              onClick={async () => {
-                setPending(true);
-                const payload = Object.entries(answers).map(([id, value]) => ({ id, value }));
-                const res = await submitDiagnostic({ data: { childId, answers: payload } });
-                setResult(res.result);
-                setPending(false);
-              }}
-            >
-              Показать результат
-            </ChildAction>
-          </div>
-        </div>
       </div>
     </div>
   );

@@ -114,7 +114,7 @@ function CurriculumPage() {
       />
 
       <main className="sov-shell" style={{ paddingBottom: 60 }}>
-        <h1 style={{ fontSize: "2.2rem" }}>Темы и задания</h1>
+        <h1 style={{ fontSize: "var(--sov-t-display)" }}>Темы и задания</h1>
         <p
           style={{ marginTop: 12, color: "var(--sov-ink-soft)", fontWeight: 500, maxWidth: "62ch" }}
         >
@@ -143,6 +143,10 @@ function CurriculumPage() {
         <section className="sov-course">
           <h2 className="sov-course__label">Программа школы</h2>
           <div className="sov-course__grid">
+            {/* Под названием учебника раньше стояла подпись: доля школ или
+                примечание из каталога. Выбирают здесь по названию, которое
+                родитель назвал на первом занятии, — «26% школ» на этот выбор
+                не влияет никак и только удлиняет карточку. */}
             <button
               type="button"
               className="sov-course__card"
@@ -150,7 +154,6 @@ function CurriculumPage() {
               onClick={() => chooseProgram(null)}
             >
               <strong>Общий список тем</strong>
-              <span>Не знаю учебник — порядок федеральной рабочей программы</span>
             </button>
             {programList.map((p) => (
               <button
@@ -161,7 +164,6 @@ function CurriculumPage() {
                 onClick={() => chooseProgram(p.id)}
               >
                 <strong>{p.short}</strong>
-                <span>{p.share ?? p.note}</span>
               </button>
             ))}
           </div>
@@ -242,13 +244,17 @@ function CurriculumPage() {
                           {/* «Задать» — то, ради чего репетитор сюда пришёл, и
                               в паре одинаковых тихих плашек оно терялось.
                               Обводка отличает действие от «посмотреть». */}
+                          {/* Закрытую подпиской тему кнопка не задаёт: сервер
+                              её всё равно не примет, а ученик упёрся бы в
+                              «доступно по подписке» уже внутри задания. */}
                           <button
                             type="button"
                             className="sov-act-quiet sov-prog__assign"
                             onClick={() => setAssignTo(assignTo === topic.code ? null : topic.code)}
-                            disabled={data.students.length === 0}
+                            disabled={data.students.length === 0 || topic.locked}
+                            title={topic.locked ? "Тема откроется ученику с подпиской" : undefined}
                           >
-                            Задать
+                            {topic.locked ? "По подписке" : "Задать"}
                           </button>
                         </div>
                       </div>

@@ -8,9 +8,8 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
-import { button } from "@higgsfield/quanta/button";
-import { NotFound } from "@higgsfield/quanta/not-found";
 
+import { Owl, SiteFooter, SiteHeader } from "../components/brand";
 import appCss from "../styles.css?url";
 import { reportHiggsfieldError } from "../lib/higgsfield-error-reporting";
 // Page metadata (browser <title>/favicon + social og: tags) committed into the
@@ -111,19 +110,36 @@ function buildHead(meta: AppMeta) {
   };
 }
 
+/*
+ * Тупиковые экраны — 404 и падение — написаны на языке Совёнка, а не на
+ * остатках шаблона.
+ *
+ * До этой правки оба открывались чёрной страницей с салатовой кнопкой и
+ * английским текстом: «Page not found», «Go home». Сюда попадают не по
+ * своей воле — по устаревшей ссылке из переписки, по опечатке в адресе,
+ * по сбою. И человек, который платит за занятия ребёнка, видел в этот
+ * момент не «страница не найдена», а «это какой-то другой сайт».
+ *
+ * Поэтому здесь та же бумага, тот же совёнок и тот же выход, что и
+ * везде: одна кнопка на главную. Подвал стоит намеренно — на этих
+ * экранах чаще всего и ищут, кому написать.
+ */
 function NotFoundComponent() {
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-q-background-primary px-4">
-      <NotFound
-        className="mx-auto max-w-md"
-        icon={<span className="text-q-title-md-semi-bold text-q-text-primary">404</span>}
-        title="Page not found"
-        subtitle="The page you're looking for doesn't exist or has been moved."
-      >
-        <Link to="/" className={button({ variant: "primary", size: "md" }, "mt-3")}>
-          Go home
+    <div className="sov">
+      <SiteHeader />
+      <main className="sov-narrow sov-oops">
+        <Owl size={104} />
+        <h1>Такой страницы нет</h1>
+        <p>
+          Ссылка устарела или в адресе опечатка. Занятия, тренажёры и кабинет никуда не делись — они
+          на главной.
+        </p>
+        <Link to="/" className="sov-act-child">
+          На главную
         </Link>
-      </NotFound>
+      </main>
+      <SiteFooter />
     </div>
   );
 }
@@ -136,27 +152,35 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   }, [error]);
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-q-background-primary px-4">
-      <div className="max-w-md text-center">
-        <h1 className="text-q-title-lg-semi-bold text-q-text-primary">This page didn't load</h1>
-        <p className="mt-2 text-q-body-sm-regular text-q-text-secondary">
-          Something went wrong on our end. You can try refreshing or head back home.
+    <div className="sov">
+      <SiteHeader />
+      <main className="sov-narrow sov-oops">
+        <Owl size={104} />
+        <h1>Страница не открылась</h1>
+        {/* Что именно сломалось, человеку здесь не поможет: он не чинит
+            сервер. Помогает знать, что это не он виноват и что данные на
+            месте. Техническую подробность уносит reportHiggsfieldError. */}
+        <p>
+          Это сбой на нашей стороне, а не у вас. Занятия и результаты ребёнка сохранены. Попробуйте
+          открыть ещё раз.
         </p>
-        <div className="mt-4 flex flex-wrap justify-center gap-2">
+        <div className="sov-oops__actions">
           <button
+            type="button"
+            className="sov-act-child"
             onClick={() => {
               router.invalidate();
               reset();
             }}
-            className={button({ variant: "primary", size: "md" })}
           >
-            Try again
+            Попробовать ещё раз
           </button>
-          <a href="/" className={button({ variant: "outline", size: "md" })}>
-            Go home
+          <a href="/" className="sov-act-quiet">
+            На главную
           </a>
         </div>
-      </div>
+      </main>
+      <SiteFooter />
     </div>
   );
 }
@@ -172,14 +196,22 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" data-theme="default-dark" style={{ colorScheme: "dark" }}>
-      {/* Marketplace apps are permanently dark: data-theme is pinned on <html>
-          above. Do not add quanta's bootstrapScript/ThemeController, a theme
-          toggle, or a light mode. */}
+    /* Совёнок — светлый продукт на бумаге, и это его единственная тема.
+
+       Здесь стояло data-theme="default-dark" с colorScheme: "dark" от
+       шаблона маркетплейса: тёмная подложка сидела под каждым экраном и
+       вылезала везде, куда не дотягивался .sov — на 404, на падении
+       роутера и при оттягивании страницы на телефоне. Тёмной темы у
+       Совёнка нет и не планируется, поэтому подложка теперь одна и
+       объявлена в brand.css (html, body { background: var(--sov-paper) }).
+
+       lang="ru" — не косметика: от него зависят переносы и то, каким
+       голосом экранный диктор прочитает страницу. */
+    <html lang="ru" style={{ colorScheme: "light" }}>
       <head>
         <HeadContent />
       </head>
-      <body className="bg-q-background-primary text-q-text-primary">
+      <body>
         {children}
         <Scripts />
       </body>

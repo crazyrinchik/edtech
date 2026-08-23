@@ -57,7 +57,7 @@ function TutorBillingPage() {
     <div className="sov">
       <SiteHeader right={<QuietAction to="/repetitor">К ученикам</QuietAction>} />
       <main className="sov-narrow" style={{ paddingBottom: 70 }}>
-        <h1 style={{ fontSize: "2.2rem" }}>Подписка</h1>
+        <h1 style={{ fontSize: "var(--sov-t-display)" }}>Подписка</h1>
 
         {error ? (
           <div className="sov-alert" style={{ marginTop: 18 }}>
@@ -73,7 +73,7 @@ function TutorBillingPage() {
           <>
             <p style={{ marginTop: 12, color: "var(--sov-ink-soft)", fontWeight: 500 }}>
               {data.active
-                ? "Подписка активна: всем вашим ученикам открыты все темы обоих классов."
+                ? "Подписка активна: всем вашим ученикам открыты все темы начальной школы."
                 : "Подписка не активна: ученикам открыта только первая тема каждого предмета, тренажёры работают целиком."}
             </p>
 
@@ -103,7 +103,7 @@ function TutorBillingPage() {
                 {/* Продление доступно, не дожидаясь конца срока: оплаченный
                     остаток при этом не сгорает, новый период считается от
                     старой даты окончания (extendSubscription). */}
-                <h2 style={{ fontSize: "1.15rem", fontWeight: 600 }}>Продлить</h2>
+                <h2 style={{ fontSize: "var(--sov-t-h3)", fontWeight: 600 }}>Продлить</h2>
                 <PayForm onDone={load} />
                 <button
                   type="button"

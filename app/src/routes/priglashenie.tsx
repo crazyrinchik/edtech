@@ -1,7 +1,15 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 
-import { FormAction, QuietAction, SiteHeader } from "../components/brand";
+import {
+  CodeField,
+  EmailPair,
+  FormAction,
+  PasswordField,
+  QuietAction,
+  SiteFooter,
+  SiteHeader,
+} from "../components/brand";
 import { acceptInvite, inviteInfo } from "../lib/api/tutor.functions";
 
 export const Route = createFileRoute("/priglashenie")({
@@ -27,6 +35,12 @@ function InvitePage() {
   // неактивное на вид действие, не понимая, чего от него хотят.
   const [consentPd, setConsentPd] = useState(false);
   const [consentChildPd, setConsentChildPd] = useState(false);
+  const [email, setEmail] = useState("");
+  const [emailRepeat, setEmailRepeat] = useState("");
+  const [password, setPassword] = useState("");
+  const [passwordRepeat, setPasswordRepeat] = useState("");
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
 
   async function check(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -45,14 +59,18 @@ function InvitePage() {
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
+    const emailsMatch = email.trim().toLowerCase() === emailRepeat.trim().toLowerCase();
+    setEmailError(emailsMatch ? null : "Адреса не совпали");
+    setPasswordError(password === passwordRepeat ? null : "Пароли не совпали");
+    if (!emailsMatch || password !== passwordRepeat) return;
     setPending(true);
     setError(null);
     try {
       await acceptInvite({
         data: {
           code,
-          email: String(form.get("email") ?? ""),
-          password: String(form.get("password") ?? ""),
+          email: email.trim(),
+          password,
           name: String(form.get("name") ?? ""),
           consentPd: form.get("consentPd") === "on",
           consentChildPd: form.get("consentChildPd") === "on",
@@ -71,12 +89,22 @@ function InvitePage() {
     <div className="sov">
       <SiteHeader right={<QuietAction to="/vhod">Войти</QuietAction>} />
       <main className="sov-narrow" style={{ paddingBottom: 80 }}>
+        {/* Ключи на ветках обязательны.
+
+            Обе ветки — фрагменты с одинаковой формой: заголовок, абзац,
+            форма, а в форме первым полем идёт input. React сверяет детей по
+            месту, поэтому после проверки кода он не заменял поле, а
+            переиспользовал то же самое: DOM-узел с набранными шестью
+            цифрами получал name="name" — и код оказывался в графе «Имя».
+            Разные ключи заставляют размонтировать первую ветку целиком. */}
         {info?.ok ? (
-          <>
-            <h1 style={{ fontSize: "2.2rem" }}>{info.childName}, {info.grade} класс</h1>
+          <Fragment key="join">
+            <h1 style={{ fontSize: "var(--sov-t-display)" }}>
+              {info.childName}, {info.grade} класс
+            </h1>
             <p style={{ marginTop: 12, color: "var(--sov-ink-soft)" }}>
-              {info.tutorName ? `${info.tutorName} приглашает вас` : "Репетитор приглашает вас"} видеть
-              занятия и домашние задания. Платить не нужно — подписку оплачивает репетитор.
+              {info.tutorName ? `${info.tutorName} приглашает вас` : "Репетитор приглашает вас"}{" "}
+              видеть занятия и домашние задания. Платить не нужно — подписку оплачивает репетитор.
             </p>
             <form className="sov-form" style={{ marginTop: 32 }} onSubmit={submit}>
               {error ? <div className="sov-alert">{error}</div> : null}
@@ -84,24 +112,45 @@ function InvitePage() {
                 <label htmlFor="name">Как к вам обращаться</label>
                 <input id="name" name="name" required autoComplete="name" />
               </div>
-              <div className="sov-field">
-                <label htmlFor="email">Электронная почта</label>
-                <input id="email" name="email" type="email" required autoComplete="email" />
-              </div>
-              <div className="sov-field">
-                <label htmlFor="password">Пароль</label>
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  required
-                  minLength={8}
-                  autoComplete="new-password"
-                />
-                <span className="sov-field__hint">
-                  Не короче 8 символов. Репетитор ваш пароль не видит.
-                </span>
-              </div>
+              <EmailPair
+                email={email}
+                repeat={emailRepeat}
+                onEmail={(v) => {
+                  setEmail(v);
+                  setEmailError(null);
+                }}
+                onRepeat={(v) => {
+                  setEmailRepeat(v);
+                  setEmailError(null);
+                }}
+                error={emailError}
+              />
+              <PasswordField
+                id="password"
+                name="password"
+                label="Пароль"
+                autoComplete="new-password"
+                minLength={8}
+                hint="Не короче 8 символов. Репетитор ваш пароль не видит."
+                value={password}
+                onChange={(v) => {
+                  setPassword(v);
+                  setPasswordError(null);
+                }}
+              />
+              <PasswordField
+                id="password2"
+                name="passwordRepeat"
+                label="Повторите пароль"
+                autoComplete="new-password"
+                minLength={8}
+                value={passwordRepeat}
+                onChange={(v) => {
+                  setPasswordRepeat(v);
+                  setPasswordError(null);
+                }}
+                error={passwordError}
+              />
               <label className="sov-check">
                 <input
                   type="checkbox"
@@ -140,8 +189,8 @@ function InvitePage() {
                 <span>
                   Я родитель или иной законный представитель и даю согласие на обработку
                   персональных данных ребёнка, включая внесённые репетитором до этого момента, —
-                  имя, класс, аватар, ответы и время занятий, фотографии работ — на условиях
-                  раздела II{" "}
+                  имя, класс, аватар, ответы и время занятий, фотографии работ — на условиях раздела
+                  II{" "}
                   <a href="/soglasie" target="_blank" rel="noreferrer">
                     Согласия
                   </a>
@@ -152,33 +201,32 @@ function InvitePage() {
                 Подключиться
               </FormAction>
             </form>
-          </>
+          </Fragment>
         ) : (
-          <>
-            <h1 style={{ fontSize: "2.2rem" }}>Код приглашения</h1>
+          <Fragment key="code">
+            <h1 style={{ fontSize: "var(--sov-t-display)" }}>Код приглашения</h1>
+            {/* Оговорку «это не код кабинета из четырёх цифр» сняли: шесть
+                пустых ячеек ниже говорят это сами, а лишнее предупреждение
+                на первом же экране скорее пугало, чем помогало. */}
             <p style={{ marginTop: 12, color: "var(--sov-ink-soft)" }}>
-              Шесть цифр, которые дал репетитор. По ним откроется профиль вашего ребёнка.
-              Это не код кабинета из четырёх цифр — тот придумывает себе сам родитель.
+              Код, который дал репетитор. По нему откроется профиль вашего ребёнка.
             </p>
             <form className="sov-form" style={{ marginTop: 32 }} onSubmit={check}>
               {error ? <div className="sov-alert">{error}</div> : null}
-              <div className="sov-field">
-                <label htmlFor="code">Код</label>
-                <input
-                  id="code"
-                  value={code}
-                  onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                  inputMode="numeric"
-                  autoComplete="off"
-                  required
-                  style={{ fontFamily: "var(--sov-mono)", letterSpacing: ".3em" }}
-                />
-              </div>
-              <FormAction pending={pending}>Проверить код</FormAction>
+              <CodeField
+                id="code"
+                label="Код"
+                value={code}
+                onChange={(next) => setCode(next.replace(/\D/g, ""))}
+              />
+              <FormAction pending={pending} disabled={code.length < 6}>
+                Проверить код
+              </FormAction>
             </form>
-          </>
+          </Fragment>
         )}
       </main>
+      <SiteFooter />
     </div>
   );
 }

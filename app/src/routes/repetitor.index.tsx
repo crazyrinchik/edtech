@@ -82,7 +82,6 @@ function TutorPage() {
           name: String(form.get("name") ?? ""),
           grade: Number(form.get("grade") ?? 1),
           avatar,
-          parentConsent: form.get("parentConsent") === "on",
         },
       });
       setAdding(false);
@@ -119,7 +118,7 @@ function TutorPage() {
 
       <main className="sov-shell" style={{ paddingBottom: 60 }}>
         <div className="sov-quest__head">
-          <h1 style={{ fontSize: "2.2rem" }}>Ученики</h1>
+          <h1 style={{ fontSize: "var(--sov-t-display)" }}>Ученики</h1>
           <button type="button" className="sov-act-child" onClick={() => setAdding((v) => !v)}>
             {adding ? "Отмена" : "Добавить ученика"}
           </button>
@@ -144,7 +143,7 @@ function TutorPage() {
         {adding ? (
           <form className="sov-panel sov-form" style={{ marginTop: 24 }} onSubmit={submitStudent}>
             <h3>Новый ученик</h3>
-            <p style={{ color: "var(--sov-ink-soft)", fontSize: ".95rem" }}>
+            <p style={{ color: "var(--sov-ink-soft)", fontSize: "var(--sov-t-cap)" }}>
               Достаточно имени и класса — заниматься можно сразу. Затем подключите родителя кодом
               приглашения: он подтвердит согласие на обработку данных и будет видеть занятия.
             </p>
@@ -157,6 +156,8 @@ function TutorPage() {
               <select id="grade" name="grade" defaultValue="1">
                 <option value="1">1 класс</option>
                 <option value="2">2 класс</option>
+                <option value="3">3 класс</option>
+                <option value="4">4 класс</option>
               </select>
             </div>
             <div className="sov-field">
@@ -178,20 +179,6 @@ function TutorPage() {
                 ))}
               </div>
             </div>
-            {/* Заверение по п. 9.5 оферты: репетитор — не законный
-                представитель, и до согласия семьи вносить данные ребёнка
-                нельзя. Настоящее согласие родитель даст в приглашении. */}
-            <label className="sov-check">
-              <input type="checkbox" name="parentConsent" required />
-              <span>
-                У меня есть согласие родителя или иного законного представителя ученика на
-                передачу «Совёнку» его имени, класса и аватара — п. 9.5{" "}
-                <a href="/oferta" target="_blank" rel="noreferrer">
-                  оферты
-                </a>
-                .
-              </span>
-            </label>
             <FormAction pending={pending}>Добавить</FormAction>
           </form>
         ) : null}
@@ -228,7 +215,8 @@ function TutorPage() {
                   <div className="sov-hw" data-status={s.assignment.status}>
                     <b>{s.assignment.title}</b>
                     <span>
-                      {s.assignment.doneCount} из {s.assignment.total} · {dueText(s.assignment.dueAt)}
+                      {s.assignment.doneCount} из {s.assignment.total} ·{" "}
+                      {dueText(s.assignment.dueAt)}
                     </span>
                   </div>
                 ) : (

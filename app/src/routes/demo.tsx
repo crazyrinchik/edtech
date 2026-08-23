@@ -41,21 +41,85 @@ function DemoPage() {
     answerRef.current?.focus();
   }, [index, verdict, done]);
 
+  /* Упавший запрос больше не притворяется пустым уроком: до этой правки
+     `.catch(() => setTasks([]))` отдавал ноль заданий, и нулевой урок —
+     первое, что видит пришедший с витрины, — открывался пустой карточкой
+     без единого слова о том, что случилось. */
+  const [loadError, setLoadError] = useState(false);
+
+  async function loadLesson() {
+    setLoadError(false);
+    setTasks(null);
+    try {
+      const data = await demoLesson();
+      setTasks(data.tasks as DemoTask[]);
+    } catch {
+      setLoadError(true);
+    }
+  }
+
   useEffect(() => {
-    demoLesson()
-      .then((data) => setTasks(data.tasks as DemoTask[]))
-      .catch(() => setTasks([]));
+    void loadLesson();
   }, []);
 
   const task = tasks?.[index] ?? null;
   useAutoSpeak(task && !verdict ? task.prompt : null, [index]);
 
-  if (!tasks) {
+  if (loadError) {
     return (
       <div className="sov sov-kid">
         <div className="sov-play">
-          <div className="sov-card">
-            <h2>Готовим задания…</h2>
+          <div className="sov-card sov-state">
+            <Owl size={84} mood="concerned" />
+            <h2>Урок не загрузился</h2>
+            <p>
+              Это сбой на нашей стороне, а не у вас. Нажмите ещё раз — обычно со второй попытки
+              открывается.
+            </p>
+            <ChildAction onClick={() => void loadLesson()}>Попробовать ещё раз</ChildAction>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!tasks) {
+    /* Скелетон повторяет форму задания: полоса прогресса, вопрос,
+       три варианта ответа. */
+    return (
+      <div className="sov sov-kid">
+        <div className="sov-play">
+          <div className="sov-play__bar" style={{ marginTop: 14 }}>
+            <Owl size={40} />
+            <span className="sov-skel" style={{ flex: 1, height: 10, borderRadius: 200 }} />
+          </div>
+          <div className="sov-card" aria-busy="true" aria-label="Готовим задания">
+            <span className="sov-skel" style={{ width: "34%", height: 12 }} />
+            <span className="sov-skel" style={{ width: "70%", height: 26, marginTop: 16 }} />
+            <div className="sov-skel-stack" style={{ marginTop: 24 }}>
+              <span className="sov-skel" style={{ height: 68 }} />
+              <span className="sov-skel" style={{ height: 68 }} />
+              <span className="sov-skel" style={{ height: 68 }} />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (tasks.length === 0) {
+    return (
+      <div className="sov sov-kid">
+        <div className="sov-play">
+          <div className="sov-card sov-state">
+            <Owl size={84} />
+            <h2>Урок пока пуст</h2>
+            <p>
+              Заданий в нулевом уроке ещё нет. Загляните в тренажёры — они открыты без аккаунта.
+            </p>
+            <Link to="/schet" className="sov-act-child" style={{ textDecoration: "none" }}>
+              К устному счёту
+            </Link>
           </div>
         </div>
       </div>
@@ -70,8 +134,8 @@ function DemoPage() {
             <Owl size={64} mood="happy" animated />
             <h2 style={{ marginTop: 16 }}>Нулевой урок пройден</h2>
             <p style={{ marginTop: 12, color: "var(--sov-ink-soft)" }}>
-              Верных ответов: {correct} из {tasks.length}. Это была короткая проба — в занятиях
-              темы идут по порядку, а ошибки разбираются так же, как здесь.
+              Верных ответов: {correct} из {tasks.length}. Это была короткая проба — в занятиях темы
+              идут по порядку, а ошибки разбираются так же, как здесь.
             </p>
             <div className="sov-save-hint">
               <strong>Сохранить результат?</strong>
@@ -185,7 +249,9 @@ function DemoPage() {
                   type="button"
                   className="sov-option"
                   disabled={pending || !!verdict}
-                  data-state={verdict && value === option ? (verdict.correct ? "right" : "wrong") : undefined}
+                  data-state={
+                    verdict && value === option ? (verdict.correct ? "right" : "wrong") : undefined
+                  }
                   onClick={() => {
                     setValue(option);
                     void check(option);

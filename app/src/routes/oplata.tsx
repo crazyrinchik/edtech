@@ -46,6 +46,16 @@ function PaymentResultPage() {
   const [state, setState] = useState<State>({ kind: "waiting" });
   const [role, setRole] = useState<string | null>(null);
   const tries = useRef(0);
+  /* Секунды ожидания — отдельным состоянием, а не из tries.current:
+     ref меняется молча и перерисовку не вызывает, а полосе нужно
+     двигаться на глазах. Тикает только пока ждём. */
+  const [waited, setWaited] = useState(0);
+
+  useEffect(() => {
+    if (state.kind !== "waiting") return;
+    const timer = window.setInterval(() => setWaited((s) => s + 1), 1000);
+    return () => window.clearInterval(timer);
+  }, [state.kind]);
 
   useEffect(() => {
     let stopped = false;
@@ -116,16 +126,41 @@ function PaymentResultPage() {
       <main className="sov-narrow" style={{ paddingBottom: 80 }}>
         {state.kind === "waiting" ? (
           <>
-            <h1 style={{ fontSize: "2rem" }}>Проверяем оплату</h1>
+            <h1 style={{ fontSize: "var(--sov-t-h1)" }}>Проверяем оплату</h1>
             <p style={{ marginTop: 14, color: "var(--sov-ink-soft)", fontWeight: 500 }}>
               Банк подтверждает платёж. Это занимает несколько секунд — не закрывайте страницу.
             </p>
+            {/* Полоса ожидания.
+
+                Здесь стояли только эти две строки, и экран с деньгами
+                выглядел застывшим: написано «не закрывайте страницу», а
+                признаков того, что что-то происходит, ноль. Через десяток
+                секунд тишины человек обновляет страницу или уходит в банк
+                смотреть, списалось ли.
+
+                Полоса честная, а не декоративная: опрос идёт раз в секунду
+                и ровно TRIES раз, после чего экран сам переходит в
+                «подтверждение задерживается». То есть заполненная полоса
+                — это буквально момент, когда сменится текст, а не
+                придуманный прогресс. Отсюда и счётчик секунд рядом: он
+                работает и с выключенными анимациями. */}
+            <div className="sov-wait" role="status" aria-live="polite">
+              <div className="sov-wait__track">
+                <div
+                  className="sov-wait__fill"
+                  style={{ width: `${Math.min(100, (waited / TRIES) * 100)}%` }}
+                />
+              </div>
+              <p className="sov-mono sov-wait__count">
+                Проверяем… {waited} с из {TRIES}
+              </p>
+            </div>
           </>
         ) : null}
 
         {state.kind === "paid" ? (
           <>
-            <h1 style={{ fontSize: "2rem" }}>Оплачено</h1>
+            <h1 style={{ fontSize: "var(--sov-t-h1)" }}>Оплачено</h1>
             <p style={{ marginTop: 14, color: "var(--sov-ink-soft)", fontWeight: 500 }}>
               {/* Точка после даты своя: ru-RU печатает «15 августа 2027 г.»,
                   и вторая точка рядом с сокращением выглядит опечаткой. */}
@@ -142,7 +177,7 @@ function PaymentResultPage() {
 
         {state.kind === "failed" ? (
           <>
-            <h1 style={{ fontSize: "2rem" }}>Платёж не прошёл</h1>
+            <h1 style={{ fontSize: "var(--sov-t-h1)" }}>Платёж не прошёл</h1>
             <p style={{ marginTop: 14, color: "var(--sov-ink-soft)", fontWeight: 500 }}>
               Деньги не списаны. Так бывает, если банк не пропустил операцию или на карте не хватило
               средств — попробуйте ещё раз или другой картой.
@@ -155,7 +190,7 @@ function PaymentResultPage() {
 
         {state.kind === "refunded" ? (
           <>
-            <h1 style={{ fontSize: "2rem" }}>Деньги возвращены</h1>
+            <h1 style={{ fontSize: "var(--sov-t-h1)" }}>Деньги возвращены</h1>
             <p style={{ marginTop: 14, color: "var(--sov-ink-soft)", fontWeight: 500 }}>
               Возврат по этому счёту проведён, подписка по нему закрыта. Деньги приходят на карту в
               срок до десяти календарных дней — так требует закон о защите прав потребителей.
@@ -168,7 +203,7 @@ function PaymentResultPage() {
 
         {state.kind === "slow" ? (
           <>
-            <h1 style={{ fontSize: "2rem" }}>Подтверждение задерживается</h1>
+            <h1 style={{ fontSize: "var(--sov-t-h1)" }}>Подтверждение задерживается</h1>
             <p style={{ marginTop: 14, color: "var(--sov-ink-soft)", fontWeight: 500 }}>
               {sboy
                 ? "Похоже, платёж не прошёл, но окончательный ответ банка ещё не пришёл. "
@@ -184,7 +219,7 @@ function PaymentResultPage() {
 
         {state.kind === "error" ? (
           <>
-            <h1 style={{ fontSize: "2rem" }}>Не получилось проверить</h1>
+            <h1 style={{ fontSize: "var(--sov-t-h1)" }}>Не получилось проверить</h1>
             <div className="sov-alert" style={{ marginTop: 18 }}>
               {state.message}
             </div>

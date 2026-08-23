@@ -1,12 +1,40 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 
-import { CHILD_AVATARS, ChildAvatar, FormAction, Owl, SiteFooter, SiteHeader } from "../components/brand";
-import { Bar, DayBars, Delta, PASS_PERCENT, Ring, Spark, WeekStrip, weekBuckets } from "../components/figures";
+import {
+  CHILD_AVATARS,
+  ChildAvatar,
+  FormAction,
+  Owl,
+  SiteFooter,
+  SiteHeader,
+} from "../components/brand";
+import {
+  Bar,
+  DayBars,
+  Delta,
+  PASS_PERCENT,
+  Ring,
+  Spark,
+  WeekStrip,
+  weekBuckets,
+} from "../components/figures";
 import { PayForm } from "../components/pay-form";
 import {
-  addChild, cancelSubscription, lockParentCabinet, logout, me, notifyConnect, notifyDisconnect,
-  notifySettings, notifyToggle, parentReport, redeemPromo, selectChild, setParentPin, unlockParentCabinet,
+  addChild,
+  cancelSubscription,
+  lockParentCabinet,
+  logout,
+  me,
+  notifyConnect,
+  notifyDisconnect,
+  notifySettings,
+  notifyToggle,
+  parentReport,
+  redeemPromo,
+  selectChild,
+  setParentPin,
+  unlockParentCabinet,
   updateChild,
 } from "../lib/api/app.functions";
 import { plural } from "../lib/shop";
@@ -17,20 +45,46 @@ export const Route = createFileRoute("/roditel")({
 });
 
 type Report = {
-  child: { id: string; name: string; grade: number; avatar: string; dailyLimitMin: number; soundOn: boolean; diagnosticsDone: boolean };
-  accuracy: number; attempts: number; weekLessons: number; weekMinutes: number;
-  topicsDone: number; topicsTotal: number; stars: number;
+  child: {
+    id: string;
+    name: string;
+    grade: number;
+    avatar: string;
+    dailyLimitMin: number;
+    soundOn: boolean;
+  };
+  accuracy: number;
+  attempts: number;
+  weekLessons: number;
+  weekMinutes: number;
+  topicsDone: number;
+  topicsTotal: number;
+  stars: number;
   risk: { topic: string; subject: string; percent: number; total: number; assigned: boolean }[];
   mastery: { topic: string; subject: string; subjectId: string; total: number; percent: number }[];
-  weekAccuracy: number | null; prevAccuracy: number | null;
+  weekAccuracy: number | null;
+  prevAccuracy: number | null;
   weekRuns: { startedAt: string; seconds: number }[];
   drillRuns: { kind: string; correct: number; total: number; score: number; createdAt: string }[];
-  history: { started_at: string; seconds: number; correct: number; total: number; topic: string; subject: string }[];
+  history: {
+    started_at: string;
+    seconds: number;
+    correct: number;
+    total: number;
+    topic: string;
+    subject: string;
+  }[];
   drills: { kind: string; runs: number; correct: number; total: number; last_at: string }[];
   subscription: string;
 };
 type Account = {
-  user: { id: string; email: string; name: string | null; role: string; subscriptionStatus: string } | null;
+  user: {
+    id: string;
+    email: string;
+    name: string | null;
+    role: string;
+    subscriptionStatus: string;
+  } | null;
   children: { id: string; name: string; grade: number; avatar: string }[];
   activeChildId: string | null;
   parentPinSet: boolean;
@@ -46,13 +100,20 @@ type Channel = {
 };
 
 const fmt = (iso: string) =>
-  new Date(iso).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  new Date(iso).toLocaleString("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
 function ParentPage() {
   const navigate = useNavigate();
   const [account, setAccount] = useState<Account | null>(null);
   const [report, setReport] = useState<Report | null>(null);
-  const [tab, setTab] = useState<"progress" | "history" | "settings" | "billing" | "notify">("progress");
+  const [tab, setTab] = useState<"progress" | "history" | "settings" | "billing" | "notify">(
+    "progress",
+  );
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -100,9 +161,15 @@ function ParentPage() {
       <SiteHeader
         right={
           <>
-            {report ? <Link to="/uchenik" className="sov-act-ghost" style={{ textDecoration: "none" }}>Занятия ребёнка</Link> : null}
+            {report ? (
+              <Link to="/uchenik" className="sov-act-ghost" style={{ textDecoration: "none" }}>
+                Занятия ребёнка
+              </Link>
+            ) : null}
             {account.user?.role === "admin" ? (
-              <Link to="/admin" className="sov-act-ghost" style={{ textDecoration: "none" }}>Админка</Link>
+              <Link to="/admin" className="sov-act-ghost" style={{ textDecoration: "none" }}>
+                Админка
+              </Link>
             ) : null}
             <button
               className="sov-act-ghost"
@@ -113,16 +180,25 @@ function ParentPage() {
             >
               Закрыть кабинет
             </button>
-            <button className="sov-act-ghost" onClick={async () => { await logout(); await navigate({ to: "/" }); }}>
+            <button
+              className="sov-act-ghost"
+              onClick={async () => {
+                await logout();
+                await navigate({ to: "/" });
+              }}
+            >
               Выйти
             </button>
           </>
         }
       />
       <main className="sov-shell" style={{ paddingBottom: 60 }}>
-        <h1 style={{ fontSize: "2rem", fontWeight: 700, marginTop: 16 }}>Кабинет родителя</h1>
+        <h1 style={{ fontSize: "var(--sov-t-h1)", fontWeight: 700, marginTop: 16 }}>
+          Кабинет родителя
+        </h1>
         <p style={{ marginTop: 10, color: "var(--sov-ink-soft)" }}>
-          {account.user?.name}, статус подписки: {account.user?.subscriptionStatus === "active" ? "активна" : "бесплатный доступ"}.
+          {account.user?.name}, статус подписки:{" "}
+          {account.user?.subscriptionStatus === "active" ? "активна" : "бесплатный доступ"}.
         </p>
 
         <div className="sov-chips">
@@ -142,7 +218,14 @@ function ParentPage() {
           ))}
         </div>
 
-        {notice ? <div className="sov-alert" style={{ marginTop: 16, background: "#e6f4ea", color: "var(--sov-ok)" }}>{notice}</div> : null}
+        {notice ? (
+          <div
+            className="sov-alert"
+            style={{ marginTop: 16, background: "#e6f4ea", color: "var(--sov-ok)" }}
+          >
+            {notice}
+          </div>
+        ) : null}
 
         {!report ? (
           <AddChildForm onAdded={load} />
@@ -152,35 +235,68 @@ function ParentPage() {
             <ReportTiles report={report} />
 
             <div className="sov-tabs">
-              {([["progress","Прогресс"],["history","История"],["notify","Напоминания"],["settings","Настройки"],["billing","Подписка"]] as const).map(([id,label]) => (
-                <button key={id} data-active={tab === id} onClick={() => setTab(id)}>{label}</button>
+              {(
+                [
+                  ["progress", "Прогресс"],
+                  ["history", "История"],
+                  ["notify", "Напоминания"],
+                  ["settings", "Настройки"],
+                  ["billing", "Подписка"],
+                ] as const
+              ).map(([id, label]) => (
+                <button key={id} data-active={tab === id} onClick={() => setTab(id)}>
+                  {label}
+                </button>
               ))}
             </div>
 
-            {tab === "progress" ? <ProgressTab report={report} onHistory={() => setTab("history")} /> : null}
+            {tab === "progress" ? (
+              <ProgressTab report={report} onHistory={() => setTab("history")} />
+            ) : null}
 
             {tab === "history" ? (
               <section style={{ marginTop: 24 }}>
-                <h2 style={{ fontSize: "1.3rem", fontWeight: 600 }}>История занятий</h2>
+                <h2 style={{ fontSize: "var(--sov-t-h3)", fontWeight: 600 }}>История занятий</h2>
                 {report.history.length === 0 ? (
-                  <p style={{ marginTop: 12, color: "var(--sov-ink-soft)" }}>Занятий пока не было.</p>
+                  <p style={{ marginTop: 12, color: "var(--sov-ink-soft)" }}>
+                    Занятий пока не было.
+                  </p>
                 ) : (
-                  <table className="sov-table">
-                    <thead>
-                      <tr><th>Дата</th><th>Предмет</th><th>Тема</th><th>Результат</th><th>Минут</th></tr>
-                    </thead>
-                    <tbody>
-                      {report.history.map((h, i) => (
-                        <tr key={i}>
-                          <td>{fmt(h.started_at)}</td>
-                          <td>{h.subject}</td>
-                          <td>{h.topic}</td>
-                          <td>{h.correct} из {h.total}</td>
-                          <td>{Math.max(1, Math.round(h.seconds / 60))}</td>
+                  /* Пять колонок и телефон.
+
+                     На 375 px таблица уезжала за правый край и тянула за
+                     собой всю страницу — горизонтальная прокрутка всего
+                     кабинета из-за одной вкладки. Обёртка со скроллом
+                     оставляет это внутри самой таблицы, а ниже 640 px
+                     строка разворачивается в карточку: подпись колонки
+                     берётся из data-label, поэтому разметка одна и
+                     заголовок с ячейкой не могут разойтись. */
+                  <div className="sov-tablewrap">
+                    <table className="sov-table sov-table--cards">
+                      <thead>
+                        <tr>
+                          <th>Дата</th>
+                          <th>Предмет</th>
+                          <th>Тема</th>
+                          <th>Результат</th>
+                          <th>Минут</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {report.history.map((h, i) => (
+                          <tr key={i}>
+                            <td data-label="Дата">{fmt(h.started_at)}</td>
+                            <td data-label="Предмет">{h.subject}</td>
+                            <td data-label="Тема">{h.topic}</td>
+                            <td data-label="Результат">
+                              {h.correct} из {h.total}
+                            </td>
+                            <td data-label="Минут">{Math.max(1, Math.round(h.seconds / 60))}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
               </section>
             ) : null}
@@ -189,7 +305,7 @@ function ParentPage() {
 
             {tab === "settings" ? (
               <section style={{ marginTop: 24, maxWidth: 520 }}>
-                <h2 style={{ fontSize: "1.3rem", fontWeight: 600 }}>Настройки занятий</h2>
+                <h2 style={{ fontSize: "var(--sov-t-h3)", fontWeight: 600 }}>Настройки занятий</h2>
                 <form
                   className="sov-form"
                   style={{ marginTop: 18 }}
@@ -211,8 +327,17 @@ function ParentPage() {
                 >
                   <div className="sov-field">
                     <label htmlFor="limit">Рекомендованное время занятия, минут</label>
-                    <input id="limit" name="limit" type="number" min={5} max={120} defaultValue={report.child.dailyLimitMin} />
-                    <span className="sov-field__hint">По достижении лимита ребёнок увидит мягкое напоминание об отдыхе.</span>
+                    <input
+                      id="limit"
+                      name="limit"
+                      type="number"
+                      min={5}
+                      max={120}
+                      defaultValue={report.child.dailyLimitMin}
+                    />
+                    <span className="sov-field__hint">
+                      По достижении лимита ребёнок увидит мягкое напоминание об отдыхе.
+                    </span>
                   </div>
                   <label className="sov-check">
                     <input type="checkbox" name="sound" defaultChecked={report.child.soundOn} />
@@ -221,8 +346,14 @@ function ParentPage() {
                   <FormAction pending={pending}>Сохранить</FormAction>
                 </form>
                 <div style={{ marginTop: 40 }}>
-                  <h2 style={{ fontSize: "1.3rem", fontWeight: 600 }}>Код родителя</h2>
-                  <p style={{ marginTop: 8, color: "var(--sov-ink-soft)", fontSize: ".95rem" }}>
+                  <h2 style={{ fontSize: "var(--sov-t-h3)", fontWeight: 600 }}>Код родителя</h2>
+                  <p
+                    style={{
+                      marginTop: 8,
+                      color: "var(--sov-ink-soft)",
+                      fontSize: "var(--sov-t-cap)",
+                    }}
+                  >
                     Четыре цифры, которые спрашивают на входе в кабинет. Занятия ребёнка кодом не
                     закрываются — он открывает их сам.
                   </p>
@@ -230,7 +361,9 @@ function ParentPage() {
                 </div>
 
                 <div style={{ marginTop: 40 }}>
-                  <h2 style={{ fontSize: "1.3rem", fontWeight: 600 }}>Добавить ещё ребёнка</h2>
+                  <h2 style={{ fontSize: "var(--sov-t-h3)", fontWeight: 600 }}>
+                    Добавить ещё ребёнка
+                  </h2>
                   <AddChildForm onAdded={load} compact />
                 </div>
               </section>
@@ -238,52 +371,60 @@ function ParentPage() {
 
             {tab === "billing" ? (
               <section style={{ marginTop: 24, maxWidth: 520 }}>
-                <h2 style={{ fontSize: "1.3rem", fontWeight: 600 }}>Подписка</h2>
+                <h2 style={{ fontSize: "var(--sov-t-h3)", fontWeight: 600 }}>Подписка</h2>
                 <p style={{ marginTop: 10, color: "var(--sov-ink-soft)" }}>
-                  Сейчас: {report.subscription === "active" ? "подписка активна, открыты все темы" : "бесплатный доступ, открыта первая тема каждого предмета"}.
+                  Сейчас:{" "}
+                  {report.subscription === "active"
+                    ? "подписка активна, открыты все темы"
+                    : "бесплатный доступ, открыта первая тема каждого предмета"}
+                  .
                 </p>
                 {report.subscription === "active" ? (
                   <>
                     {/* Продлить можно, не дожидаясь конца срока: остаток
                         оплаченного периода прибавляется к новому. */}
                     <PayForm onDone={load} />
-                    <button className="sov-act-ghost" style={{ marginTop: 28 }} onClick={async () => {
-                      await cancelSubscription();
-                      setNotice("Подписка отменена");
-                      await load();
-                    }}>
+                    <button
+                      className="sov-act-ghost"
+                      style={{ marginTop: 28 }}
+                      onClick={async () => {
+                        await cancelSubscription();
+                        setNotice("Подписка отменена");
+                        await load();
+                      }}
+                    >
                       Отменить подписку
                     </button>
                   </>
                 ) : (
                   <>
-                  <PayForm onDone={load} />
-                  <form
-                    className="sov-form"
-                    style={{ marginTop: 34 }}
-                    onSubmit={async (e) => {
-                      e.preventDefault();
-                      const code = String(new FormData(e.currentTarget).get("code") ?? "");
-                      setPending(true);
-                      try {
-                        await redeemPromo({ data: { code } });
-                        setNotice("Подписка активирована");
-                        await load();
-                      } catch (err) {
-                        setNotice(err instanceof Error ? err.message : "Не удалось активировать");
-                      }
-                      setPending(false);
-                    }}
-                  >
-                    <div className="sov-field">
-                      <label htmlFor="code">Промокод</label>
-                      <input id="code" name="code" placeholder="SOVENOK" required />
-                      <span className="sov-field__hint">
-                        Если подписку выдали промокодом, введите его здесь — платить не нужно.
-                      </span>
-                    </div>
-                    <FormAction pending={pending}>Активировать</FormAction>
-                  </form>
+                    <PayForm onDone={load} />
+                    <form
+                      className="sov-form"
+                      style={{ marginTop: 34 }}
+                      onSubmit={async (e) => {
+                        e.preventDefault();
+                        const code = String(new FormData(e.currentTarget).get("code") ?? "");
+                        setPending(true);
+                        try {
+                          await redeemPromo({ data: { code } });
+                          setNotice("Подписка активирована");
+                          await load();
+                        } catch (err) {
+                          setNotice(err instanceof Error ? err.message : "Не удалось активировать");
+                        }
+                        setPending(false);
+                      }}
+                    >
+                      <div className="sov-field">
+                        <label htmlFor="code">Промокод</label>
+                        <input id="code" name="code" placeholder="SOVENOK" required />
+                        <span className="sov-field__hint">
+                          Если подписку выдали промокодом, введите его здесь — платить не нужно.
+                        </span>
+                      </div>
+                      <FormAction pending={pending}>Активировать</FormAction>
+                    </form>
                   </>
                 )}
               </section>
@@ -385,14 +526,21 @@ function ReportTiles({ report }: { report: Report }) {
   }));
   const accuracy = report.weekAccuracy ?? report.accuracy;
   const delta =
-    report.weekAccuracy !== null && report.prevAccuracy !== null ? report.weekAccuracy - report.prevAccuracy : null;
+    report.weekAccuracy !== null && report.prevAccuracy !== null
+      ? report.weekAccuracy - report.prevAccuracy
+      : null;
 
   return (
     <div className="sov-metrics">
       <div className="sov-tile">
         <span className="sov-tile__cap">Верных за неделю</span>
         <div className="sov-tile__row">
-          <Ring value={accuracy} size={96} threshold={PASS_PERCENT} label={`${accuracy} процентов верных ответов за неделю`} />
+          <Ring
+            value={accuracy}
+            size={96}
+            threshold={PASS_PERCENT}
+            label={`${accuracy} процентов верных ответов за неделю`}
+          />
           <div>
             {delta !== null ? <Delta value={delta} /> : null}
             <div className="sov-tile__sub">
@@ -424,7 +572,9 @@ function ReportTiles({ report }: { report: Report }) {
         <span className="sov-tile__cap">Темы</span>
         <div className="sov-tile__big">
           {report.topicsDone}{" "}
-          <span style={{ color: "var(--sov-ink-soft)", fontSize: "1.4rem" }}>/ {report.topicsTotal}</span>
+          <span style={{ color: "var(--sov-ink-soft)", fontSize: "var(--sov-t-h2)" }}>
+            / {report.topicsTotal}
+          </span>
         </div>
         <div style={{ marginTop: 14 }}>
           <Bar
@@ -455,7 +605,9 @@ function ProgressTab({ report, onHistory }: { report: Report; onHistory: () => v
     report.drillRuns
       .filter((r) => r.kind === kind)
       .slice(-8)
-      .map((r) => (kind === "reading" ? r.score : r.total ? Math.round((r.correct / r.total) * 100) : 0));
+      .map((r) =>
+        kind === "reading" ? r.score : r.total ? Math.round((r.correct / r.total) * 100) : 0,
+      );
 
   return (
     <section className="sov-progress">
@@ -491,7 +643,9 @@ function ProgressTab({ report, onHistory }: { report: Report; onHistory: () => v
           <div className="sov-progress__stack">
             <div className="sov-panel">
               <div className="sov-panel__head">
-                <h3>{report.risk.length ? `Ниже порога: ${report.risk.length}` : "Всё выше порога"}</h3>
+                <h3>
+                  {report.risk.length ? `Ниже порога: ${report.risk.length}` : "Всё выше порога"}
+                </h3>
               </div>
               {report.risk.length === 0 ? (
                 <p style={{ marginTop: 12, color: "var(--sov-ink-soft)", fontWeight: 500 }}>
@@ -534,7 +688,9 @@ function ProgressTab({ report, onHistory }: { report: Report; onHistory: () => v
                 </button>
               </div>
               {report.history.length === 0 ? (
-                <p style={{ marginTop: 12, color: "var(--sov-ink-soft)", fontWeight: 500 }}>Занятий пока не было.</p>
+                <p style={{ marginTop: 12, color: "var(--sov-ink-soft)", fontWeight: 500 }}>
+                  Занятий пока не было.
+                </p>
               ) : (
                 <table className="sov-table sov-table--tight">
                   <tbody>
@@ -578,13 +734,20 @@ function ProgressTab({ report, onHistory }: { report: Report; onHistory: () => v
                 return (
                   <div key={d.kind} className="sov-panel">
                     <div className="sov-panel__head">
-                      <h3 style={{ fontSize: "1rem" }}>{DRILL_NAMES[d.kind] ?? d.kind}</h3>
+                      <h3 style={{ fontSize: "var(--sov-t-body)" }}>
+                        {DRILL_NAMES[d.kind] ?? d.kind}
+                      </h3>
                       <span className="sov-panel__note">{d.runs} заходов</span>
                     </div>
-                    <Spark points={series} label={`${DRILL_NAMES[d.kind] ?? d.kind}: последние заходы`} />
+                    <Spark
+                      points={series}
+                      label={`${DRILL_NAMES[d.kind] ?? d.kind}: последние заходы`}
+                    />
                     <div className="sov-panel__head">
                       <span className="sov-panel__note">
-                        {d.kind === "reading" ? `${series[series.length - 1] ?? 0} слов в минуту` : `верных ${percent}%`}
+                        {d.kind === "reading"
+                          ? `${series[series.length - 1] ?? 0} слов в минуту`
+                          : `верных ${percent}%`}
                       </span>
                       {change !== null ? <Delta value={change} /> : null}
                     </div>
@@ -595,15 +758,6 @@ function ProgressTab({ report, onHistory }: { report: Report; onHistory: () => v
           </div>
         </div>
       )}
-
-      {!report.child.diagnosticsDone ? (
-        <div className="sov-panel" style={{ marginTop: 20 }}>
-          <h3>Диагностика не пройдена</h3>
-          <p style={{ marginTop: 8, color: "var(--sov-ink-soft)" }}>
-            Откройте раздел занятий, чтобы ребёнок прошёл короткий стартовый тест.
-          </p>
-        </div>
-      ) : null}
     </section>
   );
 }
@@ -613,7 +767,9 @@ function AddChildForm({ onAdded, compact }: { onAdded: () => Promise<void>; comp
   const [avatar, setAvatar] = useState("owl");
   return (
     <div style={{ marginTop: compact ? 16 : 32, maxWidth: 520 }}>
-      {!compact ? <h2 style={{ fontSize: "1.3rem", fontWeight: 600 }}>Добавьте профиль ребёнка</h2> : null}
+      {!compact ? (
+        <h2 style={{ fontSize: "var(--sov-t-h3)", fontWeight: 600 }}>Добавьте профиль ребёнка</h2>
+      ) : null}
       <form
         className="sov-form"
         style={{ marginTop: 16 }}
@@ -643,6 +799,8 @@ function AddChildForm({ onAdded, compact }: { onAdded: () => Promise<void>; comp
           <select id="childgrade" name="grade" defaultValue="1">
             <option value="1">1 класс</option>
             <option value="2">2 класс</option>
+            <option value="3">3 класс</option>
+            <option value="4">4 класс</option>
           </select>
         </div>
         {/* Аватар нужен не для красоты: по нему ребёнок находит себя на экране
@@ -657,7 +815,13 @@ function AddChildForm({ onAdded, compact }: { onAdded: () => Promise<void>; comp
   );
 }
 
-export function AvatarPicker({ value, onChange }: { value: string; onChange: (id: string) => void }) {
+export function AvatarPicker({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (id: string) => void;
+}) {
   return (
     <div className="sov-avatar-pick">
       {CHILD_AVATARS.map((a) => (
@@ -714,7 +878,7 @@ function PinGate({ creating, onDone }: { creating: boolean; onDone: () => Promis
       <SiteHeader />
       <main className="sov-narrow" style={{ paddingBottom: 80 }}>
         <Owl size={64} />
-        <h1 style={{ fontSize: "2rem", fontWeight: 700, marginTop: 18 }}>
+        <h1 style={{ fontSize: "var(--sov-t-h1)", fontWeight: 700, marginTop: 18 }}>
           {creating ? "Придумайте код родителя" : "Кабинет родителя закрыт"}
         </h1>
         <p style={{ marginTop: 12, color: "var(--sov-ink-soft)" }}>
@@ -754,7 +918,9 @@ function PinGate({ creating, onDone }: { creating: boolean; onDone: () => Promis
               </span>
             </div>
           ) : null}
-          <FormAction pending={pending}>{creating ? "Сохранить код" : "Открыть кабинет"}</FormAction>
+          <FormAction pending={pending}>
+            {creating ? "Сохранить код" : "Открыть кабинет"}
+          </FormAction>
         </form>
         <div style={{ marginTop: 24 }}>
           <Link to="/uchenik" className="sov-act-ghost" style={{ textDecoration: "none" }}>
@@ -833,22 +999,22 @@ function NotifyTab({ onNotice }: { onNotice: (text: string) => void }) {
 
   return (
     <section style={{ marginTop: 24, maxWidth: 640 }}>
-      <h2 style={{ fontSize: "1.3rem", fontWeight: 600 }}>Напоминания</h2>
-      <p style={{ marginTop: 8, color: "var(--sov-ink-soft)", fontSize: ".95rem" }}>
-        Короткое сообщение после каждой проверочной работы и тренажёра: тема, доля верных ответов
-        и время. Ничего, кроме этого, бот не присылает.
+      <h2 style={{ fontSize: "var(--sov-t-h3)", fontWeight: 600 }}>Напоминания</h2>
+      <p style={{ marginTop: 8, color: "var(--sov-ink-soft)", fontSize: "var(--sov-t-cap)" }}>
+        Короткое сообщение после каждой проверочной работы и тренажёра: тема, доля верных ответов и
+        время. Ничего, кроме этого, бот не присылает.
       </p>
 
       {channels.map((ch) => (
         <div key={ch.channel} className="sov-panel" style={{ marginTop: 18 }}>
           <h3>{ch.title}</h3>
           {!ch.ready ? (
-            <p style={{ marginTop: 8, color: "var(--sov-ink-soft)", fontSize: ".95rem" }}>
+            <p style={{ marginTop: 8, color: "var(--sov-ink-soft)", fontSize: "var(--sov-t-cap)" }}>
               Канал пока не подключён на сервере: администратору нужно задать токен бота.
             </p>
           ) : ch.connected ? (
             <>
-              <p style={{ marginTop: 8, color: "var(--sov-ok)", fontSize: ".95rem" }}>
+              <p style={{ marginTop: 8, color: "var(--sov-ok)", fontSize: "var(--sov-t-cap)" }}>
                 Подключено. Сообщения {ch.enabled ? "приходят" : "поставлены на паузу"}.
               </p>
               <div style={{ marginTop: 14, display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -875,11 +1041,17 @@ function NotifyTab({ onNotice }: { onNotice: (text: string) => void }) {
             </>
           ) : ch.code ? (
             <>
-              <p style={{ marginTop: 8, color: "var(--sov-ink-soft)", fontSize: ".95rem" }}>
+              <p
+                style={{ marginTop: 8, color: "var(--sov-ink-soft)", fontSize: "var(--sov-t-cap)" }}
+              >
                 Напишите боту «Совёнок» в {ch.title} этот код:
               </p>
               <div className="sov-code">{ch.code}</div>
-              <button className="sov-act-ghost" style={{ marginTop: 14 }} onClick={() => void load()}>
+              <button
+                className="sov-act-ghost"
+                style={{ marginTop: 14 }}
+                onClick={() => void load()}
+              >
                 Я отправил код, проверить
               </button>
             </>

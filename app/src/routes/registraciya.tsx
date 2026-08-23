@@ -1,7 +1,16 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
-import { ChildAvatar, CHILD_AVATARS, FormAction, QuietAction, SiteHeader } from "../components/brand";
+import {
+  ChildAvatar,
+  CHILD_AVATARS,
+  EmailPair,
+  FormAction,
+  PasswordField,
+  QuietAction,
+  SiteFooter,
+  SiteHeader,
+} from "../components/brand";
 import { addChild, registerParent, setParentPin } from "../lib/api/app.functions";
 
 /**
@@ -41,17 +50,32 @@ function RegisterPage() {
   const [avatar, setAvatar] = useState("owl");
   const [pin, setPin] = useState("");
   const [pinRepeat, setPinRepeat] = useState("");
+  // Почта и пароль вводятся дважды и живут в состоянии: сверить их можно
+  // только имея на руках оба значения, а FormData отдаёт форму уже после
+  // отправки — то есть после того, как опечатка уехала на сервер.
+  const [email, setEmail] = useState("");
+  const [emailRepeat, setEmailRepeat] = useState("");
+  const [password, setPassword] = useState("");
+  const [passwordRepeat, setPasswordRepeat] = useState("");
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
 
   async function submitParent(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
+    // Сверка идёт до запроса: заводить аккаунт на адрес с опечаткой нельзя —
+    // письмо со сбросом пароля потом уйдёт в никуда.
+    const emailsMatch = email.trim().toLowerCase() === emailRepeat.trim().toLowerCase();
+    setEmailError(emailsMatch ? null : "Адреса не совпали");
+    setPasswordError(password === passwordRepeat ? null : "Пароли не совпали");
+    if (!emailsMatch || password !== passwordRepeat) return;
     setPending(true);
     setError(null);
     try {
       await registerParent({
         data: {
-          email: String(form.get("email") ?? ""),
-          password: String(form.get("password") ?? ""),
+          email: email.trim(),
+          password,
           name: String(form.get("name") ?? ""),
           role,
           consentPd: form.get("consentPd") === "on",
@@ -109,7 +133,15 @@ function RegisterPage() {
   return (
     <div className="sov">
       <SiteHeader right={<QuietAction to="/vhod">Войти</QuietAction>} />
-      <main className="sov-narrow" style={{ paddingBottom: 80 }}>
+      {/* Развилка ролей просит больше места, чем формы после неё: два
+          варианта рядом в колонке на 620 px давали по 260 px на карточку,
+          описание разваливалось на шесть строк, а правая половина экрана
+          при этом пустовала. Дальше по шагам колонка снова узкая — там
+          форма в один столбец, и широкая ей не нужна. */}
+      <main
+        className={step === "role" ? "sov-narrow sov-narrow--wide" : "sov-narrow"}
+        style={{ paddingBottom: 80 }}
+      >
         {/* Пришедшему с витрины по прямой ссылке счётчик врал бы: развилку он
             уже прошёл там, и «шаг 2 из 2» на единственной форме читается
             как потерянный шаг. */}
@@ -121,10 +153,10 @@ function RegisterPage() {
 
         {step === "role" ? (
           <>
-            <h1 style={{ fontSize: "2.2rem" }}>Кто вы?</h1>
+            <h1 style={{ fontSize: "var(--sov-t-display)" }}>Кто вы?</h1>
             <p style={{ marginTop: 12, color: "var(--sov-ink-soft)" }}>
-              От этого зависит, что будет дальше: репетитор заводит учеников сам,
-              родитель — своего ребёнка.
+              От этого зависит, что будет дальше: репетитор заводит учеников сам, родитель — своего
+              ребёнка.
             </p>
             <div className="sov-pick" style={{ marginTop: 30 }}>
               <button
@@ -151,8 +183,8 @@ function RegisterPage() {
               >
                 <strong>Я родитель</strong>
                 <span>
-                  Занятия ребёнка дома и кабинет с прогрессом. Если с ребёнком занимается
-                  репетитор, попросите у него код приглашения.
+                  Занятия ребёнка дома и кабинет с прогрессом. Если с ребёнком занимается репетитор,
+                  попросите у него код приглашения.
                 </span>
               </button>
             </div>
@@ -164,7 +196,7 @@ function RegisterPage() {
 
         {step === "parent" ? (
           <>
-            <h1 style={{ fontSize: "2.2rem", marginTop: 10 }}>
+            <h1 style={{ fontSize: "var(--sov-t-display)", marginTop: 10 }}>
               {role === "tutor" ? "Аккаунт репетитора" : "Аккаунт родителя"}
             </h1>
             <p style={{ marginTop: 12, color: "var(--sov-ink-soft)" }}>
@@ -178,15 +210,45 @@ function RegisterPage() {
                 <label htmlFor="name">Как к вам обращаться</label>
                 <input id="name" name="name" required autoComplete="name" />
               </div>
-              <div className="sov-field">
-                <label htmlFor="email">Электронная почта</label>
-                <input id="email" name="email" type="email" required autoComplete="email" />
-              </div>
-              <div className="sov-field">
-                <label htmlFor="password">Пароль</label>
-                <input id="password" name="password" type="password" required minLength={8} autoComplete="new-password" />
-                <span className="sov-field__hint">Не короче 8 символов.</span>
-              </div>
+              <EmailPair
+                email={email}
+                repeat={emailRepeat}
+                onEmail={(v) => {
+                  setEmail(v);
+                  setEmailError(null);
+                }}
+                onRepeat={(v) => {
+                  setEmailRepeat(v);
+                  setEmailError(null);
+                }}
+                error={emailError}
+              />
+              <PasswordField
+                id="password"
+                name="password"
+                label="Пароль"
+                autoComplete="new-password"
+                minLength={8}
+                hint="Не короче 8 символов."
+                value={password}
+                onChange={(v) => {
+                  setPassword(v);
+                  setPasswordError(null);
+                }}
+              />
+              <PasswordField
+                id="password2"
+                name="passwordRepeat"
+                label="Повторите пароль"
+                autoComplete="new-password"
+                minLength={8}
+                value={passwordRepeat}
+                onChange={(v) => {
+                  setPasswordRepeat(v);
+                  setPasswordError(null);
+                }}
+                error={passwordError}
+              />
               {/* Ссылки ведут на полные тексты: согласие по ч. 1 ст. 9 152-ФЗ
                   должно быть информированным, а акцепт оферты — привязанным к
                   её тексту. Клик по ссылке внутри label не трогает галочку:
@@ -235,7 +297,7 @@ function RegisterPage() {
 
         {step === "child" ? (
           <>
-            <h1 style={{ fontSize: "2.2rem", marginTop: 10 }}>Профиль ребёнка</h1>
+            <h1 style={{ fontSize: "var(--sov-t-display)", marginTop: 10 }}>Профиль ребёнка</h1>
             <p style={{ marginTop: 12, color: "var(--sov-ink-soft)" }}>
               Достаточно имени и класса. Почту и телефон ребёнка мы не спрашиваем.
             </p>
@@ -250,12 +312,16 @@ function RegisterPage() {
                 <select id="grade" name="grade" defaultValue="1">
                   <option value="1">1 класс</option>
                   <option value="2">2 класс</option>
+                  <option value="3">3 класс</option>
+                  <option value="4">4 класс</option>
                 </select>
               </div>
               <div className="sov-field">
                 <label htmlFor="birthYear">Год рождения, по желанию</label>
                 <input id="birthYear" name="birthYear" type="number" min={2010} max={2025} />
-                <span className="sov-field__hint">Нужен только для возрастных настроек интерфейса.</span>
+                <span className="sov-field__hint">
+                  Нужен только для возрастных настроек интерфейса.
+                </span>
               </div>
               <div className="sov-field">
                 <label>Аватар</label>
@@ -286,7 +352,7 @@ function RegisterPage() {
 
         {step === "pin" ? (
           <>
-            <h1 style={{ fontSize: "2.2rem", marginTop: 10 }}>Код родителя</h1>
+            <h1 style={{ fontSize: "var(--sov-t-display)", marginTop: 10 }}>Код родителя</h1>
             <p style={{ marginTop: 12, color: "var(--sov-ink-soft)" }}>
               Четыре цифры для входа в кабинет: отчёты, настройки и подписка. Ребёнок открывает
               занятия без кода — он нужен только взрослой части.
@@ -325,6 +391,7 @@ function RegisterPage() {
           </>
         ) : null}
       </main>
+      <SiteFooter />
     </div>
   );
 }

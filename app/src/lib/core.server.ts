@@ -3,7 +3,9 @@ import { getCookie, getRequest, setCookie } from "@tanstack/react-start/server";
 import type { D1Database } from "@cloudflare/workers-types";
 
 import { bindings } from "./bindings.server";
-import { DIAGNOSTIC, SEED_SUBJECTS, SEED_TOPICS } from "./content/seed";
+import { catalogIndex, isFreeTopic, topicByCode } from "./content/curriculum";
+import { topicTasks as catalogTasks } from "./content/practice";
+import { SEED_SUBJECTS, SEED_TOPICS } from "./content/seed";
 import { createPgGateway } from "./pg-gateway.server";
 
 export const SESSION_COOKIE = "sov_session";
@@ -424,14 +426,62 @@ export async function ensureSeeded(): Promise<void> {
   seedChecked = true;
 }
 
-/** Задания входной диагностики для класса ребёнка. */
-export function diagnosticFor(grade: number) {
-  const pick = (subject: "math" | "rus") =>
-    DIAGNOSTIC[subject].find((d) => d.grade === grade) ?? DIAGNOSTIC[subject][0];
-  return [
-    { subjectId: "math" as const, subjectName: "Математика", tasks: pick("math").tasks },
-    { subjectId: "rus" as const, subjectName: "Русский язык", tasks: pick("rus").tasks },
-  ];
+/**
+ * Тема каталога появляется в базе при первом обращении к ней.
+ *
+ * Сидить весь каталог на старте не нужно: это семьдесят девять тем и две с
+ * половиной тысячи заданий, которые в большинстве своём не понадобятся
+ * конкретной семье. Строки создаются в тот момент, когда тему открывают или
+ * задают, — тогда же они и нужны, потому что попытки ссылаются на task_id.
+ *
+ * Живёт здесь, а не в кабинете репетитора: тему открывает и ребёнок без
+ * педагога, когда идёт по карте своего класса.
+ */
+export async function materializeTopic(code: string): Promise<void> {
+  const topic = topicByCode(code);
+  if (!topic) throw new Error("Тема не найдена");
+  const existing = await db()
+    .prepare("SELECT id FROM topics WHERE id = ?")
+    .bind(code)
+    .first<{ id: string }>();
+  if (existing) return;
+
+  const tasks = catalogTasks(code);
+  await db().batch([
+    db()
+      .prepare(
+        `INSERT INTO topics (id, subject_id, grade, sort_order, name, summary, is_free)
+         VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
+      )
+      .bind(
+        code,
+        topic.subject,
+        topic.grade,
+        // Сид ложится в начало дорожки, каталог — следом за ним.
+        1000 + catalogIndex(code),
+        topic.title,
+        topic.hours ? `${topic.hours} ч по федеральной рабочей программе` : null,
+        isFreeTopic(code) ? 1 : 0,
+      ),
+    ...tasks.map((task, index) =>
+      db()
+        .prepare(
+          `INSERT INTO tasks (id, topic_id, kind, sort_order, prompt, payload, answer, explanation, is_check)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
+        )
+        .bind(
+          `${code}#${index}`,
+          code,
+          task.kind,
+          index,
+          task.prompt,
+          JSON.stringify(task.payload),
+          task.answer,
+          task.explanation,
+          task.isCheck ? 1 : 0,
+        ),
+    ),
+  ]);
 }
 
 /** Ответ сравнивается мягко: регистр, пробелы и «ё» не должны валить ребёнка. */

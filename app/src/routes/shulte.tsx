@@ -4,8 +4,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ChildAction, Owl, SiteFooter } from "../components/brand";
 import { TrainerTop } from "../components/trainers";
 import { me, saveShulteDrill } from "../lib/api/app.functions";
+import { drillSearch, pickNumber } from "../lib/drill-search";
 
 export const Route = createFileRoute("/shulte")({
+  validateSearch: (search: Record<string, unknown>) => drillSearch(search, ["size"] as const),
   head: () => ({ meta: [{ title: "Таблица Шульте, Совёнок" }] }),
   component: ShultePage,
 });
@@ -30,7 +32,9 @@ function shuffled(n: number): number[] {
  * столько об ошибке, сколько о том, что ребёнок торопится.
  */
 function ShultePage() {
-  const [size, setSize] = useState<(typeof SIZES)[number]>(3);
+  // Размер задаёт педагог — см. lib/drill-search.ts.
+  const given = Route.useSearch();
+  const [size, setSize] = useState<(typeof SIZES)[number]>(() => pickNumber(given.size, SIZES, 3));
   const [cells, setCells] = useState<number[] | null>(null);
   const [next, setNext] = useState(1);
   const [misses, setMisses] = useState(0);

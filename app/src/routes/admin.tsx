@@ -77,7 +77,7 @@ function AdminPage() {
     <div className="sov">
       <SiteHeader />
       <main className="sov-shell" style={{ paddingBottom: 80 }}>
-        <h1 style={{ fontSize: "2rem", fontWeight: 700, marginTop: 16 }}>Администрирование</h1>
+        <h1 style={{ fontSize: "var(--sov-t-h1)", fontWeight: 700, marginTop: 16 }}>Администрирование</h1>
         <div className="sov-tabs">
           {([["stats","Аналитика"],["content","Контент"],["users","Пользователи"]] as const).map(([id,label]) => (
             <button key={id} data-active={tab === id} onClick={() => setTab(id)}>{label}</button>
@@ -100,7 +100,7 @@ function AdminPage() {
             </div>
             <div className="sov-split" style={{ marginTop: 36 }}>
               <div>
-                <h2 style={{ fontSize: "1.2rem", fontWeight: 600 }}>Проблемные темы</h2>
+                <h2 style={{ fontSize: "var(--sov-t-h3)", fontWeight: 600 }}>Проблемные темы</h2>
                 <table className="sov-table">
                   <thead><tr><th>Тема</th><th>Верных</th></tr></thead>
                   <tbody>
@@ -110,7 +110,7 @@ function AdminPage() {
                 </table>
               </div>
               <div>
-                <h2 style={{ fontSize: "1.2rem", fontWeight: 600 }}>Популярные темы</h2>
+                <h2 style={{ fontSize: "var(--sov-t-h3)", fontWeight: 600 }}>Популярные темы</h2>
                 <table className="sov-table">
                   <thead><tr><th>Тема</th><th>Занятий</th></tr></thead>
                   <tbody>
@@ -127,7 +127,7 @@ function AdminPage() {
           <section style={{ marginTop: 24 }}>
             <div className="sov-split" style={{ alignItems: "start" }}>
               <div>
-                <h2 style={{ fontSize: "1.2rem", fontWeight: 600 }}>Темы</h2>
+                <h2 style={{ fontSize: "var(--sov-t-h3)", fontWeight: 600 }}>Темы</h2>
                 <table className="sov-table">
                   <thead><tr><th>Название</th><th>Класс</th><th>Заданий</th><th></th></tr></thead>
                   <tbody>
@@ -151,7 +151,7 @@ function AdminPage() {
 
                 {/* Правка существующей темы и создание новой — одна форма:
                     поля совпадают, а раздвоение кода расходится по мелочам. */}
-                <h3 style={{ fontSize: "1.05rem", fontWeight: 600, marginTop: 32 }}>
+                <h3 style={{ fontSize: "var(--sov-t-body)", fontWeight: 600, marginTop: 32 }}>
                   {editingTopic ? `Тема: ${editingTopic.name}` : "Новая тема"}
                 </h3>
                 <TopicForm
@@ -170,7 +170,7 @@ function AdminPage() {
               </div>
 
               <div>
-                <h2 style={{ fontSize: "1.2rem", fontWeight: 600 }}>
+                <h2 style={{ fontSize: "var(--sov-t-h3)", fontWeight: 600 }}>
                   {topicId ? "Задания темы" : "Выберите тему слева"}
                 </h2>
                 {topicId ? (
@@ -201,7 +201,7 @@ function AdminPage() {
 
                     {/* Раньше задание можно было только создать и удалить:
                         опечатку в объяснении приходилось «править» удалением. */}
-                    <h3 style={{ fontSize: "1.05rem", fontWeight: 600, marginTop: 32 }}>
+                    <h3 style={{ fontSize: "var(--sov-t-body)", fontWeight: 600, marginTop: 32 }}>
                       {editingTask ? "Правка задания" : "Новое задание"}
                     </h3>
                     <TaskForm

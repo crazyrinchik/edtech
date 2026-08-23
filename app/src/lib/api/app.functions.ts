@@ -1,14 +1,16 @@
 import { createServerFn } from "@tanstack/react-start";
 import type { TaskPayload } from "../content/seed";
+import { CATALOG } from "../content/curriculum.data";
+import { catalogIndex, isFreeTopic, topicByCode } from "../content/curriculum";
 import { DEMO_TASKS, READING_TEXTS } from "../content/seed";
 import { getCookie, setCookie } from "@tanstack/react-start/server";
 import { z } from "zod";
 
 import {
   answersMatch,
+  materializeTopic,
   currentUser,
   db,
-  diagnosticFor,
   endSession,
   ensureSeeded,
   hasParentPin,
@@ -118,7 +120,6 @@ export type ChildRecord = {
   birth_year: number | null;
   daily_limit_min: number;
   sound_on: number;
-  diagnostics_done: number;
   created_at: string;
 };
 
@@ -251,7 +252,7 @@ export const addChild = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
       name: z.string().trim().min(1, "Как зовут ребёнка?"),
-      grade: z.number().int().min(1).max(2),
+      grade: z.number().int().min(1).max(4),
       avatar: z.string().min(1),
       birthYear: z.number().int().min(2010).max(2025).nullable(),
     }),
@@ -304,64 +305,6 @@ export const updateChild = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-/* -------------------------------------------------------- диагностика */
-
-export const getDiagnostic = createServerFn({ method: "GET" })
-  .inputValidator(z.object({ childId: z.string() }))
-  .handler(async ({ data }) => {
-    const user = await requireUser();
-    const child = (await requireChildAccess(data.childId, user.id)) as unknown as ChildRecord;
-    const blocks = diagnosticFor(child.grade).map((block) => ({
-      subjectId: block.subjectId,
-      subjectName: block.subjectName,
-      tasks: block.tasks.map((task, i) => ({
-        id: `${block.subjectId}-d${i}`,
-        kind: task.kind,
-        prompt: task.prompt,
-        payload: task.payload,
-        explanation: task.explanation,
-      })),
-    }));
-    return { childName: child.name, grade: child.grade, blocks };
-  });
-
-export const submitDiagnostic = createServerFn({ method: "POST" })
-  .inputValidator(
-    z.object({
-      childId: z.string(),
-      answers: z.array(z.object({ id: z.string(), value: z.string() })),
-    }),
-  )
-  .handler(async ({ data }) => {
-    const user = await requireUser();
-    const child = (await requireChildAccess(data.childId, user.id)) as unknown as ChildRecord;
-    const blocks = diagnosticFor(child.grade);
-
-    const result = blocks.map((block) => {
-      let correct = 0;
-      block.tasks.forEach((task, i) => {
-        const given = data.answers.find((a) => a.id === `${block.subjectId}-d${i}`)?.value ?? "";
-        if (answersMatch(given, task.answer)) correct += 1;
-      });
-      const percent = Math.round((correct / block.tasks.length) * 100);
-      return {
-        subjectId: block.subjectId,
-        subjectName: block.subjectName,
-        correct,
-        total: block.tasks.length,
-        percent,
-        level: percent >= 80 ? "уверенный" : percent >= 50 ? "средний" : "начальный",
-      };
-    });
-
-    await db()
-      .prepare("UPDATE children SET diagnostics_done = 1 WHERE id = ?")
-      .bind(data.childId)
-      .run();
-    await track("diagnostic_done", { userId: user.id, childId: data.childId, props: result });
-    return { result };
-  });
-
 /* ------------------------------------------------------ карта навыков */
 
 export const getSkillMap = createServerFn({ method: "GET" })
@@ -382,6 +325,31 @@ export const getSkillMap = createServerFn({ method: "GET" })
       .prepare("SELECT * FROM topics WHERE grade = ? ORDER BY subject_id, sort_order")
       .bind(child.grade)
       .all<TopicRow>();
+
+    /*
+     * Каталог дописывается к тому, что уже есть в базе.
+     *
+     * В базе лежит сид (первый и второй класс) плюс темы каталога, которые
+     * кому-то уже открывали. Пока карта строилась только по базе, у ребёнка
+     * третьего и четвёртого класса она была пустой: тем его класса в сиде
+     * нет, а материализовать их было некому. Строка в базе по-прежнему
+     * заводится лениво — в момент, когда тему открывают (см. startTopic).
+     */
+    const known = new Set((topics.results ?? []).map((t) => t.id));
+    const catalogRows: TopicRow[] = CATALOG.filter(
+      (t) => t.grade === child.grade && !known.has(t.code),
+    ).map((t) => ({
+      id: t.code,
+      subject_id: t.subject,
+      grade: t.grade,
+      sort_order: 1000 + catalogIndex(t.code),
+      name: t.title,
+      summary: t.hours ? `${t.hours} ч по федеральной рабочей программе` : null,
+      is_free: isFreeTopic(t.code) ? 1 : 0,
+    }));
+    const allTopics = [...(topics.results ?? []), ...catalogRows].sort(
+      (a, b) => a.subject_id.localeCompare(b.subject_id) || a.sort_order - b.sort_order,
+    );
     const progress = await db()
       .prepare("SELECT topic_id, status, stars, best_percent FROM progress WHERE child_id = ?")
       .bind(data.childId)
@@ -399,7 +367,7 @@ export const getSkillMap = createServerFn({ method: "GET" })
     const byTopic = new Map((progress.results ?? []).map((p) => [p.topic_id, p]));
 
     const map = (subjects.results ?? []).map((subject) => {
-      const list = (topics.results ?? []).filter((t) => t.subject_id === subject.id);
+      const list = allTopics.filter((t) => t.subject_id === subject.id);
       let previousDone = true;
       let previousName = "";
       const items = list.map((topic) => {
@@ -430,7 +398,7 @@ export const getSkillMap = createServerFn({ method: "GET" })
 
     const totalStars = (progress.results ?? []).reduce((sum, p) => sum + p.stars, 0);
     return {
-      child: { id: child.id, name: child.name, avatar: child.avatar, grade: child.grade, soundOn: !!child.sound_on, dailyLimitMin: child.daily_limit_min, diagnosticsDone: !!child.diagnostics_done },
+      child: { id: child.id, name: child.name, avatar: child.avatar, grade: child.grade, soundOn: !!child.sound_on, dailyLimitMin: child.daily_limit_min },
       subjects: map,
       totalStars,
       level: Math.floor(totalStars / 5) + 1,
@@ -456,6 +424,9 @@ export const startTopic = createServerFn({ method: "GET" })
     const user = await requireUser();
     await requireChildAccess(data.childId, user.id);
 
+    // Тема каталога до первого захода в базе не существует — заводим её
+    // вместе с заданиями, иначе ребёнку третьего класса открывать нечего.
+    if (topicByCode(data.topicId)) await materializeTopic(data.topicId);
     const topic = await db().prepare("SELECT * FROM topics WHERE id = ?").bind(data.topicId).first<TopicRow>();
     if (!topic) throw new Error("Тема не найдена");
     if (!topic.is_free && !(await childHasPaidAccess(data.childId))) {
@@ -656,11 +627,19 @@ export const parentReport = createServerFn({ method: "GET" })
       .first<{ n: number; stars: number }>();
 
     // Знаменатель для «пройдено тем»: без него число растёт в пустоте и
-    // не говорит, много это или мало.
-    const topicsTotal = await db()
-      .prepare("SELECT COUNT(*) AS n FROM topics WHERE grade = ?")
+    // не говорит, много это или мало. Считается по тому же объединению
+    // базы и каталога, что и карта тем у ребёнка (см. getSkillMap): иначе
+    // «5 из 3» у третьеклассника, которому каталог ещё не материализовали.
+    const gradeTopics = await db()
+      .prepare("SELECT id FROM topics WHERE grade = ?")
       .bind(child.grade)
-      .first<{ n: number }>();
+      .all<{ id: string }>();
+    const topicsTotal = {
+      n: new Set([
+        ...(gradeTopics.results ?? []).map((r) => r.id),
+        ...CATALOG.filter((t) => t.grade === child.grade).map((t) => t.code),
+      ]).size,
+    };
 
     // Во всех GROUP BY ниже неагрегированные колонки (t.name, s.name)
     // перечислены явно: SQLite разрешает выбирать их «мимо» GROUP BY,
@@ -788,7 +767,7 @@ export const parentReport = createServerFn({ method: "GET" })
 
     const attempts = totals?.attempts ?? 0;
     return {
-      child: { id: child.id, name: child.name, grade: child.grade, avatar: child.avatar, dailyLimitMin: child.daily_limit_min, soundOn: !!child.sound_on, diagnosticsDone: !!child.diagnostics_done },
+      child: { id: child.id, name: child.name, grade: child.grade, avatar: child.avatar, dailyLimitMin: child.daily_limit_min, soundOn: !!child.sound_on },
       accuracy: attempts ? Math.round(((totals?.correct ?? 0) / attempts) * 100) : 0,
       attempts,
       weekLessons: week?.lessons ?? 0,

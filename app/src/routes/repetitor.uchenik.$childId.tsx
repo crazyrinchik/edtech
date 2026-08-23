@@ -4,6 +4,14 @@ import { useEffect, useState } from "react";
 import { ChildAvatar, QuietAction, SiteFooter, SiteHeader } from "../components/brand";
 import { SearchIcon } from "../components/icons";
 import { TRAINERS } from "../components/trainers";
+import type { DrillId, DrillSettings } from "../lib/drills";
+import {
+  defaultDrillSettings,
+  describeDrillSettings,
+  DRILL_OPTIONS,
+  isDrillId,
+  trimDrillSettings,
+} from "../lib/drills";
 import { plural } from "../lib/shop";
 import {
   cancelAssignment,
@@ -33,6 +41,12 @@ const STATUS_LABEL: Record<string, string> = {
 /** Порог зоны риска. Тот же, что в кабинете родителя и в зачёте темы. */
 const RISK_PERCENT = 70;
 
+/** Подпись настроек у выданного тренажёра: «двузначные · без таймера · 20». */
+function drillNote(id: DrillId, settings: DrillSettings | null): string {
+  const note = describeDrillSettings(id, settings);
+  return note ? ` — ${note}` : " — как обычно";
+}
+
 /** Срок по умолчанию — неделя: типичный шаг между занятиями с репетитором. */
 function defaultDue(): string {
   return new Date(Date.now() + 7 * 864e5).toISOString().slice(0, 10);
@@ -45,6 +59,9 @@ function StudentPage() {
   const [error, setError] = useState<string | null>(null);
   const [picked, setPicked] = useState<string[]>([]);
   const [drills, setDrills] = useState<string[]>([]);
+  // Настройки тренажёра живут отдельно от отметки «задан»: снятая и снова
+  // поставленная галочка не должна стирать выставленную разрядность.
+  const [drillSettings, setDrillSettings] = useState<Record<string, DrillSettings>>({});
   const [alsoFor, setAlsoFor] = useState<string[]>([]);
   const [tab, setTab] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -65,6 +82,7 @@ function StudentPage() {
   useEffect(() => {
     setPicked([]);
     setDrills([]);
+    setDrillSettings({});
     setAlsoFor([]);
     setQuery("");
     setTab(null);
@@ -92,10 +110,72 @@ function StudentPage() {
         ? t.name.toLowerCase().includes(search)
         : t.subject_id === activeTab && !riskyIds.has(t.id)),
   );
+
+  /*
+   * Свой класс — списком, чужие — под раскрывашкой.
+   *
+   * Тем в начальной школе почти восемьдесят, и вываливать их одним полем
+   * чипов бессмысленно: педагог ищет тему своего второклассника, а глаз
+   * идёт по всем четырём классам сразу. Чужой класс при этом не запрещён —
+   * добор первого и уход вперёд случаются на каждом втором занятии, — он
+   * просто вынесен за отдельную строку, чтобы это был осознанный выбор,
+   * а не случайное попадание в соседний чип.
+   */
+  const ownGrade = shownTopics.filter((t) => t.grade === data?.child.grade);
+  const otherGrades = [...new Set(shownTopics.filter((t) => t.grade !== data?.child.grade).map((t) => t.grade))]
+    .sort((a, b) => a - b)
+    .map((grade) => ({ grade, topics: shownTopics.filter((t) => t.grade === grade) }));
+  const otherCount = otherGrades.reduce((sum, g) => sum + g.topics.length, 0);
+
   const shownIds = new Set([...shownTopics.map((t) => t.id), ...risky.map((t) => t.id)]);
   const pickedElsewhere = (data?.topics ?? []).filter(
     (t) => picked.includes(t.id) && !shownIds.has(t.id),
   );
+
+  /** Чип темы. Закрытая подпиской не нажимается: сервер её всё равно не примет. */
+  const topicChip = (
+    t: NonNullable<typeof data>["topics"][number],
+    extra?: { risk?: boolean },
+  ) => (
+    <button
+      key={t.id}
+      type="button"
+      className="sov-chip"
+      data-risk={extra?.risk ? "true" : undefined}
+      data-active={picked.includes(t.id)}
+      disabled={t.locked}
+      title={t.locked ? "Тема откроется ученику с подпиской" : undefined}
+      onClick={() => toggleTopic(t.id)}
+    >
+      {t.name}
+      {extra?.risk ? (
+        <em style={{ fontStyle: "normal", opacity: 0.75 }}> · {t.percent}%</em>
+      ) : (
+        <em style={{ fontStyle: "normal", opacity: 0.6 }}> · {t.grade} кл.</em>
+      )}
+      {t.locked ? <em style={{ fontStyle: "normal", opacity: 0.75 }}> · по подписке</em> : null}
+      {!t.locked && t.status === "completed" ? " ✓" : ""}
+    </button>
+  );
+
+  const drillSettingsFor = (id: string): DrillSettings =>
+    drillSettings[id] ?? defaultDrillSettings(id as DrillId);
+
+  /** Одно значение настройки: у одиночного оно заменяется, у списочного копится. */
+  function setDrillValue(id: string, key: string, value: string, multi: boolean) {
+    setDrillSettings((prev) => {
+      const current = prev[id] ?? defaultDrillSettings(id as DrillId);
+      if (!multi) return { ...prev, [id]: { ...current, [key]: value } };
+      const chosen = (current[key] ?? "").split(",").filter(Boolean);
+      const next = chosen.includes(value)
+        ? chosen.filter((v) => v !== value)
+        : [...chosen, value];
+      // Пустой список сломал бы тренажёр: без единого действия считать
+      // нечего, и он просто не запустится. Последнюю галочку не снимаем.
+      if (next.length === 0) return prev;
+      return { ...prev, [id]: { ...current, [key]: next.join(",") } };
+    });
+  }
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -115,7 +195,12 @@ function StudentPage() {
               refId: id,
               targetPercent: Number(form.get("target") ?? 70),
             })),
-            ...drills.map((kind) => ({ kind: "drill" as const, refId: kind, targetPercent: 0 })),
+            ...drills.map((kind) => ({
+              kind: "drill" as const,
+              refId: kind,
+              targetPercent: 0,
+              settings: trimDrillSettings(kind as DrillId, drillSettingsFor(kind)),
+            })),
           ],
         },
       });
@@ -159,7 +244,7 @@ function StudentPage() {
         <div className="sov-student__title">
           <ChildAvatar avatar={data.child.avatar} size={56} />
           <div>
-            <h1 style={{ fontSize: "2rem" }}>{data.child.name}</h1>
+            <h1 style={{ fontSize: "var(--sov-t-h1)" }}>{data.child.name}</h1>
             <p style={{ color: "var(--sov-ink-soft)", fontWeight: 600 }}>
               {data.child.grade} класс ·{" "}
               {data.child.parentLinked ? "родитель подключён" : "родитель не подключён"}
@@ -177,8 +262,9 @@ function StudentPage() {
           <div className="sov-save-hint" style={{ marginTop: 22 }}>
             <strong>Ученику открыты не все темы</strong>
             <span>
-              Пока подписка не активна, доступна первая тема каждого предмета. Задать можно любую,
-              но ребёнок откроет только доступные.
+              Пока подписка не активна, задать можно первую тему каждого предмета и любой
+              тренажёр. Остальные темы в форме ниже погашены: задать закрытую тему нельзя —
+              ребёнок упёрся бы в неё, ничего не поняв.
             </span>
           </div>
         ) : null}
@@ -188,7 +274,7 @@ function StudentPage() {
         <CustomForm childId={childId} onDone={load} />
 
         <section style={{ marginTop: 34 }}>
-          <h2 style={{ fontSize: "1.5rem" }}>Домашняя работа</h2>
+          <h2 style={{ fontSize: "var(--sov-t-h2)" }}>Домашняя работа</h2>
           {data.assignments.length === 0 ? (
             <p style={{ marginTop: 10, color: "var(--sov-ink-soft)", fontWeight: 500 }}>
               Пока ничего не задано.
@@ -215,6 +301,12 @@ function StudentPage() {
                               ? " — не начато"
                               : ` — ${item.bestPercent}% из ${item.targetPercent}%`}
                           </em>
+                        ) : null}
+                        {/* С какими настройками задали тренажёр: без этой
+                            строки выданное «двузначные без таймера» нигде
+                            больше не видно — ни педагогу, ни родителю. */}
+                        {item.kind === "drill" && isDrillId(item.refId) ? (
+                          <em>{drillNote(item.refId, item.settings ?? null)}</em>
                         ) : null}
                         {item.kind === "custom" ? (
                           <CustomAnswer item={item} onDone={load} />
@@ -261,40 +353,29 @@ function StudentPage() {
                 Темы, где верных меньше {RISK_PERCENT}%. Считается по всем ответам, а не по
                 последнему занятию.
               </span>
-              <div className="sov-chips">
-                {risky.map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    className="sov-chip"
-                    data-risk="true"
-                    data-active={picked.includes(t.id)}
-                    onClick={() => toggleTopic(t.id)}
-                  >
-                    {t.name}
-                    <em style={{ fontStyle: "normal", opacity: 0.75 }}> · {t.percent}%</em>
-                  </button>
-                ))}
-              </div>
+              <div className="sov-chips">{risky.map((t) => topicChip(t, { risk: true }))}</div>
             </div>
           ) : null}
 
           <div className="sov-field">
             <label>Темы</label>
             <span className="sov-field__hint">
-              Доступны темы обоих классов: программу выбираете вы, а не поле в профиле ученика.
-              Весь список с заданиями — в разделе «Темы и задания».
+              Здесь вся программа начальной школы — тот же список, что в разделе «Темы и
+              задания». Сначала класс ученика, соседние классы под отдельной строкой.
             </span>
 
-            {/* Вкладка на предмет и поиск. Двадцать два чипа первого класса
-                плюс второй — это стена, по которой глаз идёт медленнее, чем
-                пальцы набирают «вычит». */}
+            {/* Вкладка на предмет и поиск: сорок тем предмета — это стена,
+                по которой глаз идёт медленнее, чем пальцы набирают «вычит».
+
+                Активная вкладка — activeTab, а не tab: до первого щелчка tab
+                пуст, и подчёркнутой не выглядела ни одна, хотя список уже
+                показывал первый предмет. */}
             <div className="sov-tabs sov-tabs--inline">
               {data.subjects.map((subject) => (
                 <button
                   key={subject.id}
                   type="button"
-                  data-active={tab === subject.id}
+                  data-active={activeTab === subject.id}
                   onClick={() => setTab(subject.id)}
                 >
                   {subject.name}
@@ -314,19 +395,7 @@ function StudentPage() {
             </label>
 
             <div className="sov-chips">
-              {shownTopics.map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  className="sov-chip"
-                  data-active={picked.includes(t.id)}
-                  onClick={() => toggleTopic(t.id)}
-                >
-                  {t.name}
-                  <em style={{ fontStyle: "normal", opacity: 0.6 }}> · {t.grade} кл.</em>
-                  {t.status === "completed" ? " ✓" : ""}
-                </button>
-              ))}
+              {ownGrade.map((t) => topicChip(t))}
               {/* Пустой список — это два разных случая, и валить их в одну
                   подпись нельзя: «ничего не нашлось по запросу «»» на чистой
                   базе выглядит поломкой, а не ответом. */}
@@ -336,8 +405,30 @@ function StudentPage() {
                     ? `Ничего не нашлось по запросу «${query}».`
                     : "Тем пока нет — учебный контент создаётся при первом обращении к приложению."}
                 </span>
+              ) : ownGrade.length === 0 ? (
+                <span className="sov-field__hint">
+                  В {data.child.grade} классе по этому предмету подходящих тем нет — смотрите
+                  соседние классы ниже.
+                </span>
               ) : null}
             </div>
+
+            {otherCount > 0 ? (
+              <details className="sov-grades" open={!!search}>
+                <summary>
+                  Темы других классов: {otherCount}
+                  <em>
+                    добор пройденного и работа на опережение — задаются так же, как свои
+                  </em>
+                </summary>
+                {otherGrades.map((group) => (
+                  <div key={group.grade} className="sov-grades__block">
+                    <span className="sov-grades__label">{group.grade} класс</span>
+                    <div className="sov-chips">{group.topics.map((t) => topicChip(t))}</div>
+                  </div>
+                ))}
+              </details>
+            ) : null}
 
             {/* Выбранное из других вкладок не должно исчезать из виду:
                 иначе педагог отмечает математику, переключается на русский
@@ -349,6 +440,13 @@ function StudentPage() {
             ) : null}
           </div>
 
+          {/* Тренажёр задаётся со своими настройками.
+
+              Раньше уезжал только сам тренажёр, а «поставь двузначные и
+              убери таймер» педагог передавал ребёнку словами — то есть не
+              передавал. Настройки те же самые, что на экране самого
+              тренажёра, и раскрываются они только у отмеченного: пять
+              развёрнутых наборов сразу превратили бы форму в стену. */}
           <div className="sov-field">
             <label>Тренажёры</label>
             <div className="sov-chips">
@@ -368,6 +466,35 @@ function StudentPage() {
                 </button>
               ))}
             </div>
+
+            {TRAINERS.filter((d) => drills.includes(d.id)).map((d) => (
+              <div key={d.id} className="sov-drill-setup">
+                <strong className="sov-drill-setup__name">{d.title}</strong>
+                {DRILL_OPTIONS[d.id].map((option) => {
+                  const chosen = (drillSettingsFor(d.id)[option.key] ?? "").split(",");
+                  return (
+                    <div key={option.key} className="sov-drill-setup__row">
+                      <span className="sov-drill-setup__label">{option.label}</span>
+                      <div className="sov-chips">
+                        {option.values.map((value) => (
+                          <button
+                            key={value.value}
+                            type="button"
+                            className="sov-chip"
+                            data-active={chosen.includes(value.value)}
+                            onClick={() =>
+                              setDrillValue(d.id, option.key, value.value, option.multi)
+                            }
+                          >
+                            {value.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
           </div>
 
           <div className="sov-field">
@@ -441,7 +568,7 @@ function StudentPage() {
         </form>
 
         <section style={{ marginTop: 34 }}>
-          <h2 style={{ fontSize: "1.5rem" }}>Последние занятия</h2>
+          <h2 style={{ fontSize: "var(--sov-t-h2)" }}>Последние занятия</h2>
           {data.lessons.length === 0 ? (
             <p style={{ marginTop: 10, color: "var(--sov-ink-soft)", fontWeight: 500 }}>
               Занятий пока не было.
@@ -536,7 +663,7 @@ function CustomForm({ childId, onDone }: { childId: string; onDone: () => Promis
       }}
     >
       <h3>Своё задание</h3>
-      <p style={{ color: "var(--sov-ink-soft)", fontSize: ".95rem" }}>
+      <p style={{ color: "var(--sov-ink-soft)", fontSize: "var(--sov-t-cap)" }}>
         Ученик увидит его в домашке и ответит текстом, а вы поставите оценку. Платформа такие
         задания не проверяет.
       </p>

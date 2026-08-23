@@ -886,6 +886,66 @@ export const SPELLING_RULES: SpellingRule[] = [
   },
 ];
 
+/*
+ * Правила, собранные по темам.
+ *
+ * Тринадцать правил в один ряд на стартовом экране превращались в стену
+ * залитых пилюль: по умолчанию отмечены все, а синий в системе значит
+ * «выбрано», и когда выбрано всё, цвет перестаёт что-либо значить. На
+ * телефоне эта стена занимала полтора экрана и отодвигала кнопку «Начать»
+ * примерно на две прокрутки.
+ *
+ * Темы — не украшение группировки, а то, как правила лежат в голове у
+ * ребёнка и в оглавлении учебника: что писать в корне, какие есть
+ * устойчивые сочетания и знаки, и что пишется слитно, а что раздельно.
+ * Порядок групп — от того, что проходят раньше, к тому, что позже.
+ *
+ * Список правил внутри групп должен покрывать SPELLING_RULES целиком:
+ * проверка ниже падает на сборке, если правило забыли отнести к теме.
+ */
+export type SpellingGroup = {
+  id: string;
+  title: string;
+  ruleIds: string[];
+};
+
+export const SPELLING_GROUPS: SpellingGroup[] = [
+  {
+    id: "koren",
+    title: "Буквы в корне",
+    ruleIds: ["bezudar", "parnye", "neproiz", "udvoennye", "slovarnye"],
+  },
+  {
+    id: "sochetaniya",
+    title: "Сочетания и знаки",
+    ruleIds: ["zhishi", "chkchn", "shipyashie", "razdel"],
+  },
+  {
+    id: "slitno",
+    title: "Слитно, раздельно, с большой буквы",
+    ruleIds: ["bolshaya", "pristavka", "neglagol", "tsya"],
+  },
+];
+
+{
+  const grouped = SPELLING_GROUPS.flatMap((g) => g.ruleIds);
+  const missing = SPELLING_RULES.filter((r) => !grouped.includes(r.id)).map((r) => r.id);
+  const unknown = grouped.filter((id) => !SPELLING_RULES.some((r) => r.id === id));
+  if (missing.length || unknown.length) {
+    throw new Error(
+      `SPELLING_GROUPS разошлись с SPELLING_RULES: без темы ${missing.join(", ") || "нет"}; ` +
+        `несуществующие ${unknown.join(", ") || "нет"}`,
+    );
+  }
+}
+
+/** Правила темы в том порядке, в каком они лежат в SPELLING_RULES. */
+export function groupRules(group: SpellingGroup): SpellingRule[] {
+  return group.ruleIds
+    .map((id) => SPELLING_RULES.find((r) => r.id === id))
+    .filter((r): r is SpellingRule => Boolean(r));
+}
+
 /** Правило по коду: нужно и на экране разбора, и в итогах. */
 export function spellingRule(id: string): SpellingRule | undefined {
   return SPELLING_RULES.find((r) => r.id === id);

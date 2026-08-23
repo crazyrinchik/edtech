@@ -1,7 +1,10 @@
 import { Link } from "@tanstack/react-router";
+import { OTPInput } from "input-otp";
 import type { ReactNode } from "react";
+import { useState } from "react";
 
 import { AvatarFace } from "./avatars";
+import { EyeIcon } from "./icons";
 import { Owl as Mascot } from "./mascot";
 
 export { currentOwlItem, ForestScene, NightSky, OWL_UNLOCKS, owlStage } from "./mascot";
@@ -29,14 +32,21 @@ export function Owl({
   animated?: boolean;
 }) {
   return (
-    <Mascot size={size} className={className} stage={stage} mood={mood} item={item} animated={animated} />
+    <Mascot
+      size={size}
+      className={className}
+      stage={stage}
+      mood={mood}
+      item={item}
+      animated={animated}
+    />
   );
 }
 
 export function Wordmark({ compact = false }: { compact?: boolean }) {
   return (
     <Link to="/" className="sov-wordmark" aria-label="Совёнок, на главную">
-      <Owl size={compact ? 30 : 36} />
+      <Owl size={compact ? 38 : 46} />
       <span>Совёнок</span>
     </Link>
   );
@@ -58,7 +68,14 @@ export function StartAction({
       <span className="sov-act-start__label">{children}</span>
       <span className="sov-act-start__arrow" aria-hidden="true">
         <svg viewBox="0 0 20 20" width="18" height="18">
-          <path d="M3 10h13M11 5l5 5-5 5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <path
+            d="M3 10h13M11 5l5 5-5 5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
         </svg>
       </span>
     </Link>
@@ -96,6 +113,198 @@ export function ChildAction({
     <button type={type} onClick={onClick} disabled={disabled} className="sov-act-child">
       {children}
     </button>
+  );
+}
+
+/**
+ * Поле пароля с глазком.
+ *
+ * Пароль на регистрации требуют не короче восьми символов, а вводят его с
+ * планшета одним пальцем — и ошибаются молча, потому что на экране точки.
+ * Глазок показывает набранное, пока кнопку держат нажатой в состоянии
+ * «видно»; тип поля меняется, а не значение, поэтому автозаполнение и
+ * менеджеры паролей продолжают работать.
+ *
+ * Поле работает и без value/onChange: на входе форма читается через
+ * FormData, и заводить состояние ради одной строки там незачем.
+ */
+export function PasswordField({
+  id,
+  name,
+  label,
+  autoComplete,
+  minLength,
+  hint,
+  value,
+  onChange,
+  error,
+}: {
+  id: string;
+  name: string;
+  label: string;
+  autoComplete: string;
+  minLength?: number;
+  hint?: ReactNode;
+  value?: string;
+  onChange?: (value: string) => void;
+  error?: string | null;
+}) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <div className="sov-field">
+      <label htmlFor={id}>{label}</label>
+      <div className="sov-secret">
+        <input
+          id={id}
+          name={name}
+          type={visible ? "text" : "password"}
+          required
+          minLength={minLength}
+          autoComplete={autoComplete}
+          aria-invalid={error ? true : undefined}
+          {...(onChange
+            ? {
+                value: value ?? "",
+                onChange: (e: React.ChangeEvent<HTMLInputElement>) => onChange(e.target.value),
+              }
+            : {})}
+        />
+        <button
+          type="button"
+          className="sov-secret__eye"
+          aria-pressed={visible}
+          aria-label={visible ? "Скрыть пароль" : "Показать пароль"}
+          title={visible ? "Скрыть пароль" : "Показать пароль"}
+          onClick={() => setVisible((v) => !v)}
+        >
+          <EyeIcon size={20} off={!visible} />
+        </button>
+      </div>
+      {error ? <span className="sov-field__error">{error}</span> : null}
+      {hint ? <span className="sov-field__hint">{hint}</span> : null}
+    </div>
+  );
+}
+
+/**
+ * Код приглашения: шесть ячеек вместо одного поля.
+ *
+ * Раньше это была обычная строка ввода с моноширинным шрифтом и разрядкой,
+ * а сколько цифр вводить, объяснял абзац сверху — да ещё и оговаривался,
+ * что это не тот код из четырёх цифр, который родитель придумывает себе
+ * сам. Шесть пустых ячеек говорят и то и другое молча: видно, сколько
+ * цифр ждут, видно, сколько уже набрано, и перепутать с четырёхзначным
+ * невозможно.
+ *
+ * Взята сама библиотека input-otp, а не готовый компонент из
+ * components/ui: тот раскрашен классами Tailwind чужой тёмной темы
+ * (border-input, ring-ring, bg-foreground), и на бумаге Совёнка выглядел
+ * бы деталью из другого продукта. Поведение — вставку из буфера целиком,
+ * стрелки, backspace через границы ячеек, цифровую клавиатуру на
+ * телефоне — библиотека даёт сама.
+ */
+export function CodeField({
+  id,
+  label,
+  length = 6,
+  value,
+  onChange,
+  hint,
+  error,
+}: {
+  id: string;
+  label: string;
+  length?: number;
+  value: string;
+  onChange: (value: string) => void;
+  hint?: ReactNode;
+  error?: string | null;
+}) {
+  return (
+    <div className="sov-field">
+      <label htmlFor={id}>{label}</label>
+      <OTPInput
+        id={id}
+        value={value}
+        onChange={onChange}
+        maxLength={length}
+        inputMode="numeric"
+        pattern="[0-9]*"
+        autoComplete="one-time-code"
+        aria-invalid={error ? true : undefined}
+        containerClassName="sov-otp"
+        render={({ slots }) => (
+          <>
+            {slots.map((slot, i) => (
+              <div
+                key={i}
+                className="sov-otp__cell"
+                data-filled={slot.char ? "true" : undefined}
+                data-active={slot.isActive ? "true" : undefined}
+              >
+                {slot.char ?? ""}
+              </div>
+            ))}
+          </>
+        )}
+      />
+      {error ? <span className="sov-field__error">{error}</span> : null}
+      {hint ? <span className="sov-field__hint">{hint}</span> : null}
+    </div>
+  );
+}
+
+/**
+ * Почта и её повтор.
+ *
+ * Опечатка в почте на регистрации стоит дорого: письмо со сбросом пароля
+ * уходит в никуда, а человек уверен, что адрес верный. Второе поле ловит
+ * это на месте — ошибка показывается под ним, а не после отправки формы.
+ * Вставку из буфера во второе поле не блокируем: проверку это ослабляет,
+ * но заставлять набирать длинный адрес руками на планшете хуже.
+ */
+export function EmailPair({
+  email,
+  repeat,
+  onEmail,
+  onRepeat,
+  error,
+}: {
+  email: string;
+  repeat: string;
+  onEmail: (value: string) => void;
+  onRepeat: (value: string) => void;
+  error?: string | null;
+}) {
+  return (
+    <>
+      <div className="sov-field">
+        <label htmlFor="email">Электронная почта</label>
+        <input
+          id="email"
+          name="email"
+          type="email"
+          required
+          autoComplete="email"
+          value={email}
+          onChange={(e) => onEmail(e.target.value)}
+        />
+      </div>
+      <div className="sov-field">
+        <label htmlFor="email2">Повторите почту</label>
+        <input
+          id="email2"
+          name="emailRepeat"
+          type="email"
+          required
+          autoComplete="off"
+          aria-invalid={error ? true : undefined}
+          value={repeat}
+          onChange={(e) => onRepeat(e.target.value)}
+        />
+        {error ? <span className="sov-field__error">{error}</span> : null}
+      </div>
+    </>
   );
 }
 
@@ -189,10 +398,11 @@ export function SiteFooter() {
     <footer className="sov-footer">
       <div>
         <Owl size={28} />
-        <p>Совёнок, тренажёр по школьной программе для 1 и 2 класса.</p>
+        <p>Совёнок, тренажёр по школьной программе с 1 по 4 класс.</p>
       </div>
       <p className="sov-footer__legal">
-        Данные детей обрабатываются по 152-ФЗ. Ребёнок не указывает почту и телефон, только имя и аватар.
+        Данные детей обрабатываются по 152-ФЗ. Ребёнок не указывает почту и телефон, только имя и
+        аватар.
       </p>
       {/* Обычные <a>, а не Link: юридические страницы должны открываться и
           из подвала любой страницы, и по прямому адресу — SSR им хватает. */}

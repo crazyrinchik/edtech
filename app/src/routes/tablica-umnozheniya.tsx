@@ -1,10 +1,11 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 
-import { ChildAction, Owl } from "../components/brand";
+import { ChildAction, Owl, SiteFooter } from "../components/brand";
 import { SpeakButton } from "../components/speak";
 import { TrainerTop } from "../components/trainers";
 import { me, saveTableDrill } from "../lib/api/app.functions";
+import { drillSearch, pickMany, pickNumber, pickOne } from "../lib/drill-search";
 import { useEnterAction } from "../lib/keys";
 
 export const Route = createFileRoute("/tablica-umnozheniya")({
@@ -18,6 +19,8 @@ export const Route = createFileRoute("/tablica-umnozheniya")({
       },
     ],
   }),
+  validateSearch: (search: Record<string, unknown>) =>
+    drillSearch(search, ["level", "dirs", "count"] as const),
   component: TablePage,
 });
 
@@ -128,10 +131,16 @@ function makeQuestion(level: Level, directions: Direction[]): Question {
  */
 function TablePage() {
   const navigate = useNavigate();
+  // Настройки задания приезжают в адресе — см. lib/drill-search.ts.
+  const given = Route.useSearch();
   const [stage, setStage] = useState<"setup" | "play" | "done">("setup");
-  const [level, setLevel] = useState<Level>("hundred");
-  const [directions, setDirections] = useState<Direction[]>(["mul", "div"]);
-  const [count, setCount] = useState(10);
+  const [level, setLevel] = useState<Level>(() =>
+    pickOne(given.level, ["ten", "hundred", "beyond"] as const, "hundred"),
+  );
+  const [directions, setDirections] = useState<Direction[]>(() =>
+    pickMany(given.dirs, ["mul", "div", "factor"] as const, ["mul", "div"]),
+  );
+  const [count, setCount] = useState(() => pickNumber(given.count, COUNTS, 10));
 
   const [question, setQuestion] = useState<Question | null>(null);
   const [index, setIndex] = useState(0);
@@ -187,7 +196,6 @@ function TablePage() {
     }
     setVerdict({ ok, answer: question.answer });
   }
-
 
   /* Enter после ответа значит «дальше»: рука уже на клавише, а поле
      выключено (см. lib/keys.ts). */
@@ -309,6 +317,7 @@ function TablePage() {
               нужной клетке. На стартовом экране она отвечала на вопрос,
               которого ребёнок ещё не задал, и отодвигала кнопку «Начать». */}
         </div>
+        <SiteFooter />
       </div>
     );
   }

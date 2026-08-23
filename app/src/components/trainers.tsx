@@ -71,21 +71,37 @@ export const TRAINERS = [
  * Полных названий пять, в строку они не встают, поэтому соседи подписаны
  * коротко — «Умножение», «Правописание». Ссылка на занятия стоит последней:
  * из тренажёра выходят реже, чем переходят в соседний.
+ *
+ * Текущий тренажёр из списка больше не выпадает. Пока он выкидывался,
+ * соседи занимали его место, и на каждом экране список был свой: пункт
+ * с одним и тем же названием стоял то вторым, то третьим, то нигде.
+ * Ребёнок не может опереться на «нажать туда же, где было», если «там же»
+ * каждый раз другое. Пять пунктов, постоянный порядок, текущий помечен
+ * aria-current — экранный диктор скажет «текущая страница», а глаз
+ * увидит подчёркивание. На узком экране строка прокручивается вбок
+ * (см. .sov-trainer-nav в brand.css), а не переносится: перенос давал
+ * шапку в полтора раза выше самого задания.
  */
 export function TrainerTop({ current }: { current: TrainerId }) {
   return (
     <div className="sov-demo__top">
       <Wordmark compact />
-      <div className="sov-trainer-nav">
-        {TRAINERS.filter((t) => t.id !== current).map((t) => (
-          <Link key={t.id} to={t.to} className="sov-act-ghost" style={{ textDecoration: "none" }}>
+      <nav className="sov-trainer-nav" aria-label="Тренажёры">
+        {TRAINERS.map((t) => (
+          <Link
+            key={t.id}
+            to={t.to}
+            className="sov-act-ghost"
+            style={{ textDecoration: "none" }}
+            aria-current={t.id === current ? "page" : undefined}
+          >
             {SHORT[t.id]}
           </Link>
         ))}
         <Link to="/uchenik" className="sov-act-ghost" style={{ textDecoration: "none" }}>
           Занятия
         </Link>
-      </div>
+      </nav>
     </div>
   );
 }
