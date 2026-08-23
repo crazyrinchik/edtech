@@ -67,6 +67,13 @@ function parse(source: string): Block[] {
       list.push(line.slice(2));
       continue;
     }
+    // Продолжение пункта списка. Длинные пункты в исходнике переносятся с
+    // отступом в два пробела, и без этой ветки хвост уезжал отдельным
+    // абзацем: в реквизитах оферты адрес разрывался посреди улицы.
+    if (list.length && line.startsWith("  ")) {
+      list[list.length - 1] += ` ${line.trim()}`;
+      continue;
+    }
     if (list.length) flush();
 
     if (line.startsWith("### ")) {
