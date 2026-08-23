@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 
 import { FormAction, QuietAction, SiteFooter, SiteHeader } from "../components/brand";
 import { PayForm } from "../components/pay-form";
+import { plural } from "../lib/shop";
 import { me } from "../lib/api/app.functions";
 import {
   tutorCancelSubscription,
@@ -89,7 +90,7 @@ function TutorBillingPage() {
               </div>
               <div className="sov-metric">
                 <b>{data.students}</b>
-                <span>учеников в кабинете</span>
+                <span>{plural(data.students, "ученик", "ученика", "учеников")} в кабинете</span>
               </div>
               <div className="sov-metric">
                 <b>{data.until ? DATE.format(new Date(data.until)) : "—"}</b>

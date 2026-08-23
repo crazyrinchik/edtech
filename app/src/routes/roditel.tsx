@@ -510,7 +510,7 @@ function ProgressTab({ report, onHistory }: { report: Report; onHistory: () => v
                       <div>
                         <strong>{r.topic}</strong>
                         <span>
-                          {r.subject} · {r.total} заданий
+                          {r.subject} · {r.total} {plural(r.total, "задание", "задания", "заданий")}
                         </span>
                       </div>
                       {/* Чья это забота. Процент без ответа на этот вопрос

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { QuietAction, SiteFooter, SiteHeader } from "../components/brand";
 import { me } from "../lib/api/app.functions";
 import { assignTopic, curriculum, programs, topicTasks } from "../lib/api/tutor.functions";
+import { plural } from "../lib/shop";
 
 export const Route = createFileRoute("/repetitor/temy")({
   head: () => ({ meta: [{ title: "Темы и задания, Совёнок" }] }),
@@ -210,7 +211,8 @@ function CurriculumPage() {
                 <header className="sov-quest__head">
                   <h2>{subject.name}</h2>
                   <span className="sov-quest__count">
-                    {subject.topics.length} тем · {subject.topics.length * 30} заданий
+                    {subject.topics.length} {plural(subject.topics.length, "тема", "темы", "тем")} ·{" "}
+                    {subject.topics.length * 30} заданий
                   </span>
                 </header>
 
