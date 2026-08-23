@@ -10,16 +10,11 @@
 @source "../packages/quanta/src";
 @import "@higgsfield/quanta/tailwind.css";
 
-/* New in-app Quanta-style components (moved out of the quanta package). Their
- * CSS uses Tailwind v4 @utility/@source, so it must load through this tailwind
- * entry. Ordering mirrors quanta's components.css (composer after button;
- * media-card + generation-card after media). */
-@import "./components/composer/composer.css";
-@import "./components/media-card/media-card.css";
-@import "./components/generation-card/generation-card.css";
-@import "./components/setting-trigger/setting-trigger.css";
-@import "./components/prompt-box/prompt-box.css";
-@import "./components/icon-tile/icon-tile.css";
+/* Здесь подключались стили шаблонных компонентов Higgsfield — composer,
+ * media-card, generation-card, setting-trigger, prompt-box, icon-tile.
+ * Сами компоненты удалены вместе с src/layouts и остальным шаблоном:
+ * ни один маршрут Совёнка их не импортировал, а тёмная тема из них
+ * подтекала на экраны, до которых не дотягивался .sov. */
 
 @import "tw-animate-css";
 
