@@ -46,15 +46,16 @@ type AppEnv = {
   /** Общий секрет в адресе вебхука: без него бот-обработчик отвечает 404. */
   NOTIFY_WEBHOOK_SECRET?: string;
   /**
-   * Приём платежей: CloudPayments (карты) с кассой CloudKassir (чеки по
-   * 54-ФЗ). Обе строки — из личного кабинета CloudPayments, раздел «Сайты».
-   * Без них форма оплаты не показывается, остаётся промокод
-   * (см. billingReady() в cloudpayments.server.ts).
+   * Приём платежей: эквайринг T-Bank (карты) и подключённая к тому же
+   * терминалу касса (чеки по 54-ФЗ). Обе строки — из личного кабинета
+   * эквайринга, «Терминалы»: Terminal Key и пароль терминала. Без них форма
+   * оплаты не показывается, остаётся промокод (см. billingReady() в
+   * tbank.server.ts).
    */
-  CLOUDPAYMENTS_PUBLIC_ID?: string;
-  CLOUDPAYMENTS_API_SECRET?: string;
-  /** Система налогообложения в чеке; умолчание 1 — УСН доход. */
-  CLOUDPAYMENTS_TAXATION_SYSTEM?: string;
+  TBANK_TERMINAL_KEY?: string;
+  TBANK_TERMINAL_PASSWORD?: string;
+  /** Система налогообложения в чеке; умолчание usn_income — УСН доход. */
+  TBANK_TAXATION?: string;
 };
 
 export function bindings(): AppEnv {

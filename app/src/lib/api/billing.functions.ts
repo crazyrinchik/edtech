@@ -5,7 +5,7 @@
  * же — открытые темы для своих детей и учеников, — и разводить это по двум
  * кабинетам значило бы держать две копии работы с деньгами.
  *
- * Общение с CloudPayments и записи в таблицах — в cloudpayments.server.ts и
+ * Общение с банком и записи в таблицах — в tbank.server.ts и
  * billing.server.ts. Здесь только вход из браузера: кто платит, за что и
  * куда его вернуть.
  */
@@ -16,7 +16,7 @@ import { z } from "zod";
 
 import { PLANS, planById } from "../billing";
 import { createPayment, markOrder, paymentById } from "../billing.server";
-import { billingReady, createOrder } from "../cloudpayments.server";
+import { billingReady, createOrder } from "../tbank.server";
 import { db, requireUser, track } from "../core.server";
 
 const PLAN_IDS = PLANS.map((p) => p.id) as [string, ...string[]];
@@ -34,9 +34,10 @@ async function requirePayer() {
  * Адрес сайта для возврата из кассы.
  *
  * Собирается из заголовков прокси, а не из request.url: до воркера запрос
- * доезжает от Caddy по http и с внутренним хостом, а CloudPayments уведёт
- * человека ровно туда, что мы пришлём. Ссылка на http://app:8080 вернула бы
- * его в никуда уже после списания денег.
+ * доезжает от Caddy по http и с внутренним хостом, а банк уведёт человека
+ * ровно туда, что мы пришлём, и туда же принесёт уведомление об оплате.
+ * Ссылка на http://app:8080 вернула бы его в никуда уже после списания
+ * денег, а уведомление — в никуда вместе с доступом к подписке.
  */
 function siteOrigin(): string {
   const request = getRequest();
@@ -102,16 +103,18 @@ export const startPayment = createServerFn({ method: "POST" })
     const email = data.email.trim().toLowerCase();
     const payment = await createPayment({ userId: user.id, plan: plan.id, email });
 
+    const origin = siteOrigin();
     const order = await createOrder({
-      invoiceId: payment.id,
-      accountId: user.id,
+      orderId: payment.id,
+      customerKey: user.id,
       amount: payment.amount,
       description: payment.description,
       email,
-      successUrl: `${siteOrigin()}/oplata?p=${payment.id}`,
-      failUrl: `${siteOrigin()}/oplata?p=${payment.id}&sboy=1`,
+      successUrl: `${origin}/oplata?p=${payment.id}`,
+      failUrl: `${origin}/oplata?p=${payment.id}&sboy=1`,
+      notificationUrl: `${origin}/api/pay/notify`,
     });
-    await markOrder(payment.id, order.orderId);
+    await markOrder(payment.id, order.paymentId);
 
     await track("subscription_payment_started", {
       userId: user.id,

@@ -1,43 +1,51 @@
 /**
- * Уведомления CloudPayments об оплате подписки.
+ * Уведомления T-Bank об оплате подписки.
  *
  * Доступ открывает только этот обработчик. Возврат человека на страницу
  * «спасибо» ничего не подтверждает: адрес возврата виден в браузере и
- * набирается руками, а вебхук приходит с сервера и подписан ключом, который
- * знают только касса и мы. Поэтому кабинет после возврата не верит query, а
- * спрашивает у базы статус счёта (см. billing.functions.ts).
+ * набирается руками, а уведомление приходит с сервера банка и подписано
+ * паролем терминала, который знают только банк и мы. Поэтому кабинет после
+ * возврата не верит query, а спрашивает у базы статус счёта (см.
+ * billing.functions.ts).
  *
  * Живёт не в routes/, а вызывается из воркер-энтри (src/server.ts) — по той
  * же причине, что и вебхук ботов: файл-маршрут утянул бы серверный доступ к
  * базе в клиентский бандл.
  *
- * Адреса ставятся один раз руками в личном кабинете CloudPayments,
- * «Сайты» → «Уведомления», способ отправки — POST:
- *   Check  https://<домен>/api/pay/check
- *   Pay    https://<домен>/api/pay/pay
- *   Fail   https://<домен>/api/pay/fail
+ * Адрес уведомления передаётся в самом Init (NotificationURL), поэтому в
+ * личном кабинете банка руками ставить нечего: он всегда совпадает с тем
+ * доменом, с которого человек пришёл платить.
  */
 
 import { applyPaidPayment, markPaymentFailed, paymentById } from "./billing.server";
-import { verifySignature } from "./cloudpayments.server";
+import {
+  amountMatches,
+  terminalMatches,
+  verifyNotification,
+  type Notification,
+} from "./tbank.server";
 
 export const BILLING_WEBHOOK_PREFIX = "/api/pay/";
 
 /**
- * Ответ кассе. code 0 — принято, 10 — счёт не найден, 11 — сумма не та,
- * 12 — принять сейчас не можем (касса повторит доставку).
- *
- * HTTP всегда 200: на любой другой код CloudPayments считает уведомление
- * недоставленным и повторяет его сутками, даже когда повторять бессмысленно.
+ * Банк считает уведомление доставленным, только если в ответе HTTP 200 и тело
+ * ровно «OK». Любой другой ответ ставит уведомление в очередь повторов: раз в
+ * час сутки, дальше раз в сутки месяц. Это и есть наш способ сказать «сейчас
+ * не смогли, принесите ещё раз».
  */
-function reply(code: number): Response {
-  return new Response(JSON.stringify({ code }), {
-    status: 200,
-    headers: { "content-type": "application/json" },
-  });
-}
-
+const ok = () => new Response("OK", { status: 200, headers: { "content-type": "text/plain" } });
+const retryLater = () => new Response("RETRY", { status: 500 });
 const notFound = () => new Response("not found", { status: 404 });
+
+/**
+ * Статусы одностадийной оплаты. Деньги списаны в CONFIRMED; AUTHORIZED при
+ * ней приходит следом за ним (банк шлёт оба) и сам по себе ничего не
+ * открывает. REFUNDED и PARTIAL_REFUNDED сюда тоже приходят, но возврат —
+ * отдельная операция в кассе, и подписку он не отзывает: этим занимается
+ * человек, а не обработчик.
+ */
+const PAID = "CONFIRMED";
+const FAILED = new Set(["REJECTED", "DEADLINE_EXPIRED", "CANCELED", "AUTH_FAIL"]);
 
 export async function handleBillingWebhook(request: Request): Promise<Response> {
   if (request.method !== "POST") return notFound();
@@ -45,73 +53,78 @@ export async function handleBillingWebhook(request: Request): Promise<Response> 
   const kind = new URL(request.url).pathname
     .slice(BILLING_WEBHOOK_PREFIX.length)
     .replace(/\/+$/, "");
-  if (kind !== "check" && kind !== "pay" && kind !== "fail") return notFound();
+  if (kind !== "notify") return notFound();
 
-  // Сырое тело читается до разбора: подпись считается именно по нему.
-  const raw = await request.text();
-  const signature = request.headers.get("Content-HMAC") ?? request.headers.get("X-Content-HMAC");
-  if (!(await verifySignature(raw, signature))) {
-    // 404, а не 403: неподписанный запрос не должен узнать, что ручка есть.
-    console.error("CloudPayments: подпись уведомления не сошлась");
+  const data = await parseBody(request);
+  if (!data) {
+    console.error("T-Bank: уведомление не разобралось");
     return notFound();
   }
 
-  // Уведомления приходят как форма; JSON включается отдельной настройкой,
-  // но разбирается тем же кодом, если её однажды включат.
-  const data = parseBody(raw, request.headers.get("content-type"));
+  if (!(await verifyNotification(data))) {
+    // 404, а не 403: неподписанный запрос не должен узнать, что ручка есть.
+    console.error("T-Bank: подпись уведомления не сошлась");
+    return notFound();
+  }
 
-  const invoiceId = data.InvoiceId ?? "";
-  const payment = invoiceId ? await paymentById(invoiceId) : null;
+  // Подпись сошлась — значит, пароль терминала знают. Ключ сверяется всё
+  // равно: он говорит, что уведомление про наш терминал, а не про соседний
+  // в том же личном кабинете.
+  if (!terminalMatches(data.TerminalKey)) {
+    console.error(`T-Bank: уведомление с чужого терминала ${String(data.TerminalKey)}`);
+    return notFound();
+  }
+
+  const notification = data as Notification;
+  const orderId = notification.OrderId ?? "";
+  const payment = orderId ? await paymentById(orderId) : null;
   if (!payment) {
-    console.error(`CloudPayments: счёт ${invoiceId || "(пусто)"} не найден`);
-    return reply(10);
+    // Счёта нет и не появится — повторять бессмысленно, отвечаем «принято».
+    console.error(`T-Bank: счёт ${orderId || "(пусто)"} не найден`);
+    return ok();
   }
 
-  if ((data.Currency ?? "RUB") !== "RUB" || Number(data.Amount) !== payment.amount) {
-    console.error(
-      `CloudPayments: счёт ${payment.id} на ${payment.amount} RUB, ` +
-        `уведомление на ${data.Amount} ${data.Currency}`,
-    );
-    return reply(11);
-  }
-
+  const status = notification.Status ?? "";
   try {
-    if (kind === "fail") {
-      await markPaymentFailed(payment, data.Reason ?? "unknown");
-    } else if (kind === "pay") {
-      await applyPaidPayment(payment, data.TransactionId ?? null);
+    if (status === PAID) {
+      // Сумма сверяется только здесь: это единственный статус, в котором она
+      // что-то решает. У возврата в уведомлении приходит остаток по счёту
+      // (после полного возврата — ноль), и общая проверка суммы отбивала бы
+      // его как расхождение, не дав дойти до разбора статуса. Отказ сумму
+      // тоже не обещает: там важен код ошибки, а не деньги.
+      if (!amountMatches(notification.Amount, payment.amount)) {
+        console.error(
+          `T-Bank: счёт ${payment.id} на ${payment.amount} ₽, ` +
+            `уведомление об оплате на ${String(notification.Amount)} коп.`,
+        );
+        return ok();
+      }
+      await applyPaidPayment(payment, String(notification.PaymentId ?? ""));
+    } else if (FAILED.has(status)) {
+      await markPaymentFailed(payment, notification.ErrorCode ?? status);
     }
-    // check остаётся проверкой: счёт найден, сумма сошлась — принимаем.
-    return reply(0);
+    // Остальные статусы (NEW, FORM_SHOWED, AUTHORIZING, AUTHORIZED, возвраты)
+    // подтверждаем и не трогаем базу: подписку двигают только два исхода.
+    // Возврат в их числе намеренно — деньги возвращает человек через кассу,
+    // и доступ он же закрывает; автоматически подписку это не отзывает.
+    return ok();
   } catch (error) {
-    // База недоступна — просим повторить. Ответ 0 здесь означал бы, что
-    // деньги приняты, а доступ не открыт и открывать его больше некому.
+    // База недоступна — просим повторить. «OK» здесь означал бы, что деньги
+    // приняты, а доступ не открыт и открывать его больше некому.
     console.error(error);
-    return reply(12);
+    return retryLater();
   }
 }
 
-type Notification = {
-  InvoiceId?: string;
-  TransactionId?: string;
-  Amount?: string;
-  Currency?: string;
-  Reason?: string;
-};
-
-function parseBody(raw: string, contentType: string | null): Notification {
-  if ((contentType ?? "").includes("application/json")) {
-    try {
-      const parsed = JSON.parse(raw) as Record<string, unknown>;
-      return Object.fromEntries(
-        Object.entries(parsed).map(([key, value]) => [
-          key,
-          value == null ? undefined : String(value),
-        ]),
-      ) as Notification;
-    } catch {
-      return {};
-    }
+/**
+ * Тело уведомления — JSON. Форму банк не шлёт, но пустое или битое тело
+ * возможно всегда, и разбор не должен ронять обработчик до проверки подписи.
+ */
+async function parseBody(request: Request): Promise<Record<string, unknown> | null> {
+  try {
+    const parsed = (await request.json()) as unknown;
+    return parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : null;
+  } catch {
+    return null;
   }
-  return Object.fromEntries(new URLSearchParams(raw)) as Notification;
 }

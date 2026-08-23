@@ -1,7 +1,7 @@
 /**
  * Подписка со стороны базы: счёт, зачисление оплаты, продление срока.
  *
- * Живёт отдельно от cloudpayments.server.ts намеренно. Там разговор с чужим
+ * Живёт отдельно от tbank.server.ts намеренно. Там разговор с чужим
  * API, здесь — наши таблицы; вебхуку нужно и то и другое, а серверным
  * функциям кабинета — почти только это. Промокод продлевает подписку той же
  * функцией, что и оплата: срок должен считаться в одном месте, иначе два
@@ -53,17 +53,21 @@ export async function paymentById(id: string): Promise<PaymentRow | null> {
     .first<PaymentRow>();
 }
 
-export async function markOrder(paymentId: string, orderId: string | null): Promise<void> {
-  await db()
-    .prepare("UPDATE payments SET order_id = ? WHERE id = ?")
-    .bind(orderId, paymentId)
-    .run();
+/**
+ * Запоминает номер платежа на стороне банка (PaymentId из ответа Init).
+ *
+ * Названия здесь зеркальные и путают: наш id счёта уезжает в банк как
+ * OrderId, а банковский PaymentId ложится в колонку order_id. По нему счёт
+ * находится в личном кабинете эквайринга, когда сверяют выписку.
+ */
+export async function markOrder(id: string, bankPaymentId: string | null): Promise<void> {
+  await db().prepare("UPDATE payments SET order_id = ? WHERE id = ?").bind(bankPaymentId, id).run();
 }
 
 /**
  * Деньги пришли: закрываем счёт и продлеваем подписку.
  *
- * Идемпотентно по статусу счёта. CloudPayments повторяет доставку
+ * Идемпотентно по статусу счёта. Банк повторяет доставку
  * уведомления, пока не получит ответ, и повтор после сетевого сбоя — не
  * исключение, а норма; без этой проверки второй заход добавил бы месяц
  * доступа за те же деньги.

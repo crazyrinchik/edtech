@@ -64,11 +64,11 @@ services:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       MAX_BOT_TOKEN: ${MAX_BOT_TOKEN:-}
       NOTIFY_WEBHOOK_SECRET: ${NOTIFY_WEBHOOK_SECRET:-}
-      # Приём платежей: CloudPayments (карты) и его касса CloudKassir (чеки).
+      # Приём платежей: эквайринг T-Bank (карты) и его касса (чеки по 54-ФЗ).
       # Пустые значения просто прячут форму оплаты — остаётся промокод.
-      CLOUDPAYMENTS_PUBLIC_ID: ${CLOUDPAYMENTS_PUBLIC_ID:-}
-      CLOUDPAYMENTS_API_SECRET: ${CLOUDPAYMENTS_API_SECRET:-}
-      CLOUDPAYMENTS_TAXATION_SYSTEM: ${CLOUDPAYMENTS_TAXATION_SYSTEM:-1}
+      TBANK_TERMINAL_KEY: ${TBANK_TERMINAL_KEY:-}
+      TBANK_TERMINAL_PASSWORD: ${TBANK_TERMINAL_PASSWORD:-}
+      TBANK_TAXATION: ${TBANK_TAXATION:-usn_income}
     volumes:
       # Старая база D1 (SQLite). При SOVENOK_DB=postgres не используется, но том
       # оставлен: это путь отката, если с PostgreSQL что-то пойдёт не так.

@@ -24,7 +24,7 @@
 // базы: миграции идемпотентны и накатятся заново на первом же старте.
 
 import { createServer } from "node:http";
-import { createReadStream } from "node:fs";
+import { createReadStream, readFileSync } from "node:fs";
 import { mkdir, readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -38,6 +38,7 @@ const SERVER_DIR = path.join(APP, "dist", "server");
 const CLIENT_DIR = path.join(APP, "dist", "client");
 const MIGRATIONS_DIR = path.join(APP, "migrations");
 const DATA_DIR = process.env.STAND_DATA ?? path.join(HERE, ".stand");
+const RUSSIAN_ROOT_CA = path.join(HERE, "russian-trusted-root-ca.pem");
 const PORT = Number(process.env.PORT ?? 8788);
 
 function die(message) {
@@ -88,13 +89,25 @@ const mf = new Miniflare({
     SOVENOK_DB: "d1",
     DB_GATEWAY_URL: "",
     DB_GATEWAY_TOKEN: "",
-    // Ключи кассы прокидываются из окружения: с ними на стенде видна
+    // Ключи терминала прокидываются из окружения: с ними на стенде видна
     // настоящая форма оплаты, без них она прячется — ровно как в проде.
     // Боевые сюда класть незачем, счёт создаётся настоящий; для осмотра
-    // формы годится любая пара строк.
-    CLOUDPAYMENTS_PUBLIC_ID: process.env.CLOUDPAYMENTS_PUBLIC_ID ?? "",
-    CLOUDPAYMENTS_API_SECRET: process.env.CLOUDPAYMENTS_API_SECRET ?? "",
-    CLOUDPAYMENTS_TAXATION_SYSTEM: process.env.CLOUDPAYMENTS_TAXATION_SYSTEM ?? "",
+    // формы годится тестовый терминал из личного кабинета эквайринга.
+    TBANK_TERMINAL_KEY: process.env.TBANK_TERMINAL_KEY ?? "",
+    TBANK_TERMINAL_PASSWORD: process.env.TBANK_TERMINAL_PASSWORD ?? "",
+    TBANK_TAXATION: process.env.TBANK_TAXATION ?? "",
+  },
+  // Тот же корень УЦ Минцифры, что и в контейнере (см. serve.mjs): без него
+  // Init к securepay.tinkoff.ru падает внутри workerd, и стенд врал бы про
+  // сломанную кассу там, где сломан только набор сертификатов.
+  outboundService: {
+    network: {
+      allow: ["public", "private", "local"],
+      tlsOptions: {
+        trustBrowserCas: true,
+        trustedCertificates: [readFileSync(RUSSIAN_ROOT_CA, "utf8")],
+      },
+    },
   },
 });
 

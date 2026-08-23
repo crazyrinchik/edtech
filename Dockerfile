@@ -38,6 +38,9 @@ RUN npm install --omit=dev --no-audit --no-fund
 COPY --from=build /src/dist/server ./dist/server
 COPY --from=build /src/migrations ./migrations
 COPY deploy/serve.mjs ./serve.mjs
+# Корень УЦ Минцифры: им подписан securepay.tinkoff.ru, а в наборе
+# сертификатов workerd его нет. serve.mjs читает файл на старте.
+COPY deploy/russian-trusted-root-ca.pem ./russian-trusted-root-ca.pem
 ENV PORT=8080 D1_PERSIST=/data/d1
 EXPOSE 8080
 CMD ["node", "serve.mjs"]

@@ -7,6 +7,7 @@
 
 import { Miniflare } from "miniflare";
 import { mkdir, readdir, readFile } from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -15,6 +16,7 @@ const PORT = Number(process.env.PORT ?? 8080);
 const D1_PERSIST = process.env.D1_PERSIST ?? "/data/d1";
 const SERVER_DIR = path.join(ROOT, "dist", "server");
 const MIGRATIONS_DIR = path.join(ROOT, "migrations");
+const RUSSIAN_ROOT_CA = path.join(ROOT, "russian-trusted-root-ca.pem");
 
 // Какая база заказана — явно, а не по наличию переменных шлюза. Умолчание
 // строгое (postgres): прод, у которого из .env пропал GATEWAY_TOKEN, обязан
@@ -44,6 +46,32 @@ if (SOVENOK_DB === "postgres" && !(GATEWAY_URL && GATEWAY_TOKEN)) {
   );
 }
 
+/**
+ * Переменные окружения, которые воркер читает как биндинги.
+ *
+ * Список перечислен руками, потому что miniflare не отдаёт воркеру
+ * process.env: всё, чего нет в bindings, внутри просто undefined. Пока
+ * этого списка не было, ключи кассы и токены ботов доезжали до контейнера
+ * и там же оставались — форма оплаты и канал напоминаний прятались на
+ * рабочем проде, будто их не настраивали.
+ *
+ * Пустые значения не передаются вовсе: приложение отличает «не задано» от
+ * «задано пустым» только по undefined (billingReady(), notify.server.ts).
+ */
+function passthrough() {
+  const names = [
+    "TELEGRAM_BOT_TOKEN",
+    "MAX_BOT_TOKEN",
+    "NOTIFY_WEBHOOK_SECRET",
+    "TBANK_TERMINAL_KEY",
+    "TBANK_TERMINAL_PASSWORD",
+    "TBANK_TAXATION",
+  ];
+  return Object.fromEntries(
+    names.map((name) => [name, (process.env[name] ?? "").trim()]).filter(([, value]) => value),
+  );
+}
+
 await mkdir(D1_PERSIST, { recursive: true });
 
 const mf = new Miniflare({
@@ -70,6 +98,24 @@ const mf = new Miniflare({
     // Биндинг D1 остаётся смонтированным и при postgres: он путь отката.
     DB_GATEWAY_URL: GATEWAY_URL,
     DB_GATEWAY_TOKEN: GATEWAY_TOKEN,
+    ...passthrough(),
+  },
+  // Исходящий трафик воркера — с обычным набором корневых сертификатов плюс
+  // корень УЦ Минцифры. Им подписан securepay.tinkoff.ru, и без него вызов
+  // эквайринга падает внутри workerd, не дойдя до нашего кода: приложение
+  // видит только «internal error», а человек — «касса не отвечает».
+  //
+  // allow перечислен явно: у сетевой службы workerd умолчание — один
+  // "public", а db-gateway живёт на приватном адресе внутри docker-сети,
+  // и без "private" воркер потерял бы базу.
+  outboundService: {
+    network: {
+      allow: ["public", "private", "local"],
+      tlsOptions: {
+        trustBrowserCas: true,
+        trustedCertificates: [readFileSync(RUSSIAN_ROOT_CA, "utf8")],
+      },
+    },
   },
   host: "0.0.0.0",
   port: PORT,
