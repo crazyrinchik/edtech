@@ -6,10 +6,11 @@ import { SpeakButton } from "../components/speak";
 import { TrainerTop } from "../components/trainers";
 import { me, readingResult, readingTexts } from "../lib/api/app.functions";
 import { drillSearch, pickNumber } from "../lib/drill-search";
+import { pageHead } from "../lib/seo";
 
 export const Route = createFileRoute("/chtenie")({
   validateSearch: (search: Record<string, unknown>) => drillSearch(search, ["wpm"] as const),
-  head: () => ({ meta: [{ title: "Скорочтение, Совёнок" }] }),
+  head: () => pageHead("/chtenie"),
   component: ReadingPage,
 });
 

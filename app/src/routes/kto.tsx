@@ -3,9 +3,10 @@ import { useEffect, useState } from "react";
 
 import { ChildAvatar, Owl, SiteFooter, SiteHeader } from "../components/brand";
 import { me, selectChild } from "../lib/api/app.functions";
+import { closedHead } from "../lib/seo";
 
 export const Route = createFileRoute("/kto")({
-  head: () => ({ meta: [{ title: "Кто занимается, Совёнок" }] }),
+  head: () => closedHead("Кто занимается, Совёнок"),
   component: WhoPage,
 });
 

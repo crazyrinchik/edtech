@@ -11,9 +11,10 @@ import {
 } from "../components/brand";
 import { logout, me } from "../lib/api/app.functions";
 import { addStudent, createInvite, tutorStudents } from "../lib/api/tutor.functions";
+import { closedHead } from "../lib/seo";
 
 export const Route = createFileRoute("/repetitor/")({
-  head: () => ({ meta: [{ title: "Ученики, Совёнок" }] }),
+  head: () => closedHead("Ученики, Совёнок"),
   component: TutorPage,
 });
 

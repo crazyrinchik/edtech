@@ -2,12 +2,13 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 
 import { FormAction, SiteHeader } from "../components/brand";
+import { closedHead } from "../lib/seo";
 import {
   adminContent, adminDeleteTask, adminOverview, adminSaveTask, adminSaveTopic, adminUpdateUser,
 } from "../lib/api/app.functions";
 
 export const Route = createFileRoute("/admin")({
-  head: () => ({ meta: [{ title: "Админка, Совёнок" }] }),
+  head: () => closedHead("Админка, Совёнок"),
   component: AdminPage,
 });
 

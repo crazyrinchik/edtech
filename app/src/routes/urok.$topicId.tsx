@@ -5,9 +5,10 @@ import { ChildAction, Owl, Stars } from "../components/brand";
 import { PASS_PERCENT, Ring, Stones, StonesLegend, type StoneState } from "../components/figures";
 import { AutoSpeakToggle, SpeakButton, useAutoSpeak } from "../components/speak";
 import { answerTask, finishTopic, me, startTopic } from "../lib/api/app.functions";
+import { closedHead } from "../lib/seo";
 
 export const Route = createFileRoute("/urok/$topicId")({
-  head: () => ({ meta: [{ title: "Занятие, Совёнок" }] }),
+  head: () => closedHead("Занятие, Совёнок"),
   // Режим приходит из адреса: с карты можно зайти и сразу в проверочную,
   // не проходя тренировку заново.
   validateSearch: (search: Record<string, unknown>): { mode: "practice" | "check" } => ({

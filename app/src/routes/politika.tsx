@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import source from "../../../docs/legal/politika.md?raw";
 import { SiteFooter, SiteHeader } from "../components/brand";
 import { LegalDoc } from "../components/legal-doc";
+import { closedHead, pageHead } from "../lib/seo";
 
 /**
  * Политика обработки персональных данных по постоянному адресу. Открытый
@@ -14,7 +15,10 @@ import { LegalDoc } from "../components/legal-doc";
  * появляется сам, без правок кода.
  */
 export const Route = createFileRoute("/politika")({
-  head: () => ({ meta: [{ title: "Политика персональных данных, Совёнок" }] }),
+  // Заглушка вместо текста — не то, что стоит показывать в выдаче:
+  // черновик документа осел бы в индексе и всплывал бы по запросам
+  // ещё долго после того, как реквизиты допишут.
+  head: () => (draft ? closedHead("Политика персональных данных, Совёнок") : pageHead("/politika")),
   component: PolicyPage,
 });
 

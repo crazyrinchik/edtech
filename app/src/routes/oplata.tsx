@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { QuietAction, SiteFooter, SiteHeader } from "../components/brand";
 import { me } from "../lib/api/app.functions";
 import { paymentStatus } from "../lib/api/billing.functions";
+import { closedHead } from "../lib/seo";
 
 /**
  * Возвращение из кассы.
@@ -19,7 +20,7 @@ import { paymentStatus } from "../lib/api/billing.functions";
  * «не оплачено» сразу после списания толкает платить второй раз.
  */
 export const Route = createFileRoute("/oplata")({
-  head: () => ({ meta: [{ title: "Оплата, Совёнок" }] }),
+  head: () => closedHead("Оплата, Совёнок"),
   validateSearch: (search: Record<string, unknown>) => ({
     p: typeof search.p === "string" ? search.p : "",
     sboy: search.sboy === "1" || search.sboy === 1,

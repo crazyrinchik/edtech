@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 
 import { FormAction, QuietAction, SiteFooter, SiteHeader } from "../components/brand";
 import { PayForm } from "../components/pay-form";
+import { closedHead } from "../lib/seo";
 import { plural } from "../lib/shop";
 import { deleteAccount, me } from "../lib/api/app.functions";
 import {
@@ -12,7 +13,7 @@ import {
 } from "../lib/api/tutor.functions";
 
 export const Route = createFileRoute("/repetitor/podpiska")({
-  head: () => ({ meta: [{ title: "Подписка, Совёнок" }] }),
+  head: () => closedHead("Подписка, Совёнок"),
   component: TutorBillingPage,
 });
 

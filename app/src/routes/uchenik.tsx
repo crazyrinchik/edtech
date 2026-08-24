@@ -9,6 +9,7 @@ import {
   Stars,
 } from "../components/brand";
 import { TRAINERS } from "../components/trainers";
+import { closedHead } from "../lib/seo";
 import { coinsLabel, plural, SHOP } from "../lib/shop";
 import { Bar, Ring, WeekStrip, weekBuckets } from "../components/figures";
 import { getSkillMap, me } from "../lib/api/app.functions";
@@ -28,7 +29,7 @@ function dueLabel(iso: string): string {
 }
 
 export const Route = createFileRoute("/uchenik")({
-  head: () => ({ meta: [{ title: "Занятия, Совёнок" }] }),
+  head: () => closedHead("Занятия, Совёнок"),
   component: PupilPage,
 });
 

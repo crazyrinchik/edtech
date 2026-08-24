@@ -4,9 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { ChildAction, Owl, Wordmark } from "../components/brand";
 import { AutoSpeakToggle, SpeakButton, useAutoSpeak } from "../components/speak";
 import { demoAnswer, demoFinished, demoLesson } from "../lib/api/app.functions";
+import { pageHead } from "../lib/seo";
 
 export const Route = createFileRoute("/demo")({
-  head: () => ({ meta: [{ title: "Нулевой урок, Совёнок" }] }),
+  head: () => pageHead("/demo"),
   component: DemoPage,
 });
 

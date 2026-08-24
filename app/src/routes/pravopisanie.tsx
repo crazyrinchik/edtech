@@ -8,18 +8,10 @@ import { drillSearch, pickMany, pickNumber } from "../lib/drill-search";
 import { useEnterAction } from "../lib/keys";
 import type { SpellingItem, SpellingRule } from "../lib/content/spelling";
 import { filled, groupRules, SPELLING_GROUPS, SPELLING_RULES } from "../lib/content/spelling";
+import { pageHead } from "../lib/seo";
 
 export const Route = createFileRoute("/pravopisanie")({
-  head: () => ({
-    meta: [
-      { title: "Тренажёр по правописанию, Совёнок" },
-      {
-        name: "description",
-        content:
-          "Безударные гласные, парные согласные, жи-ши, -тся и -ться. К каждому упражнению раскрывается правило. Без регистрации.",
-      },
-    ],
-  }),
+  head: () => pageHead("/pravopisanie"),
   validateSearch: (search: Record<string, unknown>) =>
     drillSearch(search, ["rules", "count"] as const),
   component: SpellingPage,

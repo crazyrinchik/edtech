@@ -12,6 +12,7 @@ import {
   isDrillId,
   trimDrillSettings,
 } from "../lib/drills";
+import { closedHead } from "../lib/seo";
 import { plural } from "../lib/shop";
 import {
   cancelAssignment,
@@ -23,7 +24,7 @@ import {
 } from "../lib/api/tutor.functions";
 
 export const Route = createFileRoute("/repetitor/uchenik/$childId")({
-  head: () => ({ meta: [{ title: "Ученик, Совёнок" }] }),
+  head: () => closedHead("Ученик, Совёнок"),
   component: StudentPage,
 });
 

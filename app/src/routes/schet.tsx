@@ -7,6 +7,7 @@ import { TrainerTop } from "../components/trainers";
 import { me, saveMentalDrill } from "../lib/api/app.functions";
 import { drillSearch, pickMany, pickNumber } from "../lib/drill-search";
 import { useEnterAction } from "../lib/keys";
+import { pageHead } from "../lib/seo";
 
 /**
  * Настройки приезжают в адресе: тренажёр задал педагог и выставил их за
@@ -16,7 +17,7 @@ import { useEnterAction } from "../lib/keys";
 export const Route = createFileRoute("/schet")({
   validateSearch: (search: Record<string, unknown>) =>
     drillSearch(search, ["digits", "ops", "limit", "count"] as const),
-  head: () => ({ meta: [{ title: "Устный счёт, Совёнок" }] }),
+  head: () => pageHead("/schet"),
   component: MentalPage,
 });
 

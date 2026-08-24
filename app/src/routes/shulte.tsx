@@ -5,10 +5,11 @@ import { ChildAction, Owl, SiteFooter } from "../components/brand";
 import { TrainerTop } from "../components/trainers";
 import { me, saveShulteDrill } from "../lib/api/app.functions";
 import { drillSearch, pickNumber } from "../lib/drill-search";
+import { pageHead } from "../lib/seo";
 
 export const Route = createFileRoute("/shulte")({
   validateSearch: (search: Record<string, unknown>) => drillSearch(search, ["size"] as const),
-  head: () => ({ meta: [{ title: "Таблица Шульте, Совёнок" }] }),
+  head: () => pageHead("/shulte"),
   component: ShultePage,
 });
 

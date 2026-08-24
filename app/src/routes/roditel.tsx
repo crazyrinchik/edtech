@@ -39,10 +39,11 @@ import {
   unlockParentCabinet,
   updateChild,
 } from "../lib/api/app.functions";
+import { closedHead } from "../lib/seo";
 import { plural } from "../lib/shop";
 
 export const Route = createFileRoute("/roditel")({
-  head: () => ({ meta: [{ title: "Кабинет родителя, Совёнок" }] }),
+  head: () => closedHead("Кабинет родителя, Совёнок"),
   component: ParentPage,
 });
 

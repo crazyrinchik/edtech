@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import source from "../../../docs/legal/soglasie-pdn.md?raw";
 import { SiteFooter, SiteHeader } from "../components/brand";
 import { LegalDoc } from "../components/legal-doc";
+import { closedHead, pageHead } from "../lib/seo";
 
 /**
  * Условия согласия на обработку персональных данных — текст, на который
@@ -14,9 +15,13 @@ import { LegalDoc } from "../components/legal-doc";
  * `[[ЗАПОЛНИТЬ: …]]`, страница показывает заглушку.
  */
 export const Route = createFileRoute("/soglasie")({
-  head: () => ({
-    meta: [{ title: "Согласие на обработку персональных данных, Совёнок" }],
-  }),
+  // Заглушка вместо текста — не то, что стоит показывать в выдаче:
+  // черновик документа осел бы в индексе и всплывал бы по запросам
+  // ещё долго после того, как реквизиты допишут.
+  head: () =>
+    draft
+      ? closedHead("Согласие на обработку персональных данных, Совёнок")
+      : pageHead("/soglasie"),
   component: ConsentPage,
 });
 

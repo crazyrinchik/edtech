@@ -4,8 +4,12 @@ import { type ReactNode } from "react";
 import { Owl, QuietAction, SiteFooter, SiteHeader, StartAction } from "../components/brand";
 import { TRAINERS } from "../components/trainers";
 import { planById, priceLabel } from "../lib/billing";
+import { pageHead } from "../lib/seo";
 
-export const Route = createFileRoute("/")({ component: Landing });
+export const Route = createFileRoute("/")({
+  head: () => pageHead("/"),
+  component: Landing,
+});
 
 /**
  * Витрина говорит с репетитором.

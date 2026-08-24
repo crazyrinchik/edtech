@@ -7,18 +7,10 @@ import { TrainerTop } from "../components/trainers";
 import { me, saveTableDrill } from "../lib/api/app.functions";
 import { drillSearch, pickMany, pickNumber, pickOne } from "../lib/drill-search";
 import { useEnterAction } from "../lib/keys";
+import { pageHead } from "../lib/seo";
 
 export const Route = createFileRoute("/tablica-umnozheniya")({
-  head: () => ({
-    meta: [
-      { title: "Таблица умножения, Совёнок" },
-      {
-        name: "description",
-        content:
-          "Тренажёр таблицы умножения в обе стороны: умножение, деление и поиск множителя. Ответы до 10, до 100 и дальше. Саму таблицу можно открыть на любом примере. Без регистрации.",
-      },
-    ],
-  }),
+  head: () => pageHead("/tablica-umnozheniya"),
   validateSearch: (search: Record<string, unknown>) =>
     drillSearch(search, ["level", "dirs", "count"] as const),
   component: TablePage,

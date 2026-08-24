@@ -16,6 +16,7 @@ import { reportHiggsfieldError } from "../lib/higgsfield-error-reporting";
 // repo by the marketplace meta API and read at BUILD time — no runtime fetch.
 // Editing it via the app settings UI rewrites this file and redeploys the app.
 import appMetaJson from "../app-meta.json";
+import { SITE_ORIGIN } from "../lib/seo";
 
 declare const __HF_DESIGN_INSPECTOR__: boolean;
 
@@ -63,12 +64,28 @@ function toOwnAssetUrl(value: string | null | undefined): string | null {
   }
 }
 
+/**
+ * Картинка для мессенджера — абсолютным адресом.
+ *
+ * В <link rel="icon"> корневой путь работает: его разбирает браузер,
+ * который и так знает, откуда пришла страница. Превью ссылки собирает не
+ * браузер, а Telegram, VK или WhatsApp, и по спецификации Open Graph они
+ * ждут в og:image полный адрес — от относительного превью у части из них
+ * просто не появится картинки. Хост берём канонический (lib/seo.ts): та же
+ * акварель лежит на всех стендах, и показать прод-адрес честнее, чем
+ * превью-домен, который завтра погаснет.
+ */
+function toAbsolute(value: string | null): string | null {
+  if (!value) return null;
+  return value.startsWith("/") ? `${SITE_ORIGIN}${value}` : value;
+}
+
 function buildHead(meta: AppMeta) {
   const title = meta.og_title ?? DEFAULT_TITLE;
   const description = meta.og_description ?? DEFAULT_DESCRIPTION;
-  const ogImage = toOwnAssetUrl(meta.og_image_url);
+  const ogImage = toAbsolute(toOwnAssetUrl(meta.og_image_url));
   const favicon = toOwnAssetUrl(meta.favicon_url);
-  const ogVideo = toOwnAssetUrl(meta.og_video_url);
+  const ogVideo = toAbsolute(toOwnAssetUrl(meta.og_video_url));
 
   return {
     meta: [
@@ -76,15 +93,28 @@ function buildHead(meta: AppMeta) {
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title },
       { name: "description", content: description },
-      { name: "author", content: "Higgsfield" },
+      // Автор и подпись карточки — Совёнок, а не шаблон маркетплейса, из
+      // которого выросло приложение. Аккаунта в X у проекта нет, поэтому
+      // twitter:site убран совсем: пустая или чужая ссылка в карточке
+      // хуже, чем её отсутствие.
+      { name: "author", content: "Совёнок" },
+      { property: "og:site_name", content: "Совёнок" },
       { property: "og:title", content: title },
       { property: "og:description", content: description },
       { property: "og:type", content: "website" },
+      // Язык страницы для превью: по нему мессенджер выбирает, каким
+      // шрифтом и в какую сторону рисовать текст карточки.
+      { property: "og:locale", content: "ru_RU" },
       { name: "twitter:card", content: ogImage ? "summary_large_image" : "summary" },
-      { name: "twitter:site", content: "@Higgsfield" },
       ...(ogImage
         ? [
             { property: "og:image", content: ogImage },
+            // Размеры кадра избавляют мессенджер от догадок: без них
+            // Telegram и VK сначала показывают ссылку без картинки и
+            // дорисовывают её, только когда скачают файл целиком.
+            { property: "og:image:width", content: "1200" },
+            { property: "og:image:height", content: "630" },
+            { property: "og:image:alt", content: title },
             { name: "twitter:image", content: ogImage },
           ]
         : []),

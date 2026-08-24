@@ -12,6 +12,7 @@ import {
   SiteHeader,
 } from "../components/brand";
 import { addChild, registerParent, setParentPin } from "../lib/api/app.functions";
+import { closedHead } from "../lib/seo";
 
 /**
  * ?rol=repetitor или ?rol=roditel пропускает развилку: с витрины человек
@@ -26,7 +27,7 @@ export const Route = createFileRoute("/registraciya")({
       : search.rol === "roditel"
         ? { rol: "roditel" }
         : {},
-  head: () => ({ meta: [{ title: "Регистрация, Совёнок" }] }),
+  head: () => closedHead("Регистрация, Совёнок"),
   component: RegisterPage,
 });
 

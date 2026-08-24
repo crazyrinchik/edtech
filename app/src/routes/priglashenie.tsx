@@ -11,9 +11,10 @@ import {
   SiteHeader,
 } from "../components/brand";
 import { acceptInvite, inviteInfo } from "../lib/api/tutor.functions";
+import { closedHead } from "../lib/seo";
 
 export const Route = createFileRoute("/priglashenie")({
-  head: () => ({ meta: [{ title: "Приглашение, Совёнок" }] }),
+  head: () => closedHead("Приглашение, Совёнок"),
   component: InvitePage,
 });
 

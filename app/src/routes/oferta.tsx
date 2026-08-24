@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import source from "../../../docs/legal/oferta.md?raw";
 import { SiteFooter, SiteHeader } from "../components/brand";
 import { LegalDoc } from "../components/legal-doc";
+import { closedHead, pageHead } from "../lib/seo";
 
 /**
  * Публичная оферта по постоянному адресу — на неё ссылается форма оплаты, и
@@ -17,7 +18,10 @@ import { LegalDoc } from "../components/legal-doc";
  * Заполненный документ появляется на странице сам, без правок кода.
  */
 export const Route = createFileRoute("/oferta")({
-  head: () => ({ meta: [{ title: "Публичная оферта, Совёнок" }] }),
+  // Заглушка вместо текста — не то, что стоит показывать в выдаче:
+  // черновик документа осел бы в индексе и всплывал бы по запросам
+  // ещё долго после того, как реквизиты допишут.
+  head: () => (draft ? closedHead("Публичная оферта, Совёнок") : pageHead("/oferta")),
   component: OfferPage,
 });
 
