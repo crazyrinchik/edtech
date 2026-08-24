@@ -5,11 +5,17 @@ import { QuietAction, SiteFooter, SiteHeader } from "../components/brand";
 import { AbacusIcon, BookIcon, GridIcon, MultiplyIcon, PencilIcon } from "../components/icons";
 import { me } from "../lib/api/app.functions";
 import type { DrillId, DrillSettings } from "../lib/drills";
-import { defaultDrillSettings, DRILL_OPTIONS, trimDrillSettings } from "../lib/drills";
+import {
+  defaultDrillSettings,
+  DRILL_OPTIONS,
+  drillTuneSummary,
+  trimDrillSettings,
+} from "../lib/drills";
 import { assignDrill, tutorStudents } from "../lib/api/tutor.functions";
+import { closedHead } from "../lib/seo";
 
 export const Route = createFileRoute("/repetitor/trenazhery")({
-  head: () => ({ meta: [{ title: "Тренажёры, Совёнок" }] }),
+  head: () => closedHead("Тренажёры, Совёнок"),
   component: TrainersPage,
 });
 
@@ -30,6 +36,14 @@ function defaultDue(): string {
  * знает свои тренажёры и приходит сюда за кнопкой «задать», а не за
  * описанием. Порядок тот же, что у ребёнка в занятиях: сначала счёт и
  * таблица, потом русский, потом чтение.
+ *
+ * А вот одна подпись под названием всё-таки нужна, и она про другое.
+ * Список из одних заголовков не показывал главного: «Задать» не выдаёт
+ * тренажёр целиком, а открывает форму, где выбирают разрядность, набор
+ * действий, таймер, уровень таблицы. Педагог этого не видел и просил
+ * ребёнка словами — «поставь двузначные и без таймера», — что, конечно,
+ * не выполнялось. Перечень собирается из DRILL_OPTIONS (lib/drills.ts),
+ * по которым рисуется сама форма, поэтому соврать ей он не может.
  */
 const TRAINERS = [
   {
@@ -119,6 +133,7 @@ function TrainersPage() {
                     <t.Icon size={20} />
                     {t.title}
                   </strong>
+                  <span className="sov-prog__tune">Настроите: {drillTuneSummary(t.id)}</span>
                 </div>
                 <div className="sov-prog__actions">
                   <button

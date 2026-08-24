@@ -4,10 +4,11 @@ import { useCallback, useEffect, useState } from "react";
 import { QuietAction, SiteFooter, SiteHeader } from "../components/brand";
 import { me } from "../lib/api/app.functions";
 import { assignTopic, curriculum, programs, topicTasks } from "../lib/api/tutor.functions";
+import { closedHead } from "../lib/seo";
 import { plural } from "../lib/shop";
 
 export const Route = createFileRoute("/repetitor/temy")({
-  head: () => ({ meta: [{ title: "Темы и задания, Совёнок" }] }),
+  head: () => closedHead("Темы и задания, Совёнок"),
   component: CurriculumPage,
 });
 
@@ -187,16 +188,10 @@ function CurriculumPage() {
               </div>
             ) : null}
 
-            {data.missingSubjects.length ? (
-              <div className="sov-save-hint" style={{ marginTop: 22 }}>
-                <strong>{data.missingSubjects.join(" и ")}: программа не задаёт порядок</strong>
-                <span>
-                  Этот учебник в каталоге описан только по своим предметам. Остальное открывайте
-                  общим списком — темы там те же.
-                </span>
-              </div>
-            ) : null}
-
+            {/* Подсказки «остальное открывайте общим списком» здесь больше
+                нет: предмет, которого программа не описывает, теперь стоит
+                на своём месте ниже, а откуда он взялся — сказано в его
+                собственном заголовке. */}
             {!data.paid ? (
               <div className="sov-save-hint" style={{ marginTop: 22 }}>
                 <strong>Задания открывает подписка</strong>
@@ -217,6 +212,15 @@ function CurriculumPage() {
                     {subject.topics.length * 30} заданий
                   </span>
                 </header>
+                {/* Предмет вне программы. Порядок здесь общий, и об этом
+                    надо сказать прямо: выдать общий список за авторский —
+                    значит соврать педагогу о том, по чему он ведёт. */}
+                {!subject.fromProgram && data.program ? (
+                  <p className="sov-quest__note">
+                    {data.program.short} не задаёт порядок по этому предмету — темы и порядок из
+                    общего списка.
+                  </p>
+                ) : null}
 
                 <div className="sov-prog">
                   {subject.topics.map((topic, index) => (
@@ -232,6 +236,32 @@ function CurriculumPage() {
                             {topic.hours ? ` · ${topic.hours} ч в школе` : ""}
                             {topic.free ? " · открыта всем" : ""}
                           </span>
+                          {/* Как эта тема называется в выбранном учебнике.
+                              Каталог и программа — разные вещи: тема здесь
+                              одна и содержит задания, а учебник разбивает
+                              её на свои параграфы, и у Петерсон их за
+                              первый класс двадцать три против одиннадцати
+                              тем каталога. Эти названия уже считались в
+                              programOrder и приезжали на клиент, но их
+                              никто не рисовал: педагог видел общий список
+                              и не понимал, где его учебник, — приходилось
+                              уходить в другую вкладку и сверять руками. */}
+                          {topic.chapters.length ? (
+                            <ul className="sov-prog__chapters">
+                              {topic.chapters.map((chapter) => (
+                                <li key={chapter}>{chapter}</li>
+                              ))}
+                            </ul>
+                          ) : null}
+                          {/* Тема каталога, которой в учебнике нет. Не
+                              ошибка и не пропуск: программы расходятся, и
+                              честнее сказать об этом, чем молча выдать
+                              лишнюю тему за авторскую. */}
+                          {data.program && subject.fromProgram && !topic.inProgram ? (
+                            <span className="sov-prog__extra">
+                              Нет в программе {data.program.short} — тема из общего списка
+                            </span>
+                          ) : null}
                         </div>
                         <div className="sov-prog__actions">
                           <button

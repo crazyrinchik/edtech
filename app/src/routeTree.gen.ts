@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as VosstanovlenieRouteImport } from './routes/vosstanovlenie'
 import { Route as VhodRouteImport } from './routes/vhod'
 import { Route as UchenikRouteImport } from './routes/uchenik'
 import { Route as TablicaUmnozheniyaRouteImport } from './routes/tablica-umnozheniya'
@@ -24,6 +25,7 @@ import { Route as PravopisanieRouteImport } from './routes/pravopisanie'
 import { Route as PolitikaRouteImport } from './routes/politika'
 import { Route as OplataRouteImport } from './routes/oplata'
 import { Route as OfertaRouteImport } from './routes/oferta'
+import { Route as NovyyParolRouteImport } from './routes/novyy-parol'
 import { Route as KtoRouteImport } from './routes/kto'
 import { Route as DemoRouteImport } from './routes/demo'
 import { Route as ChtenieRouteImport } from './routes/chtenie'
@@ -36,6 +38,11 @@ import { Route as RepetitorTemyRouteImport } from './routes/repetitor.temy'
 import { Route as RepetitorPodpiskaRouteImport } from './routes/repetitor.podpiska'
 import { Route as RepetitorUchenikChildIdRouteImport } from './routes/repetitor.uchenik.$childId'
 
+const VosstanovlenieRoute = VosstanovlenieRouteImport.update({
+  id: '/vosstanovlenie',
+  path: '/vosstanovlenie',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const VhodRoute = VhodRouteImport.update({
   id: '/vhod',
   path: '/vhod',
@@ -111,6 +118,11 @@ const OfertaRoute = OfertaRouteImport.update({
   path: '/oferta',
   getParentRoute: () => rootRouteImport,
 } as any)
+const NovyyParolRoute = NovyyParolRouteImport.update({
+  id: '/novyy-parol',
+  path: '/novyy-parol',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const KtoRoute = KtoRouteImport.update({
   id: '/kto',
   path: '/kto',
@@ -173,6 +185,7 @@ export interface FileRoutesByFullPath {
   '/chtenie': typeof ChtenieRoute
   '/demo': typeof DemoRoute
   '/kto': typeof KtoRoute
+  '/novyy-parol': typeof NovyyParolRoute
   '/oferta': typeof OfertaRoute
   '/oplata': typeof OplataRoute
   '/politika': typeof PolitikaRoute
@@ -188,6 +201,7 @@ export interface FileRoutesByFullPath {
   '/tablica-umnozheniya': typeof TablicaUmnozheniyaRoute
   '/uchenik': typeof UchenikRoute
   '/vhod': typeof VhodRoute
+  '/vosstanovlenie': typeof VosstanovlenieRoute
   '/repetitor/podpiska': typeof RepetitorPodpiskaRoute
   '/repetitor/temy': typeof RepetitorTemyRoute
   '/repetitor/trenazhery': typeof RepetitorTrenazheryRoute
@@ -201,6 +215,7 @@ export interface FileRoutesByTo {
   '/chtenie': typeof ChtenieRoute
   '/demo': typeof DemoRoute
   '/kto': typeof KtoRoute
+  '/novyy-parol': typeof NovyyParolRoute
   '/oferta': typeof OfertaRoute
   '/oplata': typeof OplataRoute
   '/politika': typeof PolitikaRoute
@@ -216,6 +231,7 @@ export interface FileRoutesByTo {
   '/tablica-umnozheniya': typeof TablicaUmnozheniyaRoute
   '/uchenik': typeof UchenikRoute
   '/vhod': typeof VhodRoute
+  '/vosstanovlenie': typeof VosstanovlenieRoute
   '/repetitor/podpiska': typeof RepetitorPodpiskaRoute
   '/repetitor/temy': typeof RepetitorTemyRoute
   '/repetitor/trenazhery': typeof RepetitorTrenazheryRoute
@@ -230,6 +246,7 @@ export interface FileRoutesById {
   '/chtenie': typeof ChtenieRoute
   '/demo': typeof DemoRoute
   '/kto': typeof KtoRoute
+  '/novyy-parol': typeof NovyyParolRoute
   '/oferta': typeof OfertaRoute
   '/oplata': typeof OplataRoute
   '/politika': typeof PolitikaRoute
@@ -245,6 +262,7 @@ export interface FileRoutesById {
   '/tablica-umnozheniya': typeof TablicaUmnozheniyaRoute
   '/uchenik': typeof UchenikRoute
   '/vhod': typeof VhodRoute
+  '/vosstanovlenie': typeof VosstanovlenieRoute
   '/repetitor/podpiska': typeof RepetitorPodpiskaRoute
   '/repetitor/temy': typeof RepetitorTemyRoute
   '/repetitor/trenazhery': typeof RepetitorTrenazheryRoute
@@ -260,6 +278,7 @@ export interface FileRouteTypes {
     | '/chtenie'
     | '/demo'
     | '/kto'
+    | '/novyy-parol'
     | '/oferta'
     | '/oplata'
     | '/politika'
@@ -275,6 +294,7 @@ export interface FileRouteTypes {
     | '/tablica-umnozheniya'
     | '/uchenik'
     | '/vhod'
+    | '/vosstanovlenie'
     | '/repetitor/podpiska'
     | '/repetitor/temy'
     | '/repetitor/trenazhery'
@@ -288,6 +308,7 @@ export interface FileRouteTypes {
     | '/chtenie'
     | '/demo'
     | '/kto'
+    | '/novyy-parol'
     | '/oferta'
     | '/oplata'
     | '/politika'
@@ -303,6 +324,7 @@ export interface FileRouteTypes {
     | '/tablica-umnozheniya'
     | '/uchenik'
     | '/vhod'
+    | '/vosstanovlenie'
     | '/repetitor/podpiska'
     | '/repetitor/temy'
     | '/repetitor/trenazhery'
@@ -316,6 +338,7 @@ export interface FileRouteTypes {
     | '/chtenie'
     | '/demo'
     | '/kto'
+    | '/novyy-parol'
     | '/oferta'
     | '/oplata'
     | '/politika'
@@ -331,6 +354,7 @@ export interface FileRouteTypes {
     | '/tablica-umnozheniya'
     | '/uchenik'
     | '/vhod'
+    | '/vosstanovlenie'
     | '/repetitor/podpiska'
     | '/repetitor/temy'
     | '/repetitor/trenazhery'
@@ -345,6 +369,7 @@ export interface RootRouteChildren {
   ChtenieRoute: typeof ChtenieRoute
   DemoRoute: typeof DemoRoute
   KtoRoute: typeof KtoRoute
+  NovyyParolRoute: typeof NovyyParolRoute
   OfertaRoute: typeof OfertaRoute
   OplataRoute: typeof OplataRoute
   PolitikaRoute: typeof PolitikaRoute
@@ -360,6 +385,7 @@ export interface RootRouteChildren {
   TablicaUmnozheniyaRoute: typeof TablicaUmnozheniyaRoute
   UchenikRoute: typeof UchenikRoute
   VhodRoute: typeof VhodRoute
+  VosstanovlenieRoute: typeof VosstanovlenieRoute
   RepetitorPodpiskaRoute: typeof RepetitorPodpiskaRoute
   RepetitorTemyRoute: typeof RepetitorTemyRoute
   RepetitorTrenazheryRoute: typeof RepetitorTrenazheryRoute
@@ -370,6 +396,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/vosstanovlenie': {
+      id: '/vosstanovlenie'
+      path: '/vosstanovlenie'
+      fullPath: '/vosstanovlenie'
+      preLoaderRoute: typeof VosstanovlenieRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/vhod': {
       id: '/vhod'
       path: '/vhod'
@@ -475,6 +508,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OfertaRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/novyy-parol': {
+      id: '/novyy-parol'
+      path: '/novyy-parol'
+      fullPath: '/novyy-parol'
+      preLoaderRoute: typeof NovyyParolRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/kto': {
       id: '/kto'
       path: '/kto'
@@ -561,6 +601,7 @@ const rootRouteChildren: RootRouteChildren = {
   ChtenieRoute: ChtenieRoute,
   DemoRoute: DemoRoute,
   KtoRoute: KtoRoute,
+  NovyyParolRoute: NovyyParolRoute,
   OfertaRoute: OfertaRoute,
   OplataRoute: OplataRoute,
   PolitikaRoute: PolitikaRoute,
@@ -576,6 +617,7 @@ const rootRouteChildren: RootRouteChildren = {
   TablicaUmnozheniyaRoute: TablicaUmnozheniyaRoute,
   UchenikRoute: UchenikRoute,
   VhodRoute: VhodRoute,
+  VosstanovlenieRoute: VosstanovlenieRoute,
   RepetitorPodpiskaRoute: RepetitorPodpiskaRoute,
   RepetitorTemyRoute: RepetitorTemyRoute,
   RepetitorTrenazheryRoute: RepetitorTrenazheryRoute,

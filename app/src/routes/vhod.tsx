@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
 import {
@@ -9,9 +9,10 @@ import {
   SiteHeader,
 } from "../components/brand";
 import { loginParent, me } from "../lib/api/app.functions";
+import { closedHead } from "../lib/seo";
 
 export const Route = createFileRoute("/vhod")({
-  head: () => ({ meta: [{ title: "Вход, Совёнок" }] }),
+  head: () => closedHead("Вход, Совёнок"),
   component: LoginPage,
 });
 
@@ -65,27 +66,14 @@ function LoginPage() {
             autoComplete="current-password"
           />
           <FormAction pending={pending}>Войти</FormAction>
-          {/* Выход для того, кто забыл пароль.
-
-              Его тут не было вовсе: почта, пароль, кнопка — и всё. Для
-              продукта с подпиской это тупик, потому что вместе с паролем
-              теряются оплаченные занятия ребёнка, а сказать об этом
-              человеку было негде.
-
-              Автоматического восстановления пока нет, и врать про
-              «письмо со ссылкой» нельзя. Поэтому здесь честная развилка:
-              что происходит на самом деле и куда писать. Адрес не новый —
-              это тот же адрес, по которому оферта велит направлять любые
-              обращения (docs/legal/oferta.md, разделы 12 и 16). */}
-          <details className="sov-forgot">
-            <summary>Забыли пароль?</summary>
-            <p>
-              Восстановление по ссылке из письма мы ещё не сделали. Напишите на{" "}
-              <a href="mailto:ekaterinazyub@gmail.com">ekaterinazyub@gmail.com</a> с той почты, на
-              которую заведён аккаунт, — доступ вернём вручную. Ученики, домашние задания и
-              результаты при этом остаются на месте.
-            </p>
-          </details>
+          {/* Здесь стояла свёрнутая заглушка: «восстановления нет,
+              напишите нам». Теперь это обычная ссылка на обычный экран —
+              разворачивать больше нечего. */}
+          <p style={{ marginTop: 4 }}>
+            <Link to="/vosstanovlenie" className="sov-forgot__link">
+              Забыли пароль?
+            </Link>
+          </p>
         </form>
         <p style={{ marginTop: 26, color: "var(--sov-ink-soft)", fontSize: "var(--sov-t-cap)" }}>
           Репетитор попадёт в список учеников, родитель — сразу к занятиям ребёнка. Кабинет с

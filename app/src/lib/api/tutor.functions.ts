@@ -961,25 +961,43 @@ export const curriculum = createServerFn({ method: "GET" })
       .bind(user.id)
       .all<{ id: string; name: string; grade: number }>();
 
-    const subjects = SUBJECTS.filter((s) => !program || program.subjects.includes(s.id)).map(
-      (subject) => ({
+    /*
+     * Предметы показываются все, даже когда программа их не описывает.
+     *
+     * Петерсон — автор математики, русского у него нет и не будет. Раньше
+     * это значило, что на его вкладке русский просто исчезал, а вместо
+     * него висела подсказка «откройте общим списком». Репетитор ведёт
+     * ребёнка целиком и прыгал между вкладками ради второго предмета,
+     * хотя темы в общем списке ровно те, что ему и нужны.
+     *
+     * Теперь недостающий предмет берётся из общего списка и стоит на
+     * своём месте, а fromProgram отмечает, откуда он взялся: выдавать
+     * общий порядок за авторский нельзя, и подпись над списком об этом
+     * говорит.
+     */
+    const subjects = SUBJECTS.map((subject) => {
+      const fromProgram = !program || program.subjects.includes(subject.id);
+      return {
         id: subject.id,
         name: subject.name,
-        topics: topicsFor(program?.id ?? null, subject.id, data.grade).map((topic) => ({
-          code: topic.code,
-          title: topic.title,
-          hours: topic.hours,
-          chapters: topic.chapters,
-          inProgram: topic.inProgram,
-          practice: PRACTICE_SIZE,
-          check: CHECK_SIZE,
-          free: isFreeTopic(topic.code),
-          // Без подписки открыты только бесплатные темы — ровно то же правило,
-          // по которому тема открывается ученику.
-          locked: !paid && !isFreeTopic(topic.code),
-        })),
-      }),
-    );
+        fromProgram,
+        topics: topicsFor(fromProgram ? (program?.id ?? null) : null, subject.id, data.grade).map(
+          (topic) => ({
+            code: topic.code,
+            title: topic.title,
+            hours: topic.hours,
+            chapters: topic.chapters,
+            inProgram: topic.inProgram,
+            practice: PRACTICE_SIZE,
+            check: CHECK_SIZE,
+            free: isFreeTopic(topic.code),
+            // Без подписки открыты только бесплатные темы — ровно то же правило,
+            // по которому тема открывается ученику.
+            locked: !paid && !isFreeTopic(topic.code),
+          }),
+        ),
+      };
+    });
 
     return {
       paid,
@@ -993,11 +1011,6 @@ export const curriculum = createServerFn({ method: "GET" })
             warning: program.warning,
           }
         : null,
-      // Предметы, которых нет у программы, репетитор всё равно ведёт: у
-      // Петерсон это русский, и его показываем по общему списку.
-      missingSubjects: SUBJECTS.filter((s) => program && !program.subjects.includes(s.id)).map(
-        (s) => s.name,
-      ),
       subjects,
       students: students.results ?? [],
     };

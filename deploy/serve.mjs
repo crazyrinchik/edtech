@@ -66,6 +66,14 @@ function passthrough() {
     "TBANK_TERMINAL_KEY",
     "TBANK_TERMINAL_PASSWORD",
     "TBANK_TAXATION",
+    // Письмо со ссылкой на смену пароля (lib/mail.server.ts). Без ключа
+    // форма восстановления не обещает письма, а показывает адрес поддержки.
+    "UNISENDER_GO_KEY",
+    "MAIL_FROM",
+    "MAIL_FROM_NAME",
+    // Свой адрес для ссылки в письме. Берётся отсюда, а не из заголовка
+    // Host: иначе подменённый Host увёл бы ссылку на чужой домен.
+    "APP_ORIGIN",
   ];
   return Object.fromEntries(
     names.map((name) => [name, (process.env[name] ?? "").trim()]).filter(([, value]) => value),

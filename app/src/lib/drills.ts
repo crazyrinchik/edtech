@@ -181,3 +181,16 @@ export function describeDrillSettings(id: DrillId, settings: DrillSettings | nul
 export function isDrillId(value: string): value is DrillId {
   return value in DRILL_OPTIONS;
 }
+
+/**
+ * Перечень настроек словами: «числа, действия, время на ответ, сколько
+ * примеров». Нужен в списке тренажёров у педагога — по одним названиям не
+ * видно, что «Задать» открывает форму, а не выдаёт тренажёр целиком.
+ *
+ * Собирается из тех же DRILL_OPTIONS, по которым рисуется сама форма,
+ * поэтому разойтись с ней не может. Первая буква не поднимается: строка
+ * идёт после «Настроите:» и продолжает фразу.
+ */
+export function drillTuneSummary(id: DrillId): string {
+  return DRILL_OPTIONS[id].map((option) => option.label.toLowerCase()).join(", ");
+}

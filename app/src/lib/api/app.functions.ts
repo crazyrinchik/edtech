@@ -3,7 +3,7 @@ import type { TaskPayload } from "../content/seed";
 import { CATALOG } from "../content/curriculum.data";
 import { catalogIndex, isFreeTopic, topicByCode } from "../content/curriculum";
 import { DEMO_TASKS, READING_TEXTS } from "../content/seed";
-import { getCookie, setCookie } from "@tanstack/react-start/server";
+import { getCookie, getRequest, setCookie } from "@tanstack/react-start/server";
 import { z } from "zod";
 
 import {
@@ -40,6 +40,8 @@ import {
   type ChannelRow,
   type NotifyChannel,
 } from "../notify.server";
+import { bindings } from "../bindings.server";
+import { mailReady, sendMail } from "../mail.server";
 
 const CHILD_COOKIE = "sov_child";
 
@@ -54,14 +56,25 @@ type TopicRow = {
 };
 
 type AdminTopicRow = {
-  id: string; subject_id: string; grade: number; sort_order: number;
-  name: string; summary: string | null; is_free: number;
-  subject_name: string; task_count: number;
+  id: string;
+  subject_id: string;
+  grade: number;
+  sort_order: number;
+  name: string;
+  summary: string | null;
+  is_free: number;
+  subject_name: string;
+  task_count: number;
 };
 
 type AdminUserRow = {
-  id: string; email: string; name: string | null; role: string;
-  subscription_status: string; blocked: number; created_at: string;
+  id: string;
+  email: string;
+  name: string | null;
+  role: string;
+  subscription_status: string;
+  blocked: number;
+  created_at: string;
 };
 
 type TaskRow = {
@@ -82,7 +95,13 @@ export const me = createServerFn({ method: "GET" }).handler(async () => {
   await ensureSeeded();
   const user = await currentUser();
   if (!user) {
-    return { user: null, children: [], activeChildId: null, parentPinSet: false, parentUnlocked: false };
+    return {
+      user: null,
+      children: [],
+      activeChildId: null,
+      parentPinSet: false,
+      parentUnlocked: false,
+    };
   }
   // Учеников даёт child_access, а не children.parent_id: у ученика
   // может быть и родитель, и репетитор, и видеть его должны оба.
@@ -198,6 +217,169 @@ export const logout = createServerFn({ method: "POST" }).handler(async () => {
   setCookie(CHILD_COOKIE, "", { path: "/", maxAge: 0 });
   return { ok: true };
 });
+
+/* ------------------------------------------------- восстановление пароля
+
+   Раньше забытый пароль был тупиком: на экране входа не было даже
+   упоминания о нём, и единственным выходом оставалось письмо в
+   поддержку, которой на экране тоже не было. Для подписки это дорого —
+   вместе с паролем терялись оплаченные занятия ребёнка.
+
+   Три правила, из которых сделано остальное:
+
+   1. Форма отвечает одинаково на существующий и несуществующий адрес.
+      Иначе она превращается в проверку «а зарегистрирован ли такой
+      человек» — и любой желающий узнаёт, пользуется ли Совёнком
+      конкретная семья.
+   2. В базе лежит отпечаток ссылки, а не она сама. Ночной дамп базы не
+      должен давать входа в чужой кабинет.
+   3. Смена пароля закрывает все сессии. Если пароль угадали и в кабинет
+      уже зашли, восстановление обязано выставить чужого за дверь. */
+
+/** Час на переход по ссылке: дольше письмо живёт в чужой переписке. */
+const RESET_TTL_MS = 60 * 60 * 1000;
+/** Больше трёх писем в час на один адрес — это уже не забывчивость. */
+const RESET_MAX_PER_HOUR = 3;
+
+async function sha256Hex(value: string): Promise<string> {
+  const bytes = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/**
+ * Откуда собирается ссылка в письме.
+ *
+ * APP_ORIGIN задан — берём его. Не задан (разработка, стенд) — origin
+ * запроса. В бою переменная стоит в docker-compose именно затем, чтобы
+ * заголовок Host, приходящий снаружи, не мог подставить в письмо чужой
+ * домен.
+ */
+function appOrigin(): string {
+  const configured = bindings().APP_ORIGIN?.trim();
+  if (configured) return configured.replace(/\/+$/, "");
+  return new URL(getRequest().url).origin;
+}
+
+export const requestPasswordReset = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ email: z.string().email("Похоже, в адресе опечатка") }))
+  .handler(async ({ data }) => {
+    // Почта не настроена — говорим об этом прямо, чтобы экран показал
+    // живой адрес поддержки вместо «проверьте ящик».
+    if (!mailReady()) return { ok: true, sent: false };
+
+    const email = data.email.toLowerCase().trim();
+    const user = await db()
+      .prepare("SELECT id, blocked FROM users WHERE email = ?")
+      .bind(email)
+      .first<{ id: string; blocked: number }>();
+
+    // Ответ один и тот же в любом случае — и когда такого адреса нет, и
+    // когда учётная запись заблокирована.
+    if (!user || user.blocked) return { ok: true, sent: true };
+
+    const now = Date.now();
+    const recent = await db()
+      .prepare("SELECT COUNT(*) AS n FROM password_resets WHERE user_id = ? AND created_at > ?")
+      .bind(user.id, new Date(now - RESET_TTL_MS).toISOString())
+      .first<{ n: number }>();
+    if ((recent?.n ?? 0) >= RESET_MAX_PER_HOUR) return { ok: true, sent: true };
+
+    // Прошлые неиспользованные заявки гасим: живой должна остаться одна,
+    // последняя. Иначе письмо недельной давности открывает кабинет.
+    await db()
+      .prepare("DELETE FROM password_resets WHERE user_id = ? AND used_at IS NULL")
+      .bind(user.id)
+      .run();
+
+    const token = [...crypto.getRandomValues(new Uint8Array(32))]
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+    await db()
+      .prepare(
+        "INSERT INTO password_resets (token_hash, user_id, created_at, expires_at, used_at) VALUES (?, ?, ?, ?, NULL)",
+      )
+      .bind(await sha256Hex(token), user.id, nowIso(), new Date(now + RESET_TTL_MS).toISOString())
+      .run();
+
+    const link = `${appOrigin()}/novyy-parol?t=${token}`;
+    await sendMail({
+      to: email,
+      subject: "Совёнок: смена пароля",
+      text: [
+        "Здравствуйте!",
+        "",
+        "Кто-то попросил сменить пароль в Совёнке для этого адреса.",
+        "Если это вы — откройте ссылку и придумайте новый пароль:",
+        "",
+        link,
+        "",
+        "Ссылка работает один час и только один раз.",
+        "",
+        "Если это были не вы, ничего делать не нужно: пароль остался прежним,",
+        "а ссылка сама перестанет работать. Занятия и результаты ребёнка на месте.",
+        "",
+        "Совёнок",
+      ].join("\n"),
+    });
+    await track("password_reset_requested", { userId: user.id });
+    return { ok: true, sent: true };
+  });
+
+/**
+ * Жива ли ссылка. Спрашивается до показа формы: узнавать, что ссылка
+ * протухла, после того как придумал пароль, — обидно и незачем.
+ */
+export const checkResetToken = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ token: z.string().min(1) }))
+  .handler(async ({ data }) => {
+    const row = await db()
+      .prepare("SELECT expires_at, used_at FROM password_resets WHERE token_hash = ?")
+      .bind(await sha256Hex(data.token))
+      .first<{ expires_at: string; used_at: string | null }>();
+    const valid = !!row && !row.used_at && new Date(row.expires_at).getTime() > Date.now();
+    return { valid };
+  });
+
+export const resetPassword = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      token: z.string().min(1),
+      password: z.string().min(8, "Пароль от 8 символов"),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const hash = await sha256Hex(data.token);
+    const row = await db()
+      .prepare("SELECT user_id, expires_at, used_at FROM password_resets WHERE token_hash = ?")
+      .bind(hash)
+      .first<{ user_id: string; expires_at: string; used_at: string | null }>();
+    if (!row || row.used_at || new Date(row.expires_at).getTime() <= Date.now()) {
+      throw new Error("Ссылка устарела или уже использована. Запросите новую.");
+    }
+
+    await db().batch([
+      db()
+        .prepare("UPDATE users SET password_hash = ? WHERE id = ?")
+        .bind(await hashPassword(data.password), row.user_id),
+      db()
+        .prepare("UPDATE password_resets SET used_at = ? WHERE token_hash = ?")
+        .bind(nowIso(), hash),
+      // Остальные заявки этого человека тоже гасим: если писем было
+      // несколько, ни одно из старых не должно открыть кабинет ещё раз.
+      db()
+        .prepare("DELETE FROM password_resets WHERE user_id = ? AND used_at IS NULL")
+        .bind(row.user_id),
+      // Все сессии — на выход. Смена пароля затем и нужна, чтобы выгнать
+      // того, кто вошёл со старым.
+      db().prepare("DELETE FROM sessions WHERE user_id = ?").bind(row.user_id),
+      // Кабинет родителя тоже закрывается: пин-код не менялся, но
+      // открытая дверь после смены пароля — лишнее.
+      db().prepare("DELETE FROM parent_unlocks WHERE user_id = ?").bind(row.user_id),
+    ]);
+    await track("password_reset_done", { userId: row.user_id });
+    return { ok: true };
+  });
 
 /* ------------------------------------------------- код родителя (4 цифры) */
 
@@ -360,7 +542,9 @@ export const getSkillMap = createServerFn({ method: "GET" })
     // Отдаются метками времени, а не счётчиком по дням: календарный день
     // считает клиент, у которого есть часовой пояс (см. parentReport).
     const weekRuns = await db()
-      .prepare("SELECT started_at FROM lessons WHERE child_id = ? AND started_at > ? ORDER BY started_at")
+      .prepare(
+        "SELECT started_at FROM lessons WHERE child_id = ? AND started_at > ? ORDER BY started_at",
+      )
       .bind(data.childId, new Date(Date.now() - 7 * 864e5).toISOString())
       .all<{ started_at: string }>();
 
@@ -398,7 +582,14 @@ export const getSkillMap = createServerFn({ method: "GET" })
 
     const totalStars = (progress.results ?? []).reduce((sum, p) => sum + p.stars, 0);
     return {
-      child: { id: child.id, name: child.name, avatar: child.avatar, grade: child.grade, soundOn: !!child.sound_on, dailyLimitMin: child.daily_limit_min },
+      child: {
+        id: child.id,
+        name: child.name,
+        avatar: child.avatar,
+        grade: child.grade,
+        soundOn: !!child.sound_on,
+        dailyLimitMin: child.daily_limit_min,
+      },
       subjects: map,
       totalStars,
       level: Math.floor(totalStars / 5) + 1,
@@ -418,7 +609,9 @@ export const getSkillMap = createServerFn({ method: "GET" })
 /* ------------------------------------------------------------ занятие */
 
 export const startTopic = createServerFn({ method: "GET" })
-  .inputValidator(z.object({ childId: z.string(), topicId: z.string(), mode: z.enum(["practice", "check"]) }))
+  .inputValidator(
+    z.object({ childId: z.string(), topicId: z.string(), mode: z.enum(["practice", "check"]) }),
+  )
   .handler(async ({ data }) => {
     await ensureSeeded();
     const user = await requireUser();
@@ -427,7 +620,10 @@ export const startTopic = createServerFn({ method: "GET" })
     // Тема каталога до первого захода в базе не существует — заводим её
     // вместе с заданиями, иначе ребёнку третьего класса открывать нечего.
     if (topicByCode(data.topicId)) await materializeTopic(data.topicId);
-    const topic = await db().prepare("SELECT * FROM topics WHERE id = ?").bind(data.topicId).first<TopicRow>();
+    const topic = await db()
+      .prepare("SELECT * FROM topics WHERE id = ?")
+      .bind(data.topicId)
+      .first<TopicRow>();
     if (!topic) throw new Error("Тема не найдена");
     if (!topic.is_free && !(await childHasPaidAccess(data.childId))) {
       throw new Error("Эта тема доступна по подписке");
@@ -443,9 +639,20 @@ export const startTopic = createServerFn({ method: "GET" })
       .prepare(
         "INSERT INTO lessons (id, child_id, topic_id, subject_id, started_at, total) VALUES (?, ?, ?, ?, ?, ?)",
       )
-      .bind(lessonId, data.childId, data.topicId, topic.subject_id, nowIso(), (rows.results ?? []).length)
+      .bind(
+        lessonId,
+        data.childId,
+        data.topicId,
+        topic.subject_id,
+        nowIso(),
+        (rows.results ?? []).length,
+      )
       .run();
-    await track("lesson_started", { userId: user.id, childId: data.childId, props: { topicId: data.topicId, mode: data.mode } });
+    await track("lesson_started", {
+      userId: user.id,
+      childId: data.childId,
+      props: { topicId: data.topicId, mode: data.mode },
+    });
 
     return {
       lessonId,
@@ -472,7 +679,10 @@ export const answerTask = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const user = await requireUser();
     await requireChildAccess(data.childId, user.id);
-    const task = await db().prepare("SELECT * FROM tasks WHERE id = ?").bind(data.taskId).first<TaskRow>();
+    const task = await db()
+      .prepare("SELECT * FROM tasks WHERE id = ?")
+      .bind(data.taskId)
+      .first<TaskRow>();
     if (!task) throw new Error("Задание не найдено");
 
     const correct = answersMatch(data.value, task.answer);
@@ -480,7 +690,15 @@ export const answerTask = createServerFn({ method: "POST" })
       .prepare(
         "INSERT INTO attempts (id, child_id, task_id, topic_id, is_correct, seconds, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
       )
-      .bind(uid("att"), data.childId, data.taskId, task.topic_id, correct ? 1 : 0, data.seconds, nowIso())
+      .bind(
+        uid("att"),
+        data.childId,
+        data.taskId,
+        task.topic_id,
+        correct ? 1 : 0,
+        data.seconds,
+        nowIso(),
+      )
       .run();
 
     // Тема помечается начатой уже на первом ответе. Раньше строка в progress
@@ -497,7 +715,11 @@ export const answerTask = createServerFn({ method: "POST" })
       .bind(data.childId, task.topic_id, nowIso(), nowIso())
       .run();
 
-    return { correct, explanation: correct ? null : task.explanation, answer: correct ? null : task.answer };
+    return {
+      correct,
+      explanation: correct ? null : task.explanation,
+      answer: correct ? null : task.answer,
+    };
   });
 
 export const finishTopic = createServerFn({ method: "POST" })
@@ -528,18 +750,27 @@ export const finishTopic = createServerFn({ method: "POST" })
     const percent = Math.round((correct / total) * 100);
 
     await db()
-      .prepare("UPDATE lessons SET seconds = ?, correct = ?, total = ? WHERE id = ? AND child_id = ?")
+      .prepare(
+        "UPDATE lessons SET seconds = ?, correct = ?, total = ? WHERE id = ? AND child_id = ?",
+      )
       .bind(data.seconds, correct, total, data.lessonId, data.childId)
       .run();
 
     const existing = await db()
-      .prepare("SELECT status, stars, best_percent FROM progress WHERE child_id = ? AND topic_id = ?")
+      .prepare(
+        "SELECT status, stars, best_percent FROM progress WHERE child_id = ? AND topic_id = ?",
+      )
       .bind(data.childId, data.topicId)
       .first<{ status: string; stars: number; best_percent: number }>();
 
     const passed = data.mode === "check" && percent >= 70;
-    const stars = data.mode === "check" ? (percent >= 90 ? 3 : percent >= 80 ? 2 : percent >= 70 ? 1 : 0) : 0;
-    const status = passed ? "completed" : existing?.status === "completed" ? "completed" : "in_progress";
+    const stars =
+      data.mode === "check" ? (percent >= 90 ? 3 : percent >= 80 ? 2 : percent >= 70 ? 1 : 0) : 0;
+    const status = passed
+      ? "completed"
+      : existing?.status === "completed"
+        ? "completed"
+        : "in_progress";
     const bestStars = Math.max(stars, existing?.stars ?? 0);
     const bestPercent = Math.max(percent, existing?.best_percent ?? 0);
 
@@ -550,8 +781,16 @@ export const finishTopic = createServerFn({ method: "POST" })
          ON CONFLICT(child_id, topic_id) DO UPDATE SET status = ?, stars = ?, best_percent = ?, updated_at = ?`,
       )
       .bind(
-        data.childId, data.topicId, status, bestStars, bestPercent, nowIso(),
-        status, bestStars, bestPercent, nowIso(),
+        data.childId,
+        data.topicId,
+        status,
+        bestStars,
+        bestPercent,
+        nowIso(),
+        status,
+        bestStars,
+        bestPercent,
+        nowIso(),
       )
       .run();
 
@@ -578,7 +817,11 @@ export const finishTopic = createServerFn({ method: "POST" })
         )
         .bind(topic.subject_id, topic.grade, topic.sort_order)
         .first<{ name: string; is_free: number }>();
-      if (row) next = { name: row.name, locked: !row.is_free && !(await childHasPaidAccess(data.childId)) };
+      if (row)
+        next = {
+          name: row.name,
+          locked: !row.is_free && !(await childHasPaidAccess(data.childId)),
+        };
     }
 
     // Род ребёнка приложение не спрашивает, поэтому в сообщении нет глаголов
@@ -622,7 +865,9 @@ export const parentReport = createServerFn({ method: "GET" })
       .first<{ lessons: number; seconds: number }>();
 
     const done = await db()
-      .prepare("SELECT COUNT(*) AS n, COALESCE(SUM(stars), 0) AS stars FROM progress WHERE child_id = ? AND status = 'completed'")
+      .prepare(
+        "SELECT COUNT(*) AS n, COALESCE(SUM(stars), 0) AS stars FROM progress WHERE child_id = ? AND status = 'completed'",
+      )
       .bind(data.childId)
       .first<{ n: number; stars: number }>();
 
@@ -691,7 +936,14 @@ export const parentReport = createServerFn({ method: "GET" })
           ORDER BY l.started_at DESC LIMIT 15`,
       )
       .bind(data.childId)
-      .all<{ started_at: string; seconds: number; correct: number; total: number; topic: string; subject: string }>();
+      .all<{
+        started_at: string;
+        seconds: number;
+        correct: number;
+        total: number;
+        topic: string;
+        subject: string;
+      }>();
 
     // Тренажёры живут отдельно от тем, но родителю важно видеть и их:
     // «занимался ли ребёнок» — это не только пройденные темы.
@@ -721,7 +973,14 @@ export const parentReport = createServerFn({ method: "GET" })
           ORDER BY t.subject_id, t.sort_order`,
       )
       .bind(data.childId)
-      .all<{ topic: string; subject: string; subject_id: string; sort_order: number; total: number; correct: number }>();
+      .all<{
+        topic: string;
+        subject: string;
+        subject_id: string;
+        sort_order: number;
+        total: number;
+        correct: number;
+      }>();
 
     // Точность за прошлую неделю — чтобы у числа была стрелка, а не просто
     // цифра: «78%» ни о чём не говорит, «78%, было 71%» говорит всё.
@@ -767,7 +1026,14 @@ export const parentReport = createServerFn({ method: "GET" })
 
     const attempts = totals?.attempts ?? 0;
     return {
-      child: { id: child.id, name: child.name, grade: child.grade, avatar: child.avatar, dailyLimitMin: child.daily_limit_min, soundOn: !!child.sound_on },
+      child: {
+        id: child.id,
+        name: child.name,
+        grade: child.grade,
+        avatar: child.avatar,
+        dailyLimitMin: child.daily_limit_min,
+        soundOn: !!child.sound_on,
+      },
       accuracy: attempts ? Math.round(((totals?.correct ?? 0) / attempts) * 100) : 0,
       attempts,
       weekLessons: week?.lessons ?? 0,
@@ -789,11 +1055,24 @@ export const parentReport = createServerFn({ method: "GET" })
         total: m.total,
         percent: Math.round((m.correct / m.total) * 100),
       })),
-      weekAccuracy: weekAcc?.attempts ? Math.round(((weekAcc.correct ?? 0) / weekAcc.attempts) * 100) : null,
-      prevAccuracy: prevAcc?.attempts ? Math.round(((prevAcc.correct ?? 0) / prevAcc.attempts) * 100) : null,
-      weekRuns: (weekRuns.results ?? []).map((r) => ({ startedAt: r.started_at, seconds: r.seconds })),
+      weekAccuracy: weekAcc?.attempts
+        ? Math.round(((weekAcc.correct ?? 0) / weekAcc.attempts) * 100)
+        : null,
+      prevAccuracy: prevAcc?.attempts
+        ? Math.round(((prevAcc.correct ?? 0) / prevAcc.attempts) * 100)
+        : null,
+      weekRuns: (weekRuns.results ?? []).map((r) => ({
+        startedAt: r.started_at,
+        seconds: r.seconds,
+      })),
       drillRuns: (drillRuns.results ?? [])
-        .map((r) => ({ kind: r.kind, correct: r.correct, total: r.total, score: r.score, createdAt: r.created_at }))
+        .map((r) => ({
+          kind: r.kind,
+          correct: r.correct,
+          total: r.total,
+          score: r.score,
+          createdAt: r.created_at,
+        }))
         .reverse(),
       history: history.results ?? [],
       drills: drills.results ?? [],
@@ -823,9 +1102,13 @@ export const redeemPromo = createServerFn({ method: "POST" })
     const end = new Date(Date.now() + promo.months * 30 * 864e5).toISOString();
     await db().batch([
       db().prepare("UPDATE users SET subscription_status = 'active' WHERE id = ?").bind(user.id),
-      db().prepare("UPDATE promo_codes SET used_by = ?, used_at = ? WHERE code = ?").bind(user.id, nowIso(), code),
       db()
-        .prepare("INSERT INTO subscriptions (id, user_id, plan, status, start_date, end_date) VALUES (?, ?, ?, 'active', ?, ?)")
+        .prepare("UPDATE promo_codes SET used_by = ?, used_at = ? WHERE code = ?")
+        .bind(user.id, nowIso(), code),
+      db()
+        .prepare(
+          "INSERT INTO subscriptions (id, user_id, plan, status, start_date, end_date) VALUES (?, ?, ?, 'active', ?, ?)",
+        )
         .bind(uid("sub"), user.id, `promo_${promo.months}m`, nowIso(), end),
     ]);
     await track("subscription_activated", { userId: user.id, props: { code } });
@@ -836,7 +1119,11 @@ export const cancelSubscription = createServerFn({ method: "POST" }).handler(asy
   const user = await requireParentAccess();
   await db().batch([
     db().prepare("UPDATE users SET subscription_status = 'free' WHERE id = ?").bind(user.id),
-    db().prepare("UPDATE subscriptions SET status = 'cancelled' WHERE user_id = ? AND status = 'active'").bind(user.id),
+    db()
+      .prepare(
+        "UPDATE subscriptions SET status = 'cancelled' WHERE user_id = ? AND status = 'active'",
+      )
+      .bind(user.id),
   ]);
   return { ok: true };
 });
@@ -1013,7 +1300,9 @@ export const deleteAccount = createServerFn({ method: "POST" })
       db().prepare("DELETE FROM notify_channels WHERE user_id = ?").bind(user.id),
       db().prepare("DELETE FROM child_access WHERE user_id = ?").bind(user.id),
       db()
-        .prepare("UPDATE subscriptions SET status = 'cancelled' WHERE user_id = ? AND status = 'active'")
+        .prepare(
+          "UPDATE subscriptions SET status = 'cancelled' WHERE user_id = ? AND status = 'active'",
+        )
         .bind(user.id),
       db().prepare("DELETE FROM users WHERE id = ?").bind(user.id),
     ]);
@@ -1050,7 +1339,11 @@ export const demoAnswer = createServerFn({ method: "POST" })
     const task = DEMO_TASKS[index];
     if (!task) throw new Error("Задание не найдено");
     const correct = answersMatch(data.value, task.answer);
-    return { correct, explanation: correct ? null : task.explanation, answer: correct ? null : task.answer };
+    return {
+      correct,
+      explanation: correct ? null : task.explanation,
+      answer: correct ? null : task.answer,
+    };
   });
 
 export const demoFinished = createServerFn({ method: "POST" })
@@ -1265,13 +1558,29 @@ export const adminOverview = createServerFn({ method: "GET" }).handler(async () 
   const day = new Date(Date.now() - 864e5).toISOString();
   const week = new Date(Date.now() - 7 * 864e5).toISOString();
 
-  const dau = await db().prepare("SELECT COUNT(DISTINCT child_id) AS n FROM lessons WHERE started_at > ?").bind(day).first<{ n: number }>();
-  const wau = await db().prepare("SELECT COUNT(DISTINCT child_id) AS n FROM lessons WHERE started_at > ?").bind(week).first<{ n: number }>();
+  const dau = await db()
+    .prepare("SELECT COUNT(DISTINCT child_id) AS n FROM lessons WHERE started_at > ?")
+    .bind(day)
+    .first<{ n: number }>();
+  const wau = await db()
+    .prepare("SELECT COUNT(DISTINCT child_id) AS n FROM lessons WHERE started_at > ?")
+    .bind(week)
+    .first<{ n: number }>();
   const users = await db().prepare("SELECT COUNT(*) AS n FROM users").first<{ n: number }>();
-  const paid = await db().prepare("SELECT COUNT(*) AS n FROM users WHERE subscription_status = 'active'").first<{ n: number }>();
-  const registered = await db().prepare("SELECT COUNT(*) AS n FROM events WHERE name = 'register'").first<{ n: number }>();
-  const firstLesson = await db().prepare("SELECT COUNT(DISTINCT user_id) AS n FROM events WHERE name = 'lesson_started'").first<{ n: number }>();
-  const dashboards = await db().prepare("SELECT COUNT(DISTINCT user_id) AS n FROM events WHERE name = 'parent_dashboard_opened'").first<{ n: number }>();
+  const paid = await db()
+    .prepare("SELECT COUNT(*) AS n FROM users WHERE subscription_status = 'active'")
+    .first<{ n: number }>();
+  const registered = await db()
+    .prepare("SELECT COUNT(*) AS n FROM events WHERE name = 'register'")
+    .first<{ n: number }>();
+  const firstLesson = await db()
+    .prepare("SELECT COUNT(DISTINCT user_id) AS n FROM events WHERE name = 'lesson_started'")
+    .first<{ n: number }>();
+  const dashboards = await db()
+    .prepare(
+      "SELECT COUNT(DISTINCT user_id) AS n FROM events WHERE name = 'parent_dashboard_opened'",
+    )
+    .first<{ n: number }>();
 
   const hard = await db()
     .prepare(
@@ -1290,7 +1599,9 @@ export const adminOverview = createServerFn({ method: "GET" }).handler(async () 
     .all<{ topic: string; lessons: number }>();
 
   const usersList = await db()
-    .prepare("SELECT id, email, name, role, subscription_status, blocked, created_at FROM users ORDER BY created_at DESC LIMIT 50")
+    .prepare(
+      "SELECT id, email, name, role, subscription_status, blocked, created_at FROM users ORDER BY created_at DESC LIMIT 50",
+    )
     .all<AdminUserRow>();
 
   const regCount = registered?.n ?? 0;
@@ -1302,7 +1613,10 @@ export const adminOverview = createServerFn({ method: "GET" }).handler(async () 
     activationRate: regCount ? Math.round(((firstLesson?.n ?? 0) / regCount) * 100) : 0,
     parentRate: regCount ? Math.round(((dashboards?.n ?? 0) / regCount) * 100) : 0,
     payRate: (users?.n ?? 0) ? Math.round(((paid?.n ?? 0) / (users?.n ?? 1)) * 100) : 0,
-    hard: (hard.results ?? []).map((h) => ({ topic: h.topic, percent: Math.round((h.correct / h.total) * 100) })),
+    hard: (hard.results ?? []).map((h) => ({
+      topic: h.topic,
+      percent: Math.round((h.correct / h.total) * 100),
+    })),
     popular: popular.results ?? [],
     usersList: (usersList.results ?? []) as AdminUserRow[],
   };
@@ -1346,7 +1660,9 @@ export const adminSaveTopic = createServerFn({ method: "POST" })
     await requireAdmin();
     if (data.id) {
       await db()
-        .prepare("UPDATE topics SET subject_id = ?, grade = ?, name = ?, summary = ?, is_free = ? WHERE id = ?")
+        .prepare(
+          "UPDATE topics SET subject_id = ?, grade = ?, name = ?, summary = ?, is_free = ? WHERE id = ?",
+        )
         .bind(data.subjectId, data.grade, data.name, data.summary, data.isFree ? 1 : 0, data.id)
         .run();
       return { id: data.id };
@@ -1357,8 +1673,18 @@ export const adminSaveTopic = createServerFn({ method: "POST" })
       .bind(data.subjectId)
       .first<{ n: number }>();
     await db()
-      .prepare("INSERT INTO topics (id, subject_id, grade, sort_order, name, summary, is_free) VALUES (?, ?, ?, ?, ?, ?, ?)")
-      .bind(id, data.subjectId, data.grade, (max?.n ?? 0) + 1, data.name, data.summary, data.isFree ? 1 : 0)
+      .prepare(
+        "INSERT INTO topics (id, subject_id, grade, sort_order, name, summary, is_free) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      )
+      .bind(
+        id,
+        data.subjectId,
+        data.grade,
+        (max?.n ?? 0) + 1,
+        data.name,
+        data.summary,
+        data.isFree ? 1 : 0,
+      )
       .run();
     return { id };
   });
@@ -1380,15 +1706,33 @@ export const adminSaveTask = createServerFn({ method: "POST" })
     await requireAdmin();
     const payload = JSON.stringify(
       data.kind === "choice"
-        ? { options: data.options.split("|").map((s) => s.trim()).filter(Boolean) }
+        ? {
+            options: data.options
+              .split("|")
+              .map((s) => s.trim())
+              .filter(Boolean),
+          }
         : data.kind === "match"
-          ? { left: data.options.split("|").map((s) => s.trim()), right: data.answer.split("|").map((s) => s.trim()) }
+          ? {
+              left: data.options.split("|").map((s) => s.trim()),
+              right: data.answer.split("|").map((s) => s.trim()),
+            }
           : {},
     );
     if (data.id) {
       await db()
-        .prepare("UPDATE tasks SET kind = ?, prompt = ?, payload = ?, answer = ?, explanation = ?, is_check = ? WHERE id = ?")
-        .bind(data.kind, data.prompt, payload, data.answer, data.explanation, data.isCheck ? 1 : 0, data.id)
+        .prepare(
+          "UPDATE tasks SET kind = ?, prompt = ?, payload = ?, answer = ?, explanation = ?, is_check = ? WHERE id = ?",
+        )
+        .bind(
+          data.kind,
+          data.prompt,
+          payload,
+          data.answer,
+          data.explanation,
+          data.isCheck ? 1 : 0,
+          data.id,
+        )
         .run();
       return { id: data.id };
     }
@@ -1401,7 +1745,17 @@ export const adminSaveTask = createServerFn({ method: "POST" })
       .prepare(
         "INSERT INTO tasks (id, topic_id, kind, sort_order, prompt, payload, answer, explanation, is_check) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
       )
-      .bind(id, data.topicId, data.kind, (max?.n ?? 0) + 1, data.prompt, payload, data.answer, data.explanation, data.isCheck ? 1 : 0)
+      .bind(
+        id,
+        data.topicId,
+        data.kind,
+        (max?.n ?? 0) + 1,
+        data.prompt,
+        payload,
+        data.answer,
+        data.explanation,
+        data.isCheck ? 1 : 0,
+      )
       .run();
     return { id };
   });
@@ -1415,14 +1769,26 @@ export const adminDeleteTask = createServerFn({ method: "POST" })
   });
 
 export const adminUpdateUser = createServerFn({ method: "POST" })
-  .inputValidator(z.object({ userId: z.string(), blocked: z.boolean().nullable(), subscription: z.string().nullable() }))
+  .inputValidator(
+    z.object({
+      userId: z.string(),
+      blocked: z.boolean().nullable(),
+      subscription: z.string().nullable(),
+    }),
+  )
   .handler(async ({ data }) => {
     await requireAdmin();
     if (data.blocked !== null) {
-      await db().prepare("UPDATE users SET blocked = ? WHERE id = ?").bind(data.blocked ? 1 : 0, data.userId).run();
+      await db()
+        .prepare("UPDATE users SET blocked = ? WHERE id = ?")
+        .bind(data.blocked ? 1 : 0, data.userId)
+        .run();
     }
     if (data.subscription !== null) {
-      await db().prepare("UPDATE users SET subscription_status = ? WHERE id = ?").bind(data.subscription, data.userId).run();
+      await db()
+        .prepare("UPDATE users SET subscription_status = ? WHERE id = ?")
+        .bind(data.subscription, data.userId)
+        .run();
     }
     return { ok: true };
   });

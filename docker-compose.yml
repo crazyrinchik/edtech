@@ -69,6 +69,15 @@ services:
       TBANK_TERMINAL_KEY: ${TBANK_TERMINAL_KEY:-}
       TBANK_TERMINAL_PASSWORD: ${TBANK_TERMINAL_PASSWORD:-}
       TBANK_TAXATION: ${TBANK_TAXATION:-usn_income}
+      # Письма о смене пароля. Пустой ключ просто оставляет форму
+      # восстановления с ручным путём, остальное приложение работает
+      # как раньше (см. mailReady() в src/lib/mail.server.ts).
+      UNISENDER_GO_KEY: ${UNISENDER_GO_KEY:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-}
+      # Из этого адреса собирается ссылка в письме. Задан явно, чтобы
+      # подменённый заголовок Host не мог подставить чужой домен.
+      APP_ORIGIN: ${APP_ORIGIN:-https://sovenok.space}
     volumes:
       # Старая база D1 (SQLite). При SOVENOK_DB=postgres не используется, но том
       # оставлен: это путь отката, если с PostgreSQL что-то пойдёт не так.

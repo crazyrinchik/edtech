@@ -1,5 +1,14 @@
 @import "./brand.css";
-@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap");
+/* Второго запроса за шрифтами здесь больше нет.
+ *
+ * Стояла строка с Outfit и IBM Plex Mono — наследство шаблона. Outfit в
+ * Совёнке не набирается нигде: --sov-font это Nunito Sans, и ни одного
+ * упоминания Outfit в коде не осталось. IBM Plex Mono нужен, но его уже
+ * тянет brand.css строкой выше — тем же самым запросом к тем же файлам.
+ *
+ * То есть каждая страница шла в Google Fonts дважды и ждала ответа на
+ * оба запроса, прежде чем показать текст, ради семейства, которое потом
+ * не использовалось. */
 /* Cascade layer order: reset lowest, then Tailwind/Quanta base, then
  * components and finally utilities — so Quanta's q-* utilities (e.g.
  * q-button-*) always win over global element resets. */

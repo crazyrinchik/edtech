@@ -971,25 +971,16 @@ body {
   border-color: var(--sov-cobalt);
   box-shadow: inset 0 0 0 1px var(--sov-cobalt);
 }
-/* «Забыли пароль?» — свёрнутая строка под кнопкой входа. Свёрнутая,
-   потому что нужна одному человеку из двадцати, а разворачивается
-   на месте, потому что уводить со страницы входа того, кто и так не
-   может войти, — лишний шаг. */
-.sov-forgot > summary {
-  cursor: pointer;
+/* «Забыли пароль?» под кнопкой входа.
+
+   Была свёрнутая раскрывашка с объяснением, что восстановления нет и
+   надо писать письмо. Теперь это ссылка на настоящий экран, и весь блок
+   ужался до одной строки. Кегль подписи, а не текста: строка нужна тому
+   одному из двадцати, кто не смог войти, и не должна спорить с кнопкой
+   над ней. */
+.sov-forgot__link {
   font-size: var(--sov-t-cap);
   font-weight: 700;
-  color: var(--sov-cobalt);
-  width: fit-content;
-}
-.sov-forgot > p {
-  margin-top: 10px;
-  font-size: var(--sov-t-cap);
-  font-weight: 500;
-  color: var(--sov-ink-soft);
-  max-width: var(--sov-measure);
-}
-.sov-forgot a {
   color: var(--sov-cobalt);
 }
 /* Флажок и текст согласия. flex: none обязателен: без него длинный текст
@@ -1346,6 +1337,17 @@ body {
   font-size: 0.9rem;
   white-space: nowrap;
   color: var(--sov-ink-soft);
+}
+
+/* Пометка «предмет вне программы» под заголовком раздела. Стоит тише
+   счётчика тем: это оговорка, а не заголовок, но пропустить её нельзя —
+   от неё зависит, по чему педагог считает, что ведёт. */
+.sov-quest__note {
+  margin-top: 6px;
+  font-size: var(--sov-t-cap);
+  font-weight: 500;
+  color: var(--sov-ink-soft);
+  max-width: var(--sov-measure);
 }
 
 .sov-trail {
@@ -3754,6 +3756,43 @@ a.sov-level:active .sov-level__num {
   font-size: 0.92rem;
   font-weight: 600;
   color: var(--sov-ink-soft);
+}
+/* Перечень настроек под названием тренажёра. Тише, чем .sov-prog__meta:
+   это не описание тренажёра, а подсказка о том, что кнопка «Задать»
+   откроет форму. Читают её один раз, дальше она не должна мешать. */
+.sov-prog__tune {
+  font-size: var(--sov-t-cap);
+  font-weight: 500;
+  color: var(--sov-ink-soft);
+}
+
+/* Параграфы учебника внутри темы каталога.
+
+   Отбиты слева линией, а не маркерами: это не список дел, а «вот как
+   эта же тема называется у вас в учебнике». Линия кобальтовая и тонкая —
+   она связывает главы с темой над ними и не спорит с ней по весу. */
+.sov-prog__chapters {
+  margin: 6px 0 0;
+  padding: 2px 0 2px 14px;
+  list-style: none;
+  border-left: 2px solid var(--sov-cobalt-soft);
+  display: grid;
+  gap: 3px;
+  max-width: var(--sov-measure);
+}
+.sov-prog__chapters li {
+  font-size: var(--sov-t-cap);
+  font-weight: 500;
+  color: var(--sov-ink-soft);
+  line-height: 1.4;
+}
+/* Тема, которой в выбранном учебнике нет. Охра — тот же смысл, что в
+   разборе ответа: не ошибка, но обратите внимание. */
+.sov-prog__extra {
+  margin-top: 6px;
+  font-size: var(--sov-t-cap);
+  font-weight: 600;
+  color: var(--sov-warn);
 }
 .sov-prog__actions {
   display: flex;
