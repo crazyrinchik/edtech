@@ -23,6 +23,8 @@ import { PayForm } from "../components/pay-form";
 import {
   addChild,
   cancelSubscription,
+  deleteAccount,
+  deleteChild,
   lockParentCabinet,
   logout,
   me,
@@ -76,6 +78,7 @@ type Report = {
   }[];
   drills: { kind: string; runs: number; correct: number; total: number; last_at: string }[];
   subscription: string;
+  hasTutor: boolean;
 };
 type Account = {
   user: {
@@ -228,7 +231,15 @@ function ParentPage() {
         ) : null}
 
         {!report ? (
-          <AddChildForm onAdded={load} />
+          <>
+            <AddChildForm onAdded={load} />
+            {/* Без этого блока родитель, удаливший единственный профиль,
+                не смог бы отозвать согласие целиком: вкладка настроек
+                открывается только при выбранном ребёнке. */}
+            <div style={{ marginTop: 48 }}>
+              <DeleteAccountBlock />
+            </div>
+          </>
         ) : (
           <>
             <Verdict report={report} />
@@ -257,6 +268,18 @@ function ParentPage() {
             {tab === "history" ? (
               <section style={{ marginTop: 24 }}>
                 <h2 style={{ fontSize: "var(--sov-t-h3)", fontWeight: 600 }}>История занятий</h2>
+                {report.hasTutor ? (
+                  <p
+                    style={{
+                      marginTop: 8,
+                      color: "var(--sov-ink-soft)",
+                      fontSize: "var(--sov-t-cap)",
+                    }}
+                  >
+                    Задания наставника хранятся, пока существует его учётная запись: если он
+                    удалит её, они исчезнут, а результаты занятий и прогресс ребёнка останутся.
+                  </p>
+                ) : null}
                 {report.history.length === 0 ? (
                   <p style={{ marginTop: 12, color: "var(--sov-ink-soft)" }}>
                     Занятий пока не было.
@@ -365,6 +388,19 @@ function ParentPage() {
                     Добавить ещё ребёнка
                   </h2>
                   <AddChildForm onAdded={load} compact />
+                </div>
+
+                <div style={{ marginTop: 40 }}>
+                  <h2 style={{ fontSize: "var(--sov-t-h3)", fontWeight: 600 }}>Удаление</h2>
+                  <DeleteChildBlock
+                    child={report.child}
+                    onDeleted={async () => {
+                      setNotice("Профиль удалён");
+                      setTab("progress");
+                      await load();
+                    }}
+                  />
+                  <DeleteAccountBlock />
                 </div>
               </section>
             ) : null}
@@ -1070,5 +1106,150 @@ function NotifyTab({ onNotice }: { onNotice: (text: string) => void }) {
         </div>
       ))}
     </section>
+  );
+}
+
+/**
+ * Самое необратимое действие в продукте, поэтому кнопка ничего не удаляет:
+ * она раскрывает объяснение, что именно пропадёт, и просит набрать имя
+ * ребёнка руками (сервер сверяет ещё раз, так же мягко, как ответы ребёнка,
+ * — регистр и «ё» не мешают). Про восстановление сказано прямо: только из
+ * ночной резервной копии по письму, занятия после последней копии не
+ * вернутся.
+ */
+function DeleteChildBlock({
+  child,
+  onDeleted,
+}: {
+  child: { id: string; name: string };
+  onDeleted: () => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [typed, setTyped] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+  const norm = (s: string) => s.trim().toLowerCase().replace(/ё/g, "е");
+  const ready = norm(typed) === norm(child.name);
+
+  if (!open) {
+    return (
+      <button className="sov-act-ghost" style={{ marginTop: 14 }} onClick={() => setOpen(true)}>
+        Удалить профиль: {child.name}…
+      </button>
+    );
+  }
+  return (
+    <form
+      className="sov-form"
+      style={{ marginTop: 16 }}
+      onSubmit={async (e) => {
+        e.preventDefault();
+        setError(null);
+        setPending(true);
+        try {
+          await deleteChild({ data: { childId: child.id, confirmName: typed } });
+          await onDeleted();
+        } catch (err) {
+          setError(err instanceof Error ? err.message : "Не получилось удалить");
+          setPending(false);
+        }
+      }}
+    >
+      <div className="sov-alert">
+        Пропадут все занятия, история, звёзды, награды и загруженные фотографии. Отменить это
+        нельзя: восстановление возможно только из ночной резервной копии по письму на
+        ekaterinazyub@gmail.com, и занятия после последней копии не вернутся.
+      </div>
+      {error ? <div className="sov-alert">{error}</div> : null}
+      <div className="sov-field">
+        <label htmlFor="delchild">Чтобы удалить, наберите имя ребёнка: {child.name}</label>
+        <input
+          id="delchild"
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
+          autoComplete="off"
+        />
+      </div>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <button
+          type="submit"
+          className="sov-act-ghost"
+          disabled={!ready || pending}
+          style={{ borderColor: "var(--sov-warn)", color: "var(--sov-warn)" }}
+        >
+          {pending ? "Удаляем…" : "Удалить профиль навсегда"}
+        </button>
+        <button type="button" className="sov-act-ghost" onClick={() => setOpen(false)}>
+          Передумал
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/** Полный отзыв согласия: подтверждается паролем, а не кодом из четырёх цифр. */
+function DeleteAccountBlock() {
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+
+  if (!open) {
+    return (
+      <button className="sov-act-ghost" style={{ marginTop: 14 }} onClick={() => setOpen(true)}>
+        Удалить учётную запись…
+      </button>
+    );
+  }
+  return (
+    <form
+      className="sov-form"
+      style={{ marginTop: 16 }}
+      onSubmit={async (e) => {
+        e.preventDefault();
+        setError(null);
+        setPending(true);
+        try {
+          await deleteAccount({ data: { password } });
+          await navigate({ to: "/" });
+        } catch (err) {
+          setError(err instanceof Error ? err.message : "Не получилось удалить");
+          setPending(false);
+        }
+      }}
+    >
+      <div className="sov-alert">
+        Будут удалены все профили детей со всеми занятиями и фотографиями, настройки и сама
+        учётная запись — без возможности восстановления. Сведения о платежах и чеки мы обязаны
+        хранить 5 лет, они остаются. Активная подписка закроется; за возвратом остатка напишите
+        на ekaterinazyub@gmail.com (раздел 7 оферты).
+      </div>
+      {error ? <div className="sov-alert">{error}</div> : null}
+      <div className="sov-field">
+        <label htmlFor="delaccpwd">Пароль от учётной записи</label>
+        <input
+          id="delaccpwd"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          autoComplete="current-password"
+          required
+        />
+      </div>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <button
+          type="submit"
+          className="sov-act-ghost"
+          disabled={pending || password.length === 0}
+          style={{ borderColor: "var(--sov-warn)", color: "var(--sov-warn)" }}
+        >
+          {pending ? "Удаляем…" : "Удалить учётную запись навсегда"}
+        </button>
+        <button type="button" className="sov-act-ghost" onClick={() => setOpen(false)}>
+          Передумал
+        </button>
+      </div>
+    </form>
   );
 }

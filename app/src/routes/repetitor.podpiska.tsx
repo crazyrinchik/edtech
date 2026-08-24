@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { FormAction, QuietAction, SiteFooter, SiteHeader } from "../components/brand";
 import { PayForm } from "../components/pay-form";
 import { plural } from "../lib/shop";
-import { me } from "../lib/api/app.functions";
+import { deleteAccount, me } from "../lib/api/app.functions";
 import {
   tutorCancelSubscription,
   tutorRedeemPromo,
@@ -151,10 +151,94 @@ function TutorBillingPage() {
                 </form>
               </>
             )}
+
+            <div style={{ marginTop: 48 }}>
+              <h2 style={{ fontSize: "var(--sov-t-h3)", fontWeight: 600 }}>
+                Удаление учётной записи
+              </h2>
+              <p
+                style={{ marginTop: 8, color: "var(--sov-ink-soft)", fontSize: "var(--sov-t-cap)" }}
+              >
+                Ученики, к которым ещё не присоединился родитель, будут удалены вместе с
+                занятиями. Ученики, привязанные к семьям, останутся у своих семей, но выданные
+                вами задания и приложенные к ним файлы будут удалены.
+              </p>
+              <TutorDeleteAccount />
+            </div>
           </>
         )}
       </main>
       <SiteFooter />
     </div>
+  );
+}
+
+/**
+ * Отзыв согласия наставника на собственные данные: подтверждается паролем.
+ * Что случится с учениками, сказано над кнопкой; сервер удаляет только тех,
+ * у кого parent_id ещё указывает на наставника (см. deleteAccount).
+ */
+function TutorDeleteAccount() {
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+
+  if (!open) {
+    return (
+      <button className="sov-act-ghost" style={{ marginTop: 14 }} onClick={() => setOpen(true)}>
+        Удалить учётную запись…
+      </button>
+    );
+  }
+  return (
+    <form
+      className="sov-form"
+      style={{ marginTop: 16 }}
+      onSubmit={async (e) => {
+        e.preventDefault();
+        setError(null);
+        setPending(true);
+        try {
+          await deleteAccount({ data: { password } });
+          await navigate({ to: "/" });
+        } catch (err) {
+          setError(err instanceof Error ? err.message : "Не получилось удалить");
+          setPending(false);
+        }
+      }}
+    >
+      <div className="sov-alert">
+        Учётная запись и непривязанные ученики будут удалены без возможности восстановления.
+        Сведения о платежах и чеки хранятся 5 лет, они остаются. Активная подписка закроется;
+        за возвратом остатка напишите на ekaterinazyub@gmail.com (раздел 7 оферты).
+      </div>
+      {error ? <div className="sov-alert">{error}</div> : null}
+      <div className="sov-field">
+        <label htmlFor="deltutorpwd">Пароль от учётной записи</label>
+        <input
+          id="deltutorpwd"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          autoComplete="current-password"
+          required
+        />
+      </div>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <button
+          type="submit"
+          className="sov-act-ghost"
+          disabled={pending || password.length === 0}
+          style={{ borderColor: "var(--sov-warn)", color: "var(--sov-warn)" }}
+        >
+          {pending ? "Удаляем…" : "Удалить учётную запись навсегда"}
+        </button>
+        <button type="button" className="sov-act-ghost" onClick={() => setOpen(false)}>
+          Передумал
+        </button>
+      </div>
+    </form>
   );
 }

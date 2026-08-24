@@ -798,6 +798,13 @@ export const parentReport = createServerFn({ method: "GET" })
       history: history.results ?? [],
       drills: drills.results ?? [],
       subscription: user.subscriptionStatus,
+      // Пока у ребёнка есть наставник, родителю в истории видна сноска о
+      // судьбе его заданий — предупреждение до события, а не после: после
+      // удаления наставника следов «наставник был» сознательно не остаётся.
+      hasTutor: !!(await db()
+        .prepare("SELECT 1 AS ok FROM child_access WHERE child_id = ? AND role = 'tutor' LIMIT 1")
+        .bind(data.childId)
+        .first<{ ok: number }>()),
     };
   });
 
@@ -833,6 +840,189 @@ export const cancelSubscription = createServerFn({ method: "POST" }).handler(asy
   ]);
   return { ok: true };
 });
+
+/* ------------------------------------------------- удаление своих данных */
+
+/**
+ * Все следы ребёнка одним заходом. Порядок важен: настройки пунктов домашки
+ * и сами пункты уходят раньше assignments, на которые смотрят их подзапросы,
+ * — batch выполняется последовательно в одной транзакции.
+ *
+ * Удаление физическое, а не флагом: колонку deleted_at не добавить
+ * (миграции идемпотентные, ADD COLUMN IF NOT EXISTS в SQLite нет), а фильтр
+ * по отдельной таблице пришлось бы не забыть в каждом из десятка запросов
+ * по child_id. Страховка от ошибочного удаления — ночные дампы
+ * (deploy/backup-db.sh, KEEP=30): это и есть «не более 90 дней в составе
+ * резервных копий» из п. 9 политики. events не трогаются — это технический
+ * журнал со своим сроком хранения.
+ */
+async function purgeChildData(childId: string): Promise<void> {
+  const D = db();
+  await D.batch([
+    D.prepare(
+      `DELETE FROM assignment_item_settings WHERE item_id IN (
+         SELECT id FROM assignment_items WHERE assignment_id IN (
+           SELECT id FROM assignments WHERE child_id = ?))`,
+    ).bind(childId),
+    D.prepare(
+      "DELETE FROM assignment_items WHERE assignment_id IN (SELECT id FROM assignments WHERE child_id = ?)",
+    ).bind(childId),
+    D.prepare("DELETE FROM assignments WHERE child_id = ?").bind(childId),
+    D.prepare("DELETE FROM custom_answer_files WHERE child_id = ?").bind(childId),
+    D.prepare("DELETE FROM custom_submissions WHERE child_id = ?").bind(childId),
+    D.prepare("DELETE FROM attempts WHERE child_id = ?").bind(childId),
+    D.prepare("DELETE FROM progress WHERE child_id = ?").bind(childId),
+    D.prepare("DELETE FROM lessons WHERE child_id = ?").bind(childId),
+    D.prepare("DELETE FROM drills WHERE child_id = ?").bind(childId),
+    D.prepare("DELETE FROM coin_grants WHERE child_id = ?").bind(childId),
+    D.prepare("DELETE FROM child_items WHERE child_id = ?").bind(childId),
+    D.prepare("DELETE FROM child_owl WHERE child_id = ?").bind(childId),
+    D.prepare("DELETE FROM invites WHERE child_id = ?").bind(childId),
+    D.prepare("DELETE FROM child_access WHERE child_id = ?").bind(childId),
+    D.prepare("DELETE FROM children WHERE id = ?").bind(childId),
+  ]);
+}
+
+/** Имя при удалении сверяется так же мягко, как ответы ребёнка. */
+function sameName(a: string, b: string): boolean {
+  const norm = (s: string) => s.trim().toLowerCase().replace(/ё/g, "е").replace(/\s+/g, " ");
+  return norm(a) === norm(b);
+}
+
+export const deleteChild = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ childId: z.string(), confirmName: z.string() }))
+  .handler(async ({ data }) => {
+    // Кабинет и так за кодом, но право на удаление держит children.parent_id
+    // — взрослый, который создал профиль и дал согласие (у непривязанного
+    // ученика репетитора это сам репетитор, п. 9.7 оферты). Наставник с
+    // доступом, но без владения, чужого ребёнка не удалит.
+    const user = await requireParentAccess();
+    const child = await db()
+      .prepare("SELECT id, parent_id, name FROM children WHERE id = ?")
+      .bind(data.childId)
+      .first<{ id: string; parent_id: string; name: string }>();
+    if (!child) throw new Error("Профиль ученика не найден");
+    if (child.parent_id !== user.id) {
+      throw new Error("Удалить профиль может только взрослый, который его создал");
+    }
+    if (!sameName(data.confirmName, child.name)) {
+      throw new Error("Имя не совпадает с именем профиля");
+    }
+    await purgeChildData(child.id);
+    if (getCookie(CHILD_COOKIE) === child.id) {
+      setCookie(CHILD_COOKIE, "", { path: "/", maxAge: 0 });
+    }
+    await track("child_deleted", { userId: user.id, childId: child.id });
+    return { ok: true };
+  });
+
+export const deleteAccount = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ password: z.string().min(1, "Введите пароль") }))
+  .handler(async ({ data }) => {
+    const user = await requireUser();
+    // Учётная запись администратора заводится при развёртывании (ensureAdmin)
+    // и удаляется только там же, а не кнопкой в кабинете.
+    if (user.role === "admin") throw new Error("Учётную запись администратора так удалить нельзя");
+    const row = await db()
+      .prepare(
+        "SELECT password_hash, consent_pd, consent_child_pd, consent_at, created_at FROM users WHERE id = ?",
+      )
+      .bind(user.id)
+      .first<{
+        password_hash: string;
+        consent_pd: number;
+        consent_child_pd: number;
+        consent_at: string | null;
+        created_at: string;
+      }>();
+    if (!row || !(await verifyPassword(data.password, row.password_hash))) {
+      throw new Error("Не подходит пароль");
+    }
+
+    // Дети, за которых согласие давал этот взрослый. Ученики репетитора,
+    // уже привязанные к семьям (parent_id сменился при принятии
+    // приглашения), остаются: согласие на них держит родитель.
+    const owned = await db()
+      .prepare("SELECT id FROM children WHERE parent_id = ?")
+      .bind(user.id)
+      .all<{ id: string }>();
+    for (const child of owned.results ?? []) await purgeChildData(child.id);
+
+    // Факт согласия и его отзыва переживает аккаунт: им подтверждается
+    // правомерность прошлой обработки (3 года по п. 9 политики).
+    await db()
+      .prepare(
+        `INSERT INTO deleted_accounts (user_id, email, role, consent_pd, consent_child_pd, consent_at, registered_at, deleted_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (user_id) DO NOTHING`,
+      )
+      .bind(
+        user.id,
+        user.email,
+        user.role,
+        row.consent_pd,
+        row.consent_child_pd,
+        row.consent_at,
+        row.created_at,
+        nowIso(),
+      )
+      .run();
+
+    // Учебный след наставника уходит вместе с ним — на всех учеников,
+    // включая уже привязанных к семьям: свои задания с приложенными
+    // файлами (base64 в строке custom_tasks), выданные домашки и ответы
+    // на них. Без текста задания ответ не открыть, поэтому осиротевших
+    // строк не остаётся. Результаты занятий ребёнка (attempts, progress,
+    // lessons, награды) привязаны к темам, а не к наставнику, — они
+    // остаются семье. У родителя этим запросам совпасть не с чем.
+    //
+    // Платежи и подписки остаются: чеки и расчёты хранятся 5 лет по
+    // налоговому законодательству независимо от отзыва согласия.
+    await db().batch([
+      db()
+        .prepare(
+          `DELETE FROM custom_answer_files WHERE item_id IN (
+             SELECT id FROM assignment_items WHERE assignment_id IN (
+               SELECT id FROM assignments WHERE tutor_id = ?))`,
+        )
+        .bind(user.id),
+      db()
+        .prepare(
+          `DELETE FROM custom_submissions WHERE item_id IN (
+             SELECT id FROM assignment_items WHERE assignment_id IN (
+               SELECT id FROM assignments WHERE tutor_id = ?))`,
+        )
+        .bind(user.id),
+      db()
+        .prepare(
+          `DELETE FROM assignment_item_settings WHERE item_id IN (
+             SELECT id FROM assignment_items WHERE assignment_id IN (
+               SELECT id FROM assignments WHERE tutor_id = ?))`,
+        )
+        .bind(user.id),
+      db()
+        .prepare(
+          "DELETE FROM assignment_items WHERE assignment_id IN (SELECT id FROM assignments WHERE tutor_id = ?)",
+        )
+        .bind(user.id),
+      db().prepare("DELETE FROM assignments WHERE tutor_id = ?").bind(user.id),
+      db().prepare("DELETE FROM custom_tasks WHERE tutor_id = ?").bind(user.id),
+      db().prepare("DELETE FROM invites WHERE tutor_id = ?").bind(user.id),
+      db().prepare("DELETE FROM sessions WHERE user_id = ?").bind(user.id),
+      db().prepare("DELETE FROM parent_pins WHERE user_id = ?").bind(user.id),
+      db().prepare("DELETE FROM parent_unlocks WHERE user_id = ?").bind(user.id),
+      db().prepare("DELETE FROM notify_channels WHERE user_id = ?").bind(user.id),
+      db().prepare("DELETE FROM child_access WHERE user_id = ?").bind(user.id),
+      db()
+        .prepare("UPDATE subscriptions SET status = 'cancelled' WHERE user_id = ? AND status = 'active'")
+        .bind(user.id),
+      db().prepare("DELETE FROM users WHERE id = ?").bind(user.id),
+    ]);
+    await track("account_deleted", { userId: user.id, props: { role: user.role } });
+    // endSession подчистит куки; строки сессий уже удалены выше.
+    await endSession();
+    setCookie(CHILD_COOKIE, "", { path: "/", maxAge: 0 });
+    return { ok: true };
+  });
 
 /* ------------------------------------------ нулевой урок без регистрации */
 
