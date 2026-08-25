@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   ChildAvatar,
@@ -14,7 +14,12 @@ import { coinsLabel, plural, SHOP } from "../lib/shop";
 import { Bar, Ring, WeekStrip, weekBuckets } from "../components/figures";
 import { getSkillMap, me } from "../lib/api/app.functions";
 import { buyOwlItem, equipOwlItem } from "../lib/api/app.functions";
-import { childAssignments, customTaskFile, submitCustomAnswer } from "../lib/api/tutor.functions";
+import {
+  childAssignments,
+  customTaskFile,
+  deleteCustomAnswer,
+  submitCustomAnswer,
+} from "../lib/api/tutor.functions";
 
 /** Уровень считается на сервере как звёзды/5 + 1 — держим шаг тем же. */
 const STARS_PER_LEVEL = 5;
@@ -725,8 +730,15 @@ function CustomItem({
 }) {
   const [answer, setAnswer] = useState(item.answer ?? "");
   const [file, setFile] = useState<{ name: string; type: string; data: string } | null>(null);
+  // Ссылка на сам input: сбросить выбранный файл одним состоянием нельзя.
+  // Пока в input лежит прежнее имя, повторный выбор того же файла не
+  // считается изменением и onChange не срабатывает.
+  const fileRef = useRef<HTMLInputElement | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Удаление ответа спрашивает подтверждение прямо в кнопке: отдельное
+  // окно ребёнку здесь лишнее, а промахнуться по «убрать» легко.
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   return (
     <div id={`zadanie-${item.id}`} className="sov-homework__custom" data-done={!!item.grade}>
@@ -768,31 +780,56 @@ function CustomItem({
           {/* Работа чаще всего сделана в тетради — её проще сфотографировать,
               чем переписывать в поле. Поэтому фотография это полноценный
               ответ, а не приложение к тексту. */}
-          <label className="sov-homework__attach">
-            <input
-              type="file"
-              accept=".pdf,image/*"
-              capture="environment"
-              onChange={async (e) => {
-                const picked = e.target.files?.[0];
-                if (!picked) {
+          <div className="sov-attach">
+            <label className="sov-homework__attach">
+              <input
+                ref={fileRef}
+                type="file"
+                accept=".pdf,image/*"
+                capture="environment"
+                onChange={async (e) => {
+                  const picked = e.target.files?.[0];
+                  if (!picked) {
+                    setFile(null);
+                    return;
+                  }
+                  if (picked.size > 1_500_000) {
+                    setError("Файл больше 1,5 МБ — сфотографируй помельче");
+                    e.target.value = "";
+                    return;
+                  }
+                  const bytes = new Uint8Array(await picked.arrayBuffer());
+                  let binary = "";
+                  for (let i = 0; i < bytes.length; i += 1) binary += String.fromCharCode(bytes[i]);
+                  setFile({ name: picked.name, type: picked.type, data: btoa(binary) });
+                  setError(null);
+                }}
+              />
+              <span>{file ? `Выбрано: ${file.name}` : "Сфотографировать или выбрать файл"}</span>
+            </label>
+
+            {/* Крестик стоит рядом с кнопкой, а не внутри неё: внутри
+                <label> любой клик открывает выбор файла — снять выбор
+                стало бы невозможно. */}
+            {file ? (
+              <button
+                type="button"
+                className="sov-attach__clear"
+                aria-label={`Убрать файл ${file.name}`}
+                title="Убрать файл"
+                onClick={() => {
                   setFile(null);
-                  return;
-                }
-                if (picked.size > 1_500_000) {
-                  setError("Файл больше 1,5 МБ — сфотографируй помельче");
-                  e.target.value = "";
-                  return;
-                }
-                const bytes = new Uint8Array(await picked.arrayBuffer());
-                let binary = "";
-                for (let i = 0; i < bytes.length; i += 1) binary += String.fromCharCode(bytes[i]);
-                setFile({ name: picked.name, type: picked.type, data: btoa(binary) });
-                setError(null);
-              }}
-            />
-            <span>{file ? `Выбрано: ${file.name}` : "Сфотографировать или выбрать файл"}</span>
-          </label>
+                  setError(null);
+                  if (fileRef.current) fileRef.current.value = "";
+                }}
+              >
+                ×
+              </button>
+            ) : null}
+          </div>
+          <span className="sov-attach__note">
+            Нельзя прикреплять изображения людей и иные персональные данные.
+          </span>
 
           {item.answerFile && !file ? (
             <span className="sov-homework__grade">Уже отправлено: {item.answerFile}</span>
@@ -818,6 +855,37 @@ function CustomItem({
           </button>
           {item.submittedAt ? (
             <span className="sov-homework__grade">Отправлено, ждём проверки</span>
+          ) : null}
+
+          {/* Убрать отправленное можно, пока педагог не поставил оценку:
+              после оценки ответ уже посмотрели, и убирать его поздно. */}
+          {item.submittedAt && !item.grade ? (
+            <button
+              type="button"
+              className="sov-act-ghost"
+              disabled={pending}
+              onClick={async () => {
+                if (!confirmDelete) {
+                  setConfirmDelete(true);
+                  return;
+                }
+                setPending(true);
+                setError(null);
+                try {
+                  await deleteCustomAnswer({ data: { itemId: item.id } });
+                  setAnswer("");
+                  setFile(null);
+                  if (fileRef.current) fileRef.current.value = "";
+                  setConfirmDelete(false);
+                  await onDone();
+                } catch (e) {
+                  setError(e instanceof Error ? e.message : "Не получилось убрать");
+                }
+                setPending(false);
+              }}
+            >
+              {confirmDelete ? "Точно убрать? Нажми ещё раз" : "Убрать отправленное"}
+            </button>
           ) : null}
         </>
       )}

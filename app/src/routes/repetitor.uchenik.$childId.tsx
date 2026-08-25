@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { ChildAvatar, QuietAction, SiteFooter, SiteHeader } from "../components/brand";
 import { SearchIcon } from "../components/icons";
@@ -15,7 +15,7 @@ import {
 import { closedHead } from "../lib/seo";
 import { plural } from "../lib/shop";
 import {
-  cancelAssignment,
+  deleteAssignment,
   createAssignment,
   createCustomAssignment,
   customTaskFile,
@@ -67,6 +67,9 @@ function StudentPage() {
   const [tab, setTab] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [pending, setPending] = useState(false);
+  // Какое задание переспрашивает подтверждение удаления. Хранится id, а не
+  // флаг: карточек на странице много, а переспрашивать должна одна.
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   async function load() {
     setData(await studentCard({ data: { childId } }));
@@ -316,15 +319,26 @@ function StudentPage() {
                     ))}
                   </ul>
                   {a.comment ? <p className="sov-hw-card__comment">{a.comment}</p> : null}
+                  {/* Удаление настоящее: задание, вложение и ответы учеников
+                      стираются из базы. Поэтому спрашиваем подтверждение
+                      прямо в кнопке — отдельное окно ради одного вопроса
+                      здесь лишнее. */}
                   <button
                     type="button"
                     className="sov-act-ghost"
                     onClick={async () => {
-                      await cancelAssignment({ data: { id: a.id } });
+                      if (confirmDelete !== a.id) {
+                        setConfirmDelete(a.id);
+                        return;
+                      }
+                      await deleteAssignment({ data: { id: a.id } });
+                      setConfirmDelete(null);
                       await load();
                     }}
                   >
-                    Снять задание
+                    {confirmDelete === a.id
+                      ? "Точно удалить? Нажмите ещё раз"
+                      : "Удалить задание"}
                   </button>
                 </article>
               ))}
@@ -619,6 +633,9 @@ function StudentPage() {
 function CustomForm({ childId, onDone }: { childId: string; onDone: () => Promise<void> }) {
   const [open, setOpen] = useState(false);
   const [file, setFile] = useState<{ name: string; type: string; data: string } | null>(null);
+  // Сбросить выбор одним состоянием нельзя: пока в input лежит прежнее имя,
+  // повторный выбор того же файла не считается изменением.
+  const fileRef = useRef<HTMLInputElement | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState(false);
@@ -683,30 +700,51 @@ function CustomForm({ childId, onDone }: { childId: string; onDone: () => Promis
 
       <div className="sov-field">
         <label htmlFor="cfile">Файл, по желанию</label>
-        <input
-          id="cfile"
-          type="file"
-          accept=".pdf,image/*"
-          onChange={async (e) => {
-            const picked = e.target.files?.[0];
-            if (!picked) {
-              setFile(null);
-              return;
-            }
-            if (picked.size > 1_500_000) {
-              setError("Файл больше 1,5 МБ — приложите файл поменьше");
-              e.target.value = "";
-              return;
-            }
-            const buffer = await picked.arrayBuffer();
-            let binary = "";
-            const bytes = new Uint8Array(buffer);
-            for (let i = 0; i < bytes.length; i += 1) binary += String.fromCharCode(bytes[i]);
-            setFile({ name: picked.name, type: picked.type, data: btoa(binary) });
-            setError(null);
-          }}
-        />
-        <span className="sov-field__hint">PDF или картинка, до 1,5 МБ.</span>
+        <div className="sov-attach">
+          <input
+            id="cfile"
+            ref={fileRef}
+            type="file"
+            accept=".pdf,image/*"
+            onChange={async (e) => {
+              const picked = e.target.files?.[0];
+              if (!picked) {
+                setFile(null);
+                return;
+              }
+              if (picked.size > 1_500_000) {
+                setError("Файл больше 1,5 МБ — приложите файл поменьше");
+                e.target.value = "";
+                return;
+              }
+              const buffer = await picked.arrayBuffer();
+              let binary = "";
+              const bytes = new Uint8Array(buffer);
+              for (let i = 0; i < bytes.length; i += 1) binary += String.fromCharCode(bytes[i]);
+              setFile({ name: picked.name, type: picked.type, data: btoa(binary) });
+              setError(null);
+            }}
+          />
+          {file ? (
+            <button
+              type="button"
+              className="sov-attach__clear"
+              aria-label={`Убрать файл ${file.name}`}
+              title="Убрать файл"
+              onClick={() => {
+                setFile(null);
+                setError(null);
+                if (fileRef.current) fileRef.current.value = "";
+              }}
+            >
+              ×
+            </button>
+          ) : null}
+        </div>
+        <span className="sov-field__hint">
+          PDF или картинка, до 1,5 МБ. Нельзя прикреплять изображения людей и иные персональные
+          данные.
+        </span>
       </div>
 
       <div className="sov-field">

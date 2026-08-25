@@ -873,6 +873,63 @@ export const cancelAssignment = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/**
+ * Удалить задание насовсем — вместе с вложением и ответами учеников.
+ *
+ * Отличается от cancelAssignment тем, что после него не остаётся ничего:
+ * в задании и в ответе на него может лежать фотография, а фотография —
+ * персональные данные, и отметки «отменено» для них мало.
+ *
+ * Своё задание создаётся одно на всех выбранных учеников, поэтому сам
+ * custom_tasks удаляется только тогда, когда на него не ссылается больше
+ * ни одно задание: иначе удаление у одного ученика оставило бы остальных
+ * с пустой карточкой.
+ */
+export const deleteAssignment = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ id: z.string() }))
+  .handler(async ({ data }) => {
+    const user = await requireTutor();
+    const row = await db()
+      .prepare("SELECT child_id FROM assignments WHERE id = ?")
+      .bind(data.id)
+      .first<{ child_id: string }>();
+    if (!row) throw new Error("Задание не найдено");
+    await requireStudent(row.child_id, user.id);
+
+    const items = await db()
+      .prepare("SELECT id, kind, ref_id FROM assignment_items WHERE assignment_id = ?")
+      .bind(data.id)
+      .all<{ id: string; kind: string; ref_id: string }>();
+    const rows = items.results ?? [];
+
+    for (const item of rows) {
+      await db().batch([
+        db().prepare("DELETE FROM custom_answer_files WHERE item_id = ?").bind(item.id),
+        db().prepare("DELETE FROM custom_submissions WHERE item_id = ?").bind(item.id),
+        db().prepare("DELETE FROM assignment_item_settings WHERE item_id = ?").bind(item.id),
+      ]);
+    }
+
+    await db().batch([
+      db().prepare("DELETE FROM assignment_items WHERE assignment_id = ?").bind(data.id),
+      db().prepare("DELETE FROM assignments WHERE id = ?").bind(data.id),
+    ]);
+
+    // Осиротевшие свои задания убираем следом — вместе с файлом внутри.
+    for (const item of rows) {
+      if (item.kind !== "custom" || !item.ref_id) continue;
+      const still = await db()
+        .prepare("SELECT 1 AS ok FROM assignment_items WHERE ref_id = ? LIMIT 1")
+        .bind(item.ref_id)
+        .first<{ ok: number }>();
+      if (!still) {
+        await db().prepare("DELETE FROM custom_tasks WHERE id = ?").bind(item.ref_id).run();
+      }
+    }
+
+    return { ok: true };
+  });
+
 /** Домашка глазами ребёнка и родителя: доступ проверяется по child_access. */
 export const childAssignments = createServerFn({ method: "GET" })
   .inputValidator(z.object({ childId: z.string() }))
@@ -1304,6 +1361,39 @@ export const submitCustomAnswer = createServerFn({ method: "POST" })
         )
         .run();
     }
+    return { ok: true };
+  });
+
+/**
+ * Убрать отправленный ответ вместе с вложением.
+ *
+ * Удаление настоящее, а не отметка «скрыто»: в ответе может оказаться
+ * фотография, а фотография — персональные данные, и «мы его больше не
+ * показываем» здесь не ответ. Оценка уходит вместе с ответом: она
+ * поставлена за работу, которой больше нет.
+ *
+ * Право то же, что и на отправку: ребёнок и взрослые рядом с ним. Педагог
+ * чужой ответ не удаляет — он может снять само задание.
+ */
+export const deleteCustomAnswer = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ itemId: z.string() }))
+  .handler(async ({ data }) => {
+    const user = await requireUser();
+    const row = await db()
+      .prepare(
+        `SELECT a.child_id FROM assignment_items ai
+           JOIN assignments a ON a.id = ai.assignment_id
+          WHERE ai.id = ? AND ai.kind = 'custom'`,
+      )
+      .bind(data.itemId)
+      .first<{ child_id: string }>();
+    if (!row) throw new Error("Задание не найдено");
+    await requireChildAccess(row.child_id, user.id);
+
+    await db().batch([
+      db().prepare("DELETE FROM custom_answer_files WHERE item_id = ?").bind(data.itemId),
+      db().prepare("DELETE FROM custom_submissions WHERE item_id = ?").bind(data.itemId),
+    ]);
     return { ok: true };
   });
 

@@ -4514,6 +4514,44 @@ a.sov-level:active .sov-level__num {
   opacity: 0;
 }
 
+/* Строка с выбором файла и крестиком.
+
+   Крестик — сосед поля, а не его часть: у ученика поле спрятано внутрь
+   <label>, и кнопка внутри неё открывала бы выбор файла вместо того,
+   чтобы снять выбор. */
+.sov-attach {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.sov-attach__clear {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--sov-line);
+  border-radius: 50%;
+  background: #fff;
+  color: var(--sov-ink-soft);
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.sov-attach__clear:hover {
+  border-color: var(--sov-warn);
+  color: var(--sov-warn);
+}
+/* Оговорка про персональные данные. Тише подписи под полем: её читают
+   один раз, и мешать выбору файла она не должна. */
+.sov-attach__note {
+  display: block;
+  margin-top: 6px;
+  font-size: var(--sov-t-cap);
+  font-weight: 500;
+  color: var(--sov-ink-soft);
+  max-width: var(--sov-measure);
+}
+
 /* Шаг назад и выход стоят рядом: оба уводят из текущего вопроса, но ни
    один не является действием урока — потому оба тихие. */
 .sov-steps {
