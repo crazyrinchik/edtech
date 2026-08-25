@@ -222,7 +222,7 @@ function MentalPage() {
     return (
       <div className="sov sov-kid">
         <div className="sov-play">
-          <TrainerTop current="schet" />
+          <TrainerTop current="schet" lessons={false} />
           <div className="sov-card">
             <h2>Устный счёт</h2>
             <p style={{ marginTop: 10, color: "var(--sov-ink-soft)" }}>
@@ -331,7 +331,7 @@ function MentalPage() {
     return (
       <div className="sov sov-kid">
         <div className="sov-play">
-          <TrainerTop current="schet" />
+          <TrainerTop current="schet" lessons={false} />
           <div className="sov-card">
             <Owl size={64} mood={percent >= 70 ? "happy" : "concerned"} animated />
             <h2 style={{ marginTop: 16 }}>Готово</h2>
@@ -358,11 +358,7 @@ function MentalPage() {
                 <button className="sov-act-ghost" onClick={() => navigate({ to: "/registraciya" })}>
                   Сохранить прогресс
                 </button>
-              ) : (
-                <button className="sov-act-ghost" onClick={() => navigate({ to: "/uchenik" })}>
-                  К занятиям
-                </button>
-              )}
+              ) : null}
             </div>
           </div>
         </div>
@@ -373,7 +369,7 @@ function MentalPage() {
   return (
     <div className="sov sov-kid">
       <div className="sov-play">
-        <TrainerTop current="schet" />
+        <TrainerTop current="schet" lessons={false} />
         <div className="sov-play__bar" style={{ marginTop: 14 }}>
           <Owl size={40} mood={verdict ? (verdict.ok ? "happy" : "concerned") : "idle"} />
           <div className="sov-play__track">

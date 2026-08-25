@@ -82,7 +82,18 @@ export const TRAINERS = [
  * (см. .sov-trainer-nav в brand.css), а не переносится: перенос давал
  * шапку в полтора раза выше самого задания.
  */
-export function TrainerTop({ current }: { current: TrainerId }) {
+export function TrainerTop({
+  current,
+  lessons = true,
+}: {
+  current: TrainerId;
+  /**
+   * Показывать ли выход в «Занятия». По умолчанию да — тренажёр обычно
+   * открывают из кабинета ученика, и обратная дорога туда нужна. Экран
+   * устного счёта её не показывает (см. routes/schet.tsx).
+   */
+  lessons?: boolean;
+}) {
   return (
     <div className="sov-demo__top">
       <Wordmark compact />
@@ -98,9 +109,11 @@ export function TrainerTop({ current }: { current: TrainerId }) {
             {SHORT[t.id]}
           </Link>
         ))}
-        <Link to="/uchenik" className="sov-act-ghost" style={{ textDecoration: "none" }}>
-          Занятия
-        </Link>
+        {lessons ? (
+          <Link to="/uchenik" className="sov-act-ghost" style={{ textDecoration: "none" }}>
+            Занятия
+          </Link>
+        ) : null}
       </nav>
     </div>
   );
