@@ -22,7 +22,7 @@ import { SUPPORT_EMAIL } from "../lib/support";
  * берутся из переменных :root напрямую (см. brand.css).
  */
 
-type Stage = "form" | "sent" | "unmailed" | "throttled";
+type Stage = "form" | "sent" | "throttled";
 
 export function ReportProblem() {
   const dialogRef = useRef<HTMLDialogElement | null>(null);
@@ -91,9 +91,9 @@ export function ReportProblem() {
           trap,
         },
       });
-      if (res.throttled) setStage("throttled");
-      else if (res.mailed) setStage("sent");
-      else setStage("unmailed");
+      // Дошло ли письмо до почтового сервиса, человеку знать незачем:
+      // обращение в любом случае лежит в таблице, и отвечаем мы по ней.
+      setStage(res.throttled ? "throttled" : "sent");
       setMessage("");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Не получилось отправить. Попробуйте ещё раз");
@@ -216,13 +216,6 @@ export function ReportProblem() {
             </h2>
             {stage === "sent" ? (
               <p>Обращение ушло. Если вы оставили почту, ответим на неё — обычно в течение дня.</p>
-            ) : null}
-            {stage === "unmailed" ? (
-              <p>
-                Обращение сохранено, но письмо с сервера сейчас не уходит. Если дело срочное,
-                напишите на <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a> — так мы увидим
-                его быстрее.
-              </p>
             ) : null}
             {stage === "throttled" ? (
               <p>
