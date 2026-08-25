@@ -25,12 +25,13 @@ import { CHECK_SIZE, topicTasks as catalogTasks } from "../content/practice";
 import { PRACTICE_SIZE } from "../content/practice.core";
 
 import {
+  childCountFor,
   childHasPaidAccess,
   db,
   ensureSeeded,
-  materializeTopic,
   grantChildAccess,
   hashPassword,
+  materializeTopic,
   nowIso,
   requireChildAccess,
   requireUser,
@@ -38,6 +39,7 @@ import {
   track,
   uid,
 } from "../core.server";
+import { FREE_CHILD_LIMIT } from "../billing";
 
 /**
  * Названия тренажёров для домашнего задания. Ключ — тот же код, что уходит
@@ -439,6 +441,25 @@ export const addStudent = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const user = await requireTutor();
+    /*
+     * Без подписки — один ученик.
+     *
+     * Проверка на сервере, а не только кнопкой в кабинете: форма
+     * отправляется запросом, и запрет, живущий в разметке, не запрет.
+     *
+     * Считаются уже заведённые, и только в момент создания нового.
+     * У репетитора, чья подписка кончилась с десятью учениками, ни один
+     * не пропадёт — он просто не заведёт одиннадцатого. Отобрать
+     * заведённого значит отобрать у ребёнка его занятия.
+     */
+    if (user.subscriptionStatus !== "active") {
+      const already = await childCountFor(user.id, "tutor");
+      if (already >= FREE_CHILD_LIMIT) {
+        throw new Error(
+          "Без подписки можно вести одного ученика. Подписка открывает всех остальных — оформить её можно в разделе «Подписка».",
+        );
+      }
+    }
     // Отдельной галочки «у меня есть согласие родителя» здесь больше нет.
     // Заверение по п. 9.5 оферты репетитор даёт один раз, принимая оферту при
     // регистрации, а спрашивать его на каждом ученике было нечестно: профиль

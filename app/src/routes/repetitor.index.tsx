@@ -11,6 +11,7 @@ import {
 } from "../components/brand";
 import { logout, me } from "../lib/api/app.functions";
 import { addStudent, createInvite, tutorStudents } from "../lib/api/tutor.functions";
+import { FREE_CHILD_LIMIT } from "../lib/billing";
 import { closedHead } from "../lib/seo";
 
 export const Route = createFileRoute("/repetitor/")({
@@ -50,6 +51,11 @@ function TutorPage() {
   async function load() {
     setData(await tutorStudents());
   }
+
+  /* Место под ученика занято: подписки нет, а ученик уже есть.
+     Считается по тому же списку, который и так пришёл с сервера, —
+     отдельного запроса ради одного числа заводить незачем. */
+  const limitReached = !!data && !data.paid && data.students.length >= FREE_CHILD_LIMIT;
 
   useEffect(() => {
     (async () => {
@@ -120,7 +126,19 @@ function TutorPage() {
       <main className="sov-shell" style={{ paddingBottom: 60 }}>
         <div className="sov-quest__head">
           <h1 style={{ fontSize: "var(--sov-t-display)" }}>Ученики</h1>
-          <button type="button" className="sov-act-child" onClick={() => setAdding((v) => !v)}>
+          {/* Кнопка гаснет, когда без подписки уже есть ученик.
+
+              Сервер откажет в любом случае (addStudent в
+              tutor.functions.ts), но узнавать об этом после того, как
+              заполнил имя, класс и аватар, — обидно и незачем. Причина
+              написана строкой ниже, а не в подсказке при наведении:
+              на телефоне подсказки нет. */}
+          <button
+            type="button"
+            className="sov-act-child"
+            disabled={limitReached && !adding}
+            onClick={() => setAdding((v) => !v)}
+          >
             {adding ? "Отмена" : "Добавить ученика"}
           </button>
         </div>
@@ -131,13 +149,23 @@ function TutorPage() {
           </div>
         ) : null}
 
+        {/* Одна плашка на два случая, а не две подряд.
+
+            Пока ученик один, подписка ограничивает только темы, и текст
+            про это. Как только место занято, главным становится другое:
+            второго ученика не завести, — и говорить надо сперва об этом,
+            потому что именно в это упирается рука. */}
         {data && !data.paid ? (
           <div className="sov-save-hint" style={{ marginTop: 22 }}>
-            <strong>Подписка не активна</strong>
+            <strong>{limitReached ? "Место ученика занято" : "Подписка не активна"}</strong>
             <span>
-              Ученикам открыты только первые темы каждого предмета. Подписка репетитора снимает
-              ограничение сразу для всех — семьям платить не нужно.
+              {limitReached
+                ? "Без подписки можно вести одного ученика. Подписка открывает остальных и снимает ограничение по темам — сразу для всех, семьям платить не нужно."
+                : "Ученикам открыты только первые темы каждого предмета, и ученик пока может быть один. Подписка снимает оба ограничения сразу для всех — семьям платить не нужно."}
             </span>
+            <p style={{ marginTop: 12 }}>
+              <QuietAction to="/repetitor/podpiska">Оформить подписку</QuietAction>
+            </p>
           </div>
         ) : null}
 

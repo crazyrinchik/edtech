@@ -6,6 +6,7 @@ import {
   ChildAvatar,
   FormAction,
   Owl,
+  QuietAction,
   SiteFooter,
   SiteHeader,
 } from "../components/brand";
@@ -41,6 +42,7 @@ import {
 } from "../lib/api/app.functions";
 import { closedHead } from "../lib/seo";
 import { plural } from "../lib/shop";
+import { FREE_CHILD_LIMIT } from "../lib/billing";
 
 export const Route = createFileRoute("/roditel")({
   head: () => closedHead("Кабинет родителя, Совёнок"),
@@ -120,6 +122,13 @@ function ParentPage() {
   );
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+
+  /* Место занято: подписки нет, а профиль уже заведён. Считается по
+     тому же account, который и так пришёл, — лишнего запроса не нужно. */
+  const childLimitReached =
+    !!account &&
+    account.user?.subscriptionStatus !== "active" &&
+    account.children.length >= FREE_CHILD_LIMIT;
 
   const load = useCallback(async () => {
     const acc = (await me()) as unknown as Account;
@@ -233,7 +242,7 @@ function ParentPage() {
 
         {!report ? (
           <>
-            <AddChildForm onAdded={load} />
+            <AddChildForm onAdded={load} limited={childLimitReached} />
             {/* Без этого блока родитель, удаливший единственный профиль,
                 не смог бы отозвать согласие целиком: вкладка настроек
                 открывается только при выбранном ребёнке. */}
@@ -277,8 +286,8 @@ function ParentPage() {
                       fontSize: "var(--sov-t-cap)",
                     }}
                   >
-                    Задания наставника хранятся, пока существует его учётная запись: если он
-                    удалит её, они исчезнут, а результаты занятий и прогресс ребёнка останутся.
+                    Задания наставника хранятся, пока существует его учётная запись: если он удалит
+                    её, они исчезнут, а результаты занятий и прогресс ребёнка останутся.
                   </p>
                 ) : null}
                 {report.history.length === 0 ? (
@@ -388,7 +397,7 @@ function ParentPage() {
                   <h2 style={{ fontSize: "var(--sov-t-h3)", fontWeight: 600 }}>
                     Добавить ещё ребёнка
                   </h2>
-                  <AddChildForm onAdded={load} compact />
+                  <AddChildForm onAdded={load} compact limited={childLimitReached} />
                 </div>
 
                 <div style={{ marginTop: 40 }}>
@@ -799,9 +808,46 @@ function ProgressTab({ report, onHistory }: { report: Report; onHistory: () => v
   );
 }
 
-function AddChildForm({ onAdded, compact }: { onAdded: () => Promise<void>; compact?: boolean }) {
+/**
+ * Профиль ребёнка. Без подписки его можно завести один.
+ *
+ * Когда место занято, формы здесь нет вовсе — вместо неё объяснение и
+ * два выхода. Показывать форму, которая заведомо получит отказ, значит
+ * заставить человека набрать имя, выбрать класс и аватар ради сообщения
+ * об ошибке; про ограничение честнее сказать до того, как он начал.
+ *
+ * Второй выход — код репетитора — здесь важнее первого: у семьи, чей
+ * ребёнок занимается с репетитором, платит репетитор, и предлагать ей
+ * подписку первой было бы продажей того, что уже оплачено.
+ */
+function AddChildForm({
+  onAdded,
+  compact,
+  limited,
+}: {
+  onAdded: () => Promise<void>;
+  compact?: boolean;
+  limited?: boolean;
+}) {
   const [pending, setPending] = useState(false);
   const [avatar, setAvatar] = useState("owl");
+  const [error, setError] = useState<string | null>(null);
+
+  if (limited) {
+    return (
+      <div className="sov-save-hint" style={{ marginTop: compact ? 16 : 32, maxWidth: 520 }}>
+        <strong>Без подписки можно завести одного ребёнка</strong>
+        <span>
+          Если с ребёнком занимается репетитор, попросите у него код приглашения — тогда платить не
+          нужно вовсе. Если занимаетесь сами, второй профиль откроет подписка.
+        </span>
+        <p style={{ marginTop: 12, display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <QuietAction to="/priglashenie">Ввести код репетитора</QuietAction>
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div style={{ marginTop: compact ? 16 : 32, maxWidth: 520 }}>
       {!compact ? (
@@ -814,19 +860,28 @@ function AddChildForm({ onAdded, compact }: { onAdded: () => Promise<void>; comp
           e.preventDefault();
           const form = new FormData(e.currentTarget);
           setPending(true);
-          await addChild({
-            data: {
-              name: String(form.get("name") ?? ""),
-              grade: Number(form.get("grade") ?? 1),
-              avatar,
-              birthYear: null,
-            },
-          });
-          (e.target as HTMLFormElement).reset();
-          setPending(false);
-          await onAdded();
+          setError(null);
+          // Отказ сервера здесь раньше был необработанным: форма молча
+          // ничего не делала. Теперь у неё есть ветка на «нет».
+          try {
+            await addChild({
+              data: {
+                name: String(form.get("name") ?? ""),
+                grade: Number(form.get("grade") ?? 1),
+                avatar,
+                birthYear: null,
+              },
+            });
+            (e.target as HTMLFormElement).reset();
+            await onAdded();
+          } catch (err) {
+            setError(err instanceof Error ? err.message : "Не получилось добавить профиль");
+          } finally {
+            setPending(false);
+          }
         }}
       >
+        {error ? <div className="sov-alert">{error}</div> : null}
         <div className="sov-field">
           <label htmlFor="childname">Имя ребёнка</label>
           <input id="childname" name="name" required />
@@ -1221,10 +1276,10 @@ function DeleteAccountBlock() {
       }}
     >
       <div className="sov-alert">
-        Будут удалены все профили детей со всеми занятиями и фотографиями, настройки и сама
-        учётная запись — без возможности восстановления. Сведения о платежах и чеки мы обязаны
-        хранить 5 лет, они остаются. Активная подписка закроется; за возвратом остатка напишите
-        на ekaterinazyub@gmail.com (раздел 7 оферты).
+        Будут удалены все профили детей со всеми занятиями и фотографиями, настройки и сама учётная
+        запись — без возможности восстановления. Сведения о платежах и чеки мы обязаны хранить 5
+        лет, они остаются. Активная подписка закроется; за возвратом остатка напишите на
+        ekaterinazyub@gmail.com (раздел 7 оферты).
       </div>
       {error ? <div className="sov-alert">{error}</div> : null}
       <div className="sov-field">

@@ -110,7 +110,8 @@ export async function verifyPassword(password: string, stored: string): Promise<
   const candidate = await derive(password, saltHex);
   if (candidate.length !== digest.length) return false;
   let diff = 0;
-  for (let i = 0; i < candidate.length; i += 1) diff |= candidate.charCodeAt(i) ^ digest.charCodeAt(i);
+  for (let i = 0; i < candidate.length; i += 1)
+    diff |= candidate.charCodeAt(i) ^ digest.charCodeAt(i);
   return diff === 0;
 }
 
@@ -200,7 +201,9 @@ export async function unlockParent(userId: string, pin: string): Promise<boolean
   const token = crypto.randomUUID() + crypto.randomUUID();
   const expires = new Date(Date.now() + PARENT_UNLOCK_MIN * 60_000);
   await db()
-    .prepare("INSERT INTO parent_unlocks (token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)")
+    .prepare(
+      "INSERT INTO parent_unlocks (token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)",
+    )
     .bind(token, userId, nowIso(), expires.toISOString())
     .run();
   setCookie(PARENT_COOKIE, token, {
@@ -326,6 +329,24 @@ export async function grantChildAccess(
 }
 
 /**
+ * Сколько профилей уже ведёт этот взрослый в этой роли.
+ *
+ * Считается по child_access, а не по children.parent_id, и это
+ * принципиально: когда родитель принимает приглашение, владельцем записи
+ * становится он, а связь репетитора остаётся строкой с ролью tutor. По
+ * parent_id ученики репетитора начали бы пропадать из счёта ровно в тот
+ * момент, когда семья подключилась, — то есть ограничение обходилось бы
+ * само собой.
+ */
+export async function childCountFor(userId: string, role: "parent" | "tutor"): Promise<number> {
+  const row = await db()
+    .prepare("SELECT COUNT(*) AS n FROM child_access WHERE user_id = ? AND role = ?")
+    .bind(userId, role)
+    .first<{ n: number }>();
+  return row?.n ?? 0;
+}
+
+/**
  * Платит тот, кто привёл. Тема открыта, пока активная подписка есть хотя бы
  * у одного взрослого рядом с учеником: обычно это репетитор, но если он ушёл,
  * родитель может продолжить сам, ничего не перенося.
@@ -351,7 +372,9 @@ export async function track(
 ): Promise<void> {
   try {
     await db()
-      .prepare("INSERT INTO events (id, name, user_id, child_id, props, created_at) VALUES (?, ?, ?, ?, ?, ?)")
+      .prepare(
+        "INSERT INTO events (id, name, user_id, child_id, props, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+      )
       .bind(
         uid("ev"),
         name,
@@ -382,11 +405,9 @@ export async function ensureSeeded(): Promise<void> {
   const statements = [];
   for (const s of SEED_SUBJECTS) {
     statements.push(
-      D.prepare("INSERT INTO subjects (id, name, sort_order) VALUES (?, ?, ?) ON CONFLICT DO NOTHING").bind(
-        s.id,
-        s.name,
-        s.sortOrder,
-      ),
+      D.prepare(
+        "INSERT INTO subjects (id, name, sort_order) VALUES (?, ?, ?) ON CONFLICT DO NOTHING",
+      ).bind(s.id, s.name, s.sortOrder),
     );
   }
 
@@ -394,7 +415,15 @@ export async function ensureSeeded(): Promise<void> {
     statements.push(
       D.prepare(
         "INSERT INTO topics (id, subject_id, grade, sort_order, name, summary, is_free) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING",
-      ).bind(topic.id, topic.subjectId, topic.grade, topicIndex, topic.name, topic.summary, topic.isFree ? 1 : 0),
+      ).bind(
+        topic.id,
+        topic.subjectId,
+        topic.grade,
+        topicIndex,
+        topic.name,
+        topic.summary,
+        topic.isFree ? 1 : 0,
+      ),
     );
     topic.tasks.forEach((task, taskIndex) => {
       statements.push(
@@ -418,7 +447,10 @@ export async function ensureSeeded(): Promise<void> {
   // Промокоды для первых пользователей (подписка активируется вручную).
   for (const code of ["SOVENOK", "PILOT2026", "SEMYA"]) {
     statements.push(
-      D.prepare("INSERT INTO promo_codes (code, months) VALUES (?, ?) ON CONFLICT DO NOTHING").bind(code, 12),
+      D.prepare("INSERT INTO promo_codes (code, months) VALUES (?, ?) ON CONFLICT DO NOTHING").bind(
+        code,
+        12,
+      ),
     );
   }
 
@@ -487,6 +519,11 @@ export async function materializeTopic(code: string): Promise<void> {
 /** Ответ сравнивается мягко: регистр, пробелы и «ё» не должны валить ребёнка. */
 export function answersMatch(given: string, expected: string): boolean {
   const norm = (s: string) =>
-    s.toLowerCase().replace(/ё/g, "е").replace(/\s+/g, " ").replace(/[.,!?;]+$/, "").trim();
+    s
+      .toLowerCase()
+      .replace(/ё/g, "е")
+      .replace(/\s+/g, " ")
+      .replace(/[.,!?;]+$/, "")
+      .trim();
   return norm(given) === norm(expected);
 }

@@ -8,20 +8,21 @@ import { z } from "zod";
 
 import {
   answersMatch,
-  materializeTopic,
+  childCountFor,
+  childHasPaidAccess,
   currentUser,
   db,
   endSession,
   ensureSeeded,
-  hasParentPin,
+  grantChildAccess,
   hashPassword,
+  hasParentPin,
   isParentUnlocked,
   lockParent,
+  materializeTopic,
   nowIso,
   requireAdmin,
   requireChildAccess,
-  childHasPaidAccess,
-  grantChildAccess,
   requireParentAccess,
   requireUser,
   saveParentPin,
@@ -31,6 +32,7 @@ import {
   unlockParent,
   verifyPassword,
 } from "../core.server";
+import { FREE_CHILD_LIMIT } from "../billing";
 import { buyOwlItemFor, equipOwlItemFor, owlState, syncCoins } from "../rewards.server";
 import {
   CHANNEL_TITLES,
@@ -441,6 +443,25 @@ export const addChild = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const user = await requireUser();
+    /*
+     * Без подписки — один профиль. То же правило, что у репетитора
+     * (см. addStudent в tutor.functions.ts), и считается так же.
+     *
+     * Родителя, пришедшего по приглашению, это не касается: профиль его
+     * ребёнка завёл репетитор, а здесь заводят своего, с нуля. Семья с
+     * двумя детьми у платящего репетитора ограничения не увидит.
+     */
+    const role = user.role === "tutor" ? "tutor" : "parent";
+    if (user.subscriptionStatus !== "active") {
+      const already = await childCountFor(user.id, role);
+      if (already >= FREE_CHILD_LIMIT) {
+        throw new Error(
+          role === "tutor"
+            ? "Без подписки можно вести одного ученика. Подписка открывает остальных."
+            : "Без подписки можно завести одного ребёнка. Подписка открывает остальных — или попросите код у репетитора, тогда платить не нужно.",
+        );
+      }
+    }
     const id = uid("chd");
     await db()
       .prepare(
