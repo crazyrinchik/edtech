@@ -2900,6 +2900,20 @@ a.sov-level:active .sov-level__num {
   color: #b3bccc;
 }
 
+/* Строка про удаление под обеими колонками. Растянута на всю ширину
+   блока: она относится и к тому, что хранится, и к тому, чего нет, —
+   и логически закрывает список, а не продолжает какую-то из колонок. */
+.sov-data__note {
+  grid-column: 1 / -1;
+  margin-top: 4px;
+  padding-top: 18px;
+  border-top: 1px solid var(--sov-line);
+  font-size: var(--sov-t-cap);
+  font-weight: 500;
+  color: var(--sov-ink-soft);
+  max-width: var(--sov-measure);
+}
+
 /* ── кабинет родителя на витрине ────────────────────────────────── */
 .sov-cab {
   display: grid;
