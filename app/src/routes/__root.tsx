@@ -10,6 +10,7 @@ import {
 import { useEffect, type ReactNode } from "react";
 
 import { Owl, SiteFooter, SiteHeader } from "../components/brand";
+import { ReportProblem } from "../components/report-problem";
 import appCss from "../styles.css?url";
 import { reportHiggsfieldError } from "../lib/higgsfield-error-reporting";
 // Page metadata (browser <title>/favicon + social og: tags) committed into the
@@ -275,6 +276,12 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
+      {/* Кнопка «Сообщить об ошибке» — здесь, а не в подвале: подвала нет
+          на четырёх экранах, и среди них занятие ребёнка и нулевой урок,
+          то есть ровно те, где поломку и увидят. Стоит внутри Outlet-узла
+          намеренно — 404 и экран падения рисуются тем же деревом, а на
+          них ищут, кому написать, чаще всего. */}
+      <ReportProblem />
     </QueryClientProvider>
   );
 }

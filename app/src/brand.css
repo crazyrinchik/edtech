@@ -5664,3 +5664,197 @@ button.sov-stone:disabled {
     scroll-snap-align: start;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   «Сообщить об ошибке»: кнопка в углу и лист с формой.
+
+   Кнопка стоит на каждом экране, поэтому она обязана быть тише всего
+   остального. Ни заливки, ни синего: синий в системе значит «идти
+   дальше», и жалоба не может выглядеть как «Начать занятие». Остаётся
+   бумажная пилюля с тонкой обводкой и подписью в кегле сноски — её
+   видно, когда ищут, и не видно, когда занимаются.
+
+   Форма живёт в <dialog>: ловушка фокуса, Esc и подложка достаются от
+   браузера. Обёртки .sov на этом узле нет (она тянет min-height:
+   100dvh), поэтому шрифт, цвет и рамка фокуса заданы здесь заново.
+   ═══════════════════════════════════════════════════════════════════ */
+
+.sov-report :focus-visible {
+  outline: 3px solid var(--sov-cobalt);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.sov-report .sov-act-form:focus-visible,
+.sov-report__open:focus-visible {
+  border-radius: var(--sov-radius-pill);
+}
+
+.sov-report__open {
+  position: fixed;
+  right: 12px;
+  bottom: 12px;
+  z-index: 30;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 13px;
+  border: 1px solid var(--sov-line-strong);
+  border-radius: var(--sov-radius-pill);
+  background: var(--sov-paper);
+  box-shadow: var(--sov-shadow-sm);
+  font-family: var(--sov-font);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--sov-ink-soft);
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    border-color 0.15s,
+    background 0.15s;
+}
+.sov-report__open:hover {
+  background: #fff;
+  color: var(--sov-ink);
+  border-color: var(--sov-ink-soft);
+}
+
+/* На телефоне у нижнего края тесно: там кнопка «Проверить», клавиатура и
+   палец. От кнопки остаётся значок — цель в 34 px, то есть та же
+   площадь, что и с подписью, но занятая полоса вдвое короче. Подпись
+   уходит из разметки, а не прячется прозрачностью: экранный диктор
+   читает её из aria-label. */
+@media (max-width: 767.98px) {
+  .sov-report__label {
+    display: none;
+  }
+  .sov-report__open {
+    padding: 8px;
+  }
+}
+
+/* На печати кнопки нет: нажать её на бумаге нельзя. */
+@media print {
+  .sov-report__open {
+    display: none;
+  }
+}
+
+.sov-report__sheet {
+  border: none;
+  /* Поля объявлены явно: префлайт Tailwind снимает margin со всего подряд,
+     а модальному <dialog> они не косметика — именно auto по четырём
+     сторонам ставит его в середину экрана. Без них лист прилипал к
+     левому верхнему углу. */
+  margin: auto;
+  padding: 24px;
+  width: min(460px, calc(100vw - 32px));
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
+  border-radius: var(--sov-radius-feature);
+  background: var(--sov-paper);
+  color: var(--sov-ink);
+  font-family: var(--sov-font);
+  box-shadow: var(--sov-shadow);
+}
+.sov-report__sheet::backdrop {
+  background: rgba(18, 32, 58, 0.35);
+}
+.sov-report__sheet h2 {
+  margin: 0;
+  font-size: var(--sov-t-h3);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+.sov-report__sheet p {
+  margin: 0;
+  line-height: 1.5;
+}
+.sov-report__lead {
+  color: var(--sov-ink-soft);
+  font-size: var(--sov-t-cap);
+  font-weight: 500;
+}
+.sov-report__sheet a {
+  color: var(--sov-cobalt);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+/* Поле растёт только вниз и только руками: горизонтальное растягивание
+   ломает колонку листа. */
+.sov-report__sheet textarea {
+  resize: vertical;
+}
+.sov-report__done {
+  display: grid;
+  gap: 14px;
+}
+/* Два действия в строку. Ширину у формовой кнопки снимаем: во всю ширину
+   она стоит на шаге регистрации, а здесь рядом с «Закрыть». */
+.sov-report__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.sov-report__actions .sov-act-form {
+  width: auto;
+}
+/* Поле-ловушка: не hidden и не display: none — часть роботов такие поля
+   пропускает. Оно есть в разметке, лежит за краем экрана, недоступно
+   табуляции и помечено aria-hidden, поэтому человек его не встретит. */
+.sov-report__trap {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+/* Телефон: лист приезжает снизу и занимает ширину экрана. Диалог по
+   центру маленького экрана оставляет по краям полоски бумаги, из-за
+   которых непонятно, закрыт экран или нет. */
+@media (max-width: 767.98px) {
+  .sov-report__sheet {
+    width: 100%;
+    max-width: none;
+    margin: auto auto 0;
+    border-radius: var(--sov-radius-feature) var(--sov-radius-feature) 0 0;
+    padding-bottom: max(24px, env(safe-area-inset-bottom));
+  }
+}
+
+/* Обращения в админке. Список карточек, а не таблица: в ячейку не
+   помещается текст на пять строк, а именно ради него сюда и заходят.
+   Разобранное гаснет до цвета сноски — по ленте видно, где кончилось
+   новое, без отдельного фильтра. */
+.sov-reports {
+  display: grid;
+  gap: 14px;
+  margin-top: 20px;
+  max-width: 80ch;
+}
+.sov-report-row {
+  display: grid;
+  gap: 8px;
+  padding: 16px 18px;
+  border: 1px solid var(--sov-line);
+  border-radius: var(--sov-radius);
+  background: #fff;
+}
+.sov-report-row[data-handled="true"] {
+  background: var(--sov-paper-2);
+  color: var(--sov-ink-soft);
+}
+.sov-report-row__meta {
+  font-family: var(--sov-mono);
+  font-size: 0.82rem;
+  color: var(--sov-ink-soft);
+  overflow-wrap: anywhere;
+}
+.sov-report-row__text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.sov-report-row a.sov-act-ghost {
+  text-decoration: none;
+}

@@ -6,6 +6,7 @@ import { closedHead } from "../lib/seo";
 import {
   adminContent, adminDeleteTask, adminOverview, adminSaveTask, adminSaveTopic, adminUpdateUser,
 } from "../lib/api/app.functions";
+import { adminBugReports, adminHandleBugReport } from "../lib/api/feedback.functions";
 
 export const Route = createFileRoute("/admin")({
   head: () => closedHead("Админка, Совёнок"),
@@ -20,6 +21,20 @@ type Overview = {
   usersList: { id: string; email: string; name: string | null; role: string; subscription_status: string; blocked: number }[];
 };
 type Content = { topics: TopicRow[]; tasks: TaskRow[] };
+/** Обращение из кнопки «Сообщить об ошибке» (см. lib/api/feedback.functions.ts). */
+type BugReport = {
+  id: string;
+  user_id: string | null;
+  child_id: string | null;
+  reply_to: string | null;
+  message: string;
+  page: string | null;
+  user_agent: string | null;
+  created_at: string;
+  mailed_at: string | null;
+  handled_at: string | null;
+  email: string | null;
+};
 type TopicRow = { id: string; name: string; grade: number; subject_id: string; subject_name: string; summary: string | null; is_free: number; task_count: number };
 type TaskRow = { id: string; kind: string; prompt: string; payload: string; answer: string; explanation: string; is_check: number };
 
@@ -36,9 +51,10 @@ function optionsOf(task: TaskRow): string {
 }
 
 function AdminPage() {
-  const [tab, setTab] = useState<"stats" | "content" | "users">("stats");
+  const [tab, setTab] = useState<"stats" | "content" | "users" | "reports">("stats");
   const [overview, setOverview] = useState<Overview | null>(null);
   const [content, setContent] = useState<Content | null>(null);
+  const [reports, setReports] = useState<BugReport[] | null>(null);
   const [topicId, setTopicId] = useState<string | null>(null);
   const [editingTask, setEditingTask] = useState<TaskRow | null>(null);
   const [editingTopic, setEditingTopic] = useState<TopicRow | null>(null);
@@ -60,6 +76,20 @@ function AdminPage() {
     })();
   }, [loadContent]);
 
+  // Обращения грузятся по открытию вкладки, а не вместе со всем: сотня
+  // писем с текстом весит больше, чем вся аналитика, а заходят сюда не
+  // каждый день.
+  useEffect(() => {
+    if (tab !== "reports" || reports !== null) return;
+    (async () => {
+      try {
+        setReports((await adminBugReports()).reports);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Не удалось загрузить обращения");
+      }
+    })();
+  }, [tab, reports]);
+
   if (error) {
     return (
       <div className="sov">
@@ -80,7 +110,7 @@ function AdminPage() {
       <main className="sov-shell" style={{ paddingBottom: 80 }}>
         <h1 style={{ fontSize: "var(--sov-t-h1)", fontWeight: 700, marginTop: 16 }}>Администрирование</h1>
         <div className="sov-tabs">
-          {([["stats","Аналитика"],["content","Контент"],["users","Пользователи"]] as const).map(([id,label]) => (
+          {([["stats","Аналитика"],["content","Контент"],["users","Пользователи"],["reports","Обращения"]] as const).map(([id,label]) => (
             <button key={id} data-active={tab === id} onClick={() => setTab(id)}>{label}</button>
           ))}
         </div>
@@ -250,6 +280,57 @@ function AdminPage() {
                 ))}
               </tbody>
             </table>
+          </section>
+        ) : null}
+
+        {tab === "reports" ? (
+          <section style={{ marginTop: 24 }}>
+            <p style={{ color: "var(--sov-ink-soft)", maxWidth: "70ch" }}>
+              Что люди присылают кнопкой «Сообщить об ошибке». Каждое обращение уходит письмом на
+              почту поддержки, но живёт и здесь: письмо может не уйти, а обращение потеряться не
+              должно. Последние сто, свежие сверху.
+            </p>
+            <div className="sov-reports">
+              {(reports ?? []).map((r) => (
+                <article key={r.id} className="sov-report-row" data-handled={!!r.handled_at}>
+                  <p className="sov-report-row__meta">
+                    {new Date(r.created_at).toLocaleString("ru-RU")}
+                    {" · "}
+                    {r.email ?? "не вошёл"}
+                    {r.reply_to && r.reply_to !== r.email ? ` · ответить: ${r.reply_to}` : ""}
+                    {r.mailed_at ? "" : " · письмо не ушло"}
+                  </p>
+                  <p className="sov-report-row__text">{r.message}</p>
+                  <p className="sov-report-row__meta">
+                    {r.page ?? "страница неизвестна"}
+                    {r.child_id ? ` · ученик ${r.child_id}` : ""}
+                    {r.user_agent ? ` · ${r.user_agent}` : ""}
+                  </p>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    {r.reply_to ? (
+                      <a className="sov-act-ghost" href={`mailto:${r.reply_to}`}>
+                        Ответить
+                      </a>
+                    ) : null}
+                    <button
+                      className="sov-act-ghost"
+                      onClick={async () => {
+                        await adminHandleBugReport({
+                          data: { id: r.id, handled: !r.handled_at },
+                        });
+                        setReports((await adminBugReports()).reports);
+                      }}
+                    >
+                      {r.handled_at ? "Вернуть в работу" : "Разобрано"}
+                    </button>
+                  </div>
+                </article>
+              ))}
+              {reports !== null && reports.length === 0 ? (
+                <p style={{ color: "var(--sov-ink-soft)" }}>Обращений пока не было.</p>
+              ) : null}
+              {reports === null ? <p style={{ color: "var(--sov-ink-soft)" }}>Загружаем…</p> : null}
+            </div>
           </section>
         ) : null}
       </main>
