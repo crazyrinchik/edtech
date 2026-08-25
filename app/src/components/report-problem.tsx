@@ -31,7 +31,6 @@ export function ReportProblem() {
   const [message, setMessage] = useState("");
   const [email, setEmail] = useState("");
   const [fromAccount, setFromAccount] = useState(false);
-  const [mailReady, setMailReady] = useState(true);
   const [trap, setTrap] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -47,16 +46,15 @@ export function ReportProblem() {
     if (!open && dialog.open) dialog.close();
   }, [open]);
 
-  // Почта аккаунта и готовность почтового сервиса спрашиваются в момент
-  // открытия, а не при загрузке страницы: запрос ради кнопки, которую
-  // нажимают раз в месяц, платили бы все остальные.
+  // Почта аккаунта спрашивается в момент открытия, а не при загрузке
+  // страницы: запрос ради кнопки, которую нажимают раз в месяц, платили бы
+  // все остальные.
   useEffect(() => {
     if (!open) return;
     let alive = true;
     void supportContext()
       .then((ctx) => {
         if (!alive) return;
-        setMailReady(ctx.mailReady);
         if (ctx.email) {
           setEmail((current) => current || ctx.email!);
           setFromAccount(true);
@@ -151,13 +149,6 @@ export function ReportProblem() {
                 а не читать. */}
             <h2 id="sov-report-title">Что-то сломалось?</h2>
             {error ? <div className="sov-alert">{error}</div> : null}
-            {!mailReady ? (
-              <p className="sov-report__lead">
-                Отправка писем на сервере сейчас не настроена. Обращение мы сохраним, но если дело
-                срочное — быстрее написать на{" "}
-                <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>.
-              </p>
-            ) : null}
             <div className="sov-field">
               <label htmlFor="sov-report-message">Что произошло</label>
               <textarea
