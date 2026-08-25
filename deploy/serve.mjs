@@ -68,7 +68,8 @@ function passthrough() {
     "TBANK_TAXATION",
     // Письмо со ссылкой на смену пароля (lib/mail.server.ts). Без ключа
     // форма восстановления не обещает письма, а показывает адрес поддержки.
-    "UNISENDER_GO_KEY",
+    "POSTBOX_KEY_ID",
+    "POSTBOX_SECRET_KEY",
     "MAIL_FROM",
     "MAIL_FROM_NAME",
     // Свой адрес для ссылки в письме. Берётся отсюда, а не из заголовка

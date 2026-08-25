@@ -69,12 +69,20 @@ services:
       TBANK_TERMINAL_KEY: ${TBANK_TERMINAL_KEY:-}
       TBANK_TERMINAL_PASSWORD: ${TBANK_TERMINAL_PASSWORD:-}
       TBANK_TAXATION: ${TBANK_TAXATION:-usn_income}
-      # Письма о смене пароля. Пустой ключ просто оставляет форму
-      # восстановления с ручным путём, остальное приложение работает
-      # как раньше (см. mailReady() в src/lib/mail.server.ts).
-      UNISENDER_GO_KEY: ${UNISENDER_GO_KEY:-}
+      # Письма о смене пароля: статический ключ доступа сервисного
+      # аккаунта Yandex Cloud с ролью postbox.sender. Пустой ключ просто
+      # оставляет форму восстановления с ручным путём, остальное
+      # приложение работает как раньше (см. mailReady() в
+      # src/lib/mail.server.ts).
+      POSTBOX_KEY_ID: ${POSTBOX_KEY_ID:-}
+      POSTBOX_SECRET_KEY: ${POSTBOX_SECRET_KEY:-}
       MAIL_FROM: ${MAIL_FROM:-}
       MAIL_FROM_NAME: ${MAIL_FROM_NAME:-}
+      # Куда уходят обращения из кнопки «Сообщить об ошибке». Не задан —
+      # письмо идёт на адрес из src/lib/support.ts, тот же, что напечатан
+      # на странице восстановления пароля. Само обращение в любом случае
+      # ложится в таблицу bug_reports и видно в админке.
+      SUPPORT_EMAIL: ${SUPPORT_EMAIL:-}
       # Из этого адреса собирается ссылка в письме. Задан явно, чтобы
       # подменённый заголовок Host не мог подставить чужой домен.
       APP_ORIGIN: ${APP_ORIGIN:-https://sovenok.space}
