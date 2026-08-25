@@ -212,7 +212,9 @@ export function ReportProblem() {
         ) : (
           <div className="sov-report__done">
             <h2 id="sov-report-title">
-              {stage === "throttled" ? "Мы уже получили ваши сообщения" : "Спасибо, получили"}
+              {stage === "throttled"
+                ? "Мы уже получили ваши сообщения"
+                : "Спасибо за Ваше обращение!"}
             </h2>
             {stage === "sent" ? (
               <p>Обращение ушло. Если вы оставили почту, ответим на неё — обычно в течение дня.</p>
