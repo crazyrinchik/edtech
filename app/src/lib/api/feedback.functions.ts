@@ -226,6 +226,69 @@ export const adminBugReports = createServerFn({ method: "GET" }).handler(async (
   return { reports: rows.results ?? [] };
 });
 
+/**
+ * Ответ на обращение прямо из админки.
+ *
+ * Раньше в админке стояла ссылка mailto:, и ответ уходил из того ящика, в
+ * который вошёл почтовый клиент, — то есть из личного. Человек получал
+ * письмо от частного лица, а не от сервиса. Здесь письмо уходит через тот
+ * же Postbox, от адреса сервиса, а Reply-To ставится на почту поддержки:
+ * в списке писем видно «Совёнок», а «Ответить» приводит ответ туда, где
+ * его прочитают.
+ *
+ * Текст обращения подклеивается цитатой. Между обращением и ответом может
+ * пройти день, и «отвечаем: да, починили» без напоминания, на что именно,
+ * читается как письмо не по адресу.
+ *
+ * Отправленный ответ помечает обращение разобранным: отвечать на него
+ * второй раз обычно уже не нужно, а лишний клик по «Разобрано» забывается.
+ */
+export const adminReplyToReport = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      id: z.string(),
+      text: z
+        .string()
+        .trim()
+        .min(1, "Пустой ответ отправлять некуда")
+        .max(4000, "Слишком длинно для письма"),
+    }),
+  )
+  .handler(async ({ data }) => {
+    await requireAdmin();
+
+    const report = await db()
+      .prepare("SELECT reply_to, message, created_at FROM bug_reports WHERE id = ?")
+      .bind(data.id)
+      .first<{ reply_to: string | null; message: string; created_at: string }>();
+
+    // Обращение без адреса — человек его не оставил. Отвечать некуда, и
+    // сказать об этом надо в админке, а не молча ничего не сделать.
+    if (!report?.reply_to) return { ok: false as const, reason: "no-address" as const };
+    if (!mailReady()) return { ok: false as const, reason: "mail-off" as const };
+
+    const sent = await sendMail({
+      to: report.reply_to,
+      subject: "Совёнок: ответ на ваше обращение",
+      replyTo: supportAddress(),
+      text: [
+        data.text.trim(),
+        "",
+        "———",
+        `Вы написали нам ${new Date(report.created_at).toLocaleDateString("ru-RU")}:`,
+        ...report.message.split("\n").map((line) => `> ${line}`),
+      ].join("\n"),
+    });
+
+    if (sent) {
+      await db()
+        .prepare("UPDATE bug_reports SET handled_at = ? WHERE id = ?")
+        .bind(nowIso(), data.id)
+        .run();
+    }
+    return { ok: true as const, sent };
+  });
+
 export const adminHandleBugReport = createServerFn({ method: "POST" })
   .inputValidator(z.object({ id: z.string(), handled: z.boolean() }))
   .handler(async ({ data }) => {

@@ -6,7 +6,9 @@ import { closedHead } from "../lib/seo";
 import {
   adminContent, adminDeleteTask, adminOverview, adminSaveTask, adminSaveTopic, adminUpdateUser,
 } from "../lib/api/app.functions";
-import { adminBugReports, adminHandleBugReport } from "../lib/api/feedback.functions";
+import {
+  adminBugReports, adminHandleBugReport, adminReplyToReport,
+} from "../lib/api/feedback.functions";
 
 export const Route = createFileRoute("/admin")({
   head: () => closedHead("Админка, Совёнок"),
@@ -55,6 +57,11 @@ function AdminPage() {
   const [overview, setOverview] = useState<Overview | null>(null);
   const [content, setContent] = useState<Content | null>(null);
   const [reports, setReports] = useState<BugReport[] | null>(null);
+  /** Обращение, на которое сейчас пишется ответ, и текст ответа к нему. */
+  const [replyTo, setReplyTo] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState("");
+  const [replyNote, setReplyNote] = useState<string | null>(null);
+  const [replyPending, setReplyPending] = useState(false);
   const [topicId, setTopicId] = useState<string | null>(null);
   const [editingTask, setEditingTask] = useState<TaskRow | null>(null);
   const [editingTopic, setEditingTopic] = useState<TopicRow | null>(null);
@@ -307,10 +314,20 @@ function AdminPage() {
                     {r.user_agent ? ` · ${r.user_agent}` : ""}
                   </p>
                   <div style={{ display: "flex", gap: 8 }}>
+                    {/* Не mailto: ответ уходит через сервис, от его адреса.
+                        Через mailto письмо шло из личного ящика владельца —
+                        человек получал ответ от частного лица. */}
                     {r.reply_to ? (
-                      <a className="sov-act-ghost" href={`mailto:${r.reply_to}`}>
-                        Ответить
-                      </a>
+                      <button
+                        className="sov-act-ghost"
+                        onClick={() => {
+                          setReplyTo(replyTo === r.id ? null : r.id);
+                          setReplyText("");
+                          setReplyNote(null);
+                        }}
+                      >
+                        {replyTo === r.id ? "Не отвечать" : "Ответить"}
+                      </button>
                     ) : null}
                     <button
                       className="sov-act-ghost"
@@ -324,6 +341,51 @@ function AdminPage() {
                       {r.handled_at ? "Вернуть в работу" : "Разобрано"}
                     </button>
                   </div>
+                  {replyTo === r.id ? (
+                    <div className="sov-field" style={{ marginTop: 12 }}>
+                      <label htmlFor={`sov-reply-${r.id}`}>Ответ на {r.reply_to}</label>
+                      <textarea
+                        id={`sov-reply-${r.id}`}
+                        rows={4}
+                        autoFocus
+                        value={replyText}
+                        onChange={(e) => setReplyText(e.target.value)}
+                      />
+                      <span className="sov-field__hint">
+                        Письмо придёт от Совёнка; ответят на него — придёт на почту поддержки.
+                        Текст обращения подклеится сам, повторять его не нужно.
+                      </span>
+                      {replyNote ? <div className="sov-alert">{replyNote}</div> : null}
+                      <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                        <button
+                          className="sov-act-form"
+                          disabled={replyPending || !replyText.trim()}
+                          onClick={async () => {
+                            setReplyPending(true);
+                            setReplyNote(null);
+                            try {
+                              const res = await adminReplyToReport({ data: { id: r.id, text: replyText } });
+                              if (!res.ok) {
+                                setReplyNote(res.reason === "no-address"
+                                  ? "Адрес для ответа не оставлен — писать некуда."
+                                  : "Почта на сервере не настроена, письмо не уйдёт.");
+                              } else if (!res.sent) {
+                                setReplyNote("Почтовый сервис не принял письмо. Ответ не отправлен — попробуйте ещё раз.");
+                              } else {
+                                setReplyTo(null);
+                                setReplyText("");
+                                setReports((await adminBugReports()).reports);
+                              }
+                            } finally {
+                              setReplyPending(false);
+                            }
+                          }}
+                        >
+                          {replyPending ? "Отправляем…" : "Отправить"}
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
                 </article>
               ))}
               {reports !== null && reports.length === 0 ? (

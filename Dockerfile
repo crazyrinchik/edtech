@@ -33,13 +33,24 @@ RUN bunx vite build
 FROM node:22-slim AS app
 WORKDIR /srv
 ENV NODE_ENV=production
+# Системный набор корневых сертификатов. В node:22-slim его нет, а workerd
+# с trustBrowserCas читает именно его: без файла воркер доверяет ровно
+# одному корню — тому, что serve.mjs передаёт явно, — и любой внешний
+# вызов к сайту с обычным сертификатом падает TLS-ошибкой, не дойдя до
+# нашего кода. Так молча не уходили письма через Postbox: у него сертификат
+# GlobalSign. Изнутри контейнера поломка не видна, потому что у самого Node
+# список корней вкомпилирован и его fetch работает.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
 COPY deploy/runtime.package.json ./package.json
 RUN npm install --omit=dev --no-audit --no-fund
 COPY --from=build /src/dist/server ./dist/server
 COPY --from=build /src/migrations ./migrations
 COPY deploy/serve.mjs ./serve.mjs
-# Корень УЦ Минцифры: им подписан securepay.tinkoff.ru, а в наборе
-# сертификатов workerd его нет. serve.mjs читает файл на старте.
+# Корень УЦ Минцифры: им подписан securepay.tinkoff.ru, а в общедоступных
+# наборах сертификатов его нет. serve.mjs читает файл на старте и передаёт
+# воркеру вдобавок к системному набору, установленному выше.
 COPY deploy/russian-trusted-root-ca.pem ./russian-trusted-root-ca.pem
 ENV PORT=8080 D1_PERSIST=/data/d1
 EXPOSE 8080
