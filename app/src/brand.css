@@ -3751,6 +3751,12 @@ a.sov-level:active .sov-level__num {
   gap: 3px;
   min-width: 0;
 }
+/* Карточка тренажёра: под названием всего одна строка настроек, и высоту
+   ряда задаёт она же. Кнопка «Задать» здесь встаёт по центру — у темы
+   каталога под названием бывает список глав, там ей место наверху. */
+.sov-prog__head--center {
+  align-items: center;
+}
 .sov-prog__title strong {
   font-size: 1.08rem;
   font-weight: 800;

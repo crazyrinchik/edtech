@@ -111,9 +111,7 @@ function TrainersPage() {
 
       <main className="sov-shell" style={{ paddingBottom: 60 }}>
         <h1 style={{ fontSize: "var(--sov-t-display)" }}>Тренажёры</h1>
-        <p
-          style={{ marginTop: 12, color: "var(--sov-ink-soft)", fontWeight: 500, maxWidth: "62ch" }}
-        >
+        <p style={{ marginTop: 12, color: "var(--sov-ink-soft)", fontWeight: 500 }}>
           Не привязаны к темам и работают без подписки. Задать можно сразу нескольким ученикам — так
           же, как тему.
         </p>
@@ -127,7 +125,7 @@ function TrainersPage() {
         <div className="sov-prog" style={{ marginTop: 24 }}>
           {TRAINERS.map((t) => (
             <article key={t.id} className="sov-prog__item">
-              <div className="sov-prog__head">
+              <div className="sov-prog__head sov-prog__head--center">
                 <div className="sov-prog__title">
                   <strong className="sov-prog__name">
                     <t.Icon size={20} />
