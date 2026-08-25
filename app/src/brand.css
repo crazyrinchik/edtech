@@ -1089,6 +1089,214 @@ body {
   font-weight: 600;
 }
 
+/* ------------------------------------------------- экран подписки
+
+   Экран отвечает на один вопрос: открыто у меня всё или не всё.
+   Раньше ответ лежал в трёх одинаковых плитках .sov-metric, и первая
+   печатала слово «Да» кеглем в два ремá — цифровая форма под
+   нецифровой ответ. Теперь состояние — одна карточка: совёнок,
+   пилюля со словом и строка объяснения. Числа (сколько учеников, до
+   какого числа) остались, но ушли под черту помельче: это подробности
+   ответа, а не сам ответ.
+
+   Силуэт карточки — 24, как у тарифов на витрине. Пришедший с витрины
+   в кабинет видит ту же форму и про тот же предмет. */
+
+.sov-sub h1 {
+  font-size: var(--sov-t-display);
+}
+/* Колонка шире формы. .sov-narrow — это 620 под поле ввода и подпись к
+   нему, но здесь рядом с полями стоят карточка состояния и два тарифа: в
+   620 они жались к левому краю, оставляя полстола пустой бумаги.
+
+   Растягивается при этом не всё. Строка текста держит меру (65ch, иначе
+   глаз теряет начало следующей), а поле ввода и кнопка — свой предел:
+   поле во весь стол не заполняют, а мажут. Широкой становится только та
+   часть экрана, которой ширина на пользу — состояние и выбор тарифа. */
+.sov-sub {
+  max-width: 860px;
+  padding-bottom: 70px;
+}
+.sov-sub p,
+.sov-sub .sov-alert,
+.sov-sub .sov-sub-list {
+  max-width: var(--sov-measure);
+}
+.sov-sub .sov-form {
+  max-width: 700px;
+}
+
+.sov-sub-state {
+  display: grid;
+  gap: 16px;
+  margin-top: 22px;
+  padding: clamp(20px, 3vw, 26px);
+  border: 1px solid var(--sov-line);
+  border-radius: var(--sov-radius-feature);
+  background: #fff;
+  box-shadow: var(--sov-shadow);
+}
+/* Оплаченное состояние заливается тем же кобальтом, что и выбранный
+   тариф: в системе это единственный цвет «выбрано, идёт». Второго
+   цвета для «хорошо» здесь не заводится — зелёный занят разбором
+   ответа и значит «верно», а не «оплачено». */
+.sov-sub-state--on {
+  border-color: var(--sov-cobalt);
+  background: var(--sov-cobalt-soft);
+}
+/* Сова и пилюля стоят в одной строке, объяснение идёт под ними во всю
+   ширину. Колонкой «сова | весь текст» карточка не набирается: на
+   телефоне тексту остаётся двести пикселей, и пилюля переносится. */
+.sov-sub-state__head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.sov-sub-state__mark {
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--sov-radius-pill);
+  padding: 7px 16px;
+  font-size: 0.95rem;
+  font-weight: 800;
+  background: var(--sov-paper-2);
+  color: var(--sov-ink-soft);
+}
+.sov-sub-state--on .sov-sub-state__mark {
+  background: var(--sov-cobalt);
+  color: #fff;
+}
+.sov-sub-state__lead {
+  color: var(--sov-ink-soft);
+  font-weight: 500;
+}
+.sov-sub-state--on .sov-sub-state__lead {
+  color: var(--sov-ink);
+}
+.sov-sub-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 14px;
+  padding-top: 15px;
+  border-top: 1px solid var(--sov-line);
+}
+/* Тёплая линия на кобальтовой заливке отдаёт грязью, поэтому под
+   оплаченным состоянием черта своя — тот же кобальт, разбавленный. */
+.sov-sub-state--on .sov-sub-facts {
+  border-top-color: rgba(31, 79, 216, 0.3);
+}
+.sov-sub-facts div {
+  display: grid;
+  gap: 3px;
+}
+.sov-sub-facts b {
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.sov-sub-facts span {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--sov-ink-soft);
+}
+/* На широком экране числа встают справа от объяснения, а не под ним:
+   карточка перестаёт быть колонкой в полстола. Черта при этом
+   поворачивается — она по-прежнему отделяет подробности от ответа,
+   только теперь по вертикали. */
+@media (min-width: 768px) {
+  .sov-sub-state {
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: 30px;
+  }
+  .sov-sub-state__head {
+    grid-column: 1 / -1;
+  }
+  .sov-sub-facts {
+    align-self: start;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+    min-width: 190px;
+    padding: 0 0 0 30px;
+    border-top: none;
+    border-left: 1px solid var(--sov-line);
+  }
+  .sov-sub-state--on .sov-sub-facts {
+    border-left-color: rgba(31, 79, 216, 0.3);
+  }
+}
+
+/* Что открывает подписка. Галочка та же, что у тарифов витрины
+   (.sov-plan li), и список здесь такой же короткий: кабинет не место
+   для второго прайса, он только напоминает, за что берут деньги. */
+.sov-sub-list {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 9px;
+}
+.sov-sub-list li {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 0.96rem;
+  font-weight: 500;
+}
+.sov-sub-list li::before {
+  content: "✓";
+  color: var(--sov-cobalt);
+  font-weight: 800;
+  line-height: 1.5;
+}
+
+.sov-sub-block {
+  margin-top: 38px;
+}
+.sov-sub-block > h2 {
+  font-size: var(--sov-t-h3);
+  font-weight: 700;
+}
+.sov-sub-block > p {
+  margin-top: 8px;
+  color: var(--sov-ink-soft);
+  font-size: var(--sov-t-cap);
+  font-weight: 500;
+}
+
+/* Тихая зона внизу: промокод, отмена, удаление учётной записи.
+
+   Раньше «Удаление учётной записи» стояло таким же заголовком, как
+   «Продлить», и весило на экране столько же, сколько оплата. Здесь
+   заголовки мельче и цветом подписи, а всю зону отбивает черта:
+   видно, что это управление, а не то, зачем сюда пришли. Прятать её
+   в раскрывашку нельзя — промокод остаётся единственным путём к
+   подписке, пока не заданы ключи кассы, и форма оплаты в этом случае
+   молчит (см. pay-form.tsx). */
+.sov-sub-quiet {
+  margin-top: 46px;
+  padding-top: 26px;
+  border-top: 1px solid var(--sov-line);
+  display: grid;
+  gap: 30px;
+}
+.sov-sub-quiet h2 {
+  font-size: var(--sov-t-cap);
+  font-weight: 800;
+  color: var(--sov-ink-soft);
+}
+.sov-sub-quiet p {
+  margin-top: 8px;
+  color: var(--sov-ink-soft);
+  font-size: var(--sov-t-cap);
+  font-weight: 500;
+}
+.sov-sub-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
 /* ------------------------------------------------- юридические тексты
 
    Оферта и политика печатаются из markdown (см. legal-doc.tsx). Ширина та
