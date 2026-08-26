@@ -1343,6 +1343,35 @@ body {
   border-top: 1px solid var(--sov-line);
 }
 
+/* Таблица целей обработки в политике: шесть колонок сплошного юридического
+   текста. В колонку страницы она не влезает ни на каком экране, поэтому
+   прокручивается вбок внутри своей обёртки — страница при этом не едет. */
+.sov-legal-table {
+  margin-top: 18px;
+  overflow-x: auto;
+}
+.sov-legal-table table {
+  min-width: 720px;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+.sov-legal-table th,
+.sov-legal-table td {
+  padding: 10px 12px;
+  border: 1px solid var(--sov-line);
+  text-align: left;
+  vertical-align: top;
+}
+.sov-legal-table th {
+  background: var(--sov-paper);
+  font-weight: 600;
+}
+.sov-legal-table td:first-child,
+.sov-legal-table th:first-child {
+  width: 2.5em;
+}
+
 /* ---------------------------------------------------- детский интерфейс
 
    Фон детских экранов — та же бумага, что на витрине. Раньше здесь был

@@ -9,15 +9,16 @@ import { Fragment, type ReactNode } from "react";
  * как есть (`?raw`) и разбирается здесь.
  *
  * Разметка поддерживается ровно та, что встречается в этих документах:
- * заголовки, абзацы, списки, отступ-формула, `код` и **жирный** внутри
- * строки. Полноценный markdown-движок сюда не тянется — он весит больше
- * самих документов и умеет то, чего в них нет.
+ * заголовки, абзацы, списки, таблицы, отступ-формула, `код` и **жирный**
+ * внутри строки. Полноценный markdown-движок сюда не тянется — он весит
+ * больше самих документов и умеет то, чего в них нет.
  */
 
 type Block =
   | { kind: "h1" | "h2" | "h3" | "p"; text: string }
   | { kind: "ul"; items: string[] }
   | { kind: "pre"; text: string }
+  | { kind: "table"; header: string[]; rows: string[][] }
   | { kind: "hr" };
 
 export function LegalDoc({ source }: { source: string }) {
@@ -36,14 +37,21 @@ function parse(source: string): Block[] {
   let paragraph: string[] = [];
   let list: string[] = [];
   let pre: string[] = [];
+  let table: string[][] = [];
 
   const flush = () => {
     if (paragraph.length) blocks.push({ kind: "p", text: paragraph.join(" ") });
     if (list.length) blocks.push({ kind: "ul", items: list });
     if (pre.length) blocks.push({ kind: "pre", text: pre.join("\n") });
+    // Вторая строка markdown-таблицы — разделитель из дефисов, данных в ней нет.
+    if (table.length) {
+      const [header, , ...rows] = table;
+      blocks.push({ kind: "table", header, rows });
+    }
     paragraph = [];
     list = [];
     pre = [];
+    table = [];
   };
 
   for (const line of lines) {
@@ -61,6 +69,20 @@ function parse(source: string): Block[] {
       continue;
     }
     if (pre.length) flush();
+
+    // Таблица целей обработки в политике: единственное место, где без неё
+    // не обойтись — на её строки ссылаются пункты 5.4 и 10.2 по номерам.
+    if (line.startsWith("|")) {
+      if (paragraph.length || list.length) flush();
+      table.push(
+        line
+          .replace(/^\||\|$/g, "")
+          .split("|")
+          .map((cell) => cell.trim()),
+      );
+      continue;
+    }
+    if (table.length) flush();
 
     if (line.startsWith("- ")) {
       if (paragraph.length) flush();
@@ -114,6 +136,31 @@ function render(block: Block): ReactNode {
       );
     case "pre":
       return <pre>{block.text}</pre>;
+    case "table":
+      // Шесть колонок юридического текста в телефон не влезают никак, поэтому
+      // таблица прокручивается вбок внутри себя, не растягивая страницу.
+      return (
+        <div className="sov-legal-table">
+          <table>
+            <thead>
+              <tr>
+                {block.header.map((cell, index) => (
+                  <th key={index}>{inline(cell)}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {block.rows.map((row, rowIndex) => (
+                <tr key={rowIndex}>
+                  {row.map((cell, index) => (
+                    <td key={index}>{inline(cell)}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
     case "hr":
       return <hr />;
     default:
