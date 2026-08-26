@@ -178,7 +178,17 @@ function TutorPage() {
             </p>
             <div className="sov-field">
               <label htmlFor="name">Имя ученика</label>
-              <input id="name" name="name" required />
+              {/* Пробел не вводится и не вставляется: одно поле — одно имя.
+                  Фамилию Совёнок не собирает, и сервер её тоже не пропустит
+                  (addStudent в tutor.functions.ts). */}
+              <input
+                id="name"
+                name="name"
+                required
+                onInput={(e) => {
+                  e.currentTarget.value = e.currentTarget.value.replace(/\s+/g, "");
+                }}
+              />
             </div>
             <div className="sov-field">
               <label htmlFor="grade">Класс</label>
@@ -262,7 +272,18 @@ function TutorPage() {
                 ) : null}
 
                 {!s.parentLinked ? (
-                  <InviteRow childId={s.id} code={s.inviteCode} onDone={load} />
+                  <>
+                    <InviteRow childId={s.id} code={s.inviteCode} onDone={load} />
+                    {/* Срок называется заранее: профиль без согласия родителя
+                        живёт десять дней (retention.server.ts), и педагог не
+                        должен обнаружить пропажу ученика задним числом. */}
+                    {s.autoDeleteAt ? (
+                      <p className="sov-student__risk">
+                        Профиль удалится {DUE_LABEL.format(new Date(s.autoDeleteAt))}, если
+                        родитель не примет приглашение
+                      </p>
+                    ) : null}
+                  </>
                 ) : (
                   <p className="sov-student__note">Родитель подключён</p>
                 )}

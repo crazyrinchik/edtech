@@ -20,6 +20,7 @@ import {
   createCustomAssignment,
   customTaskFile,
   gradeCustomAnswer,
+  saveStudentNote,
   studentCard,
 } from "../lib/api/tutor.functions";
 
@@ -51,6 +52,64 @@ function drillNote(id: DrillId, settings: DrillSettings | null): string {
 /** Срок по умолчанию — неделя: типичный шаг между занятиями с репетитором. */
 function defaultDue(): string {
   return new Date(Date.now() + 7 * 864e5).toISOString().slice(0, 10);
+}
+
+/**
+ * Личная заметка об ученике: «разобрать дроби», «спросить про сотку».
+ *
+ * Сохраняется кнопкой, а не на каждый символ: заметку правят подряд
+ * несколько секунд, и очередь запросов на каждое нажатие ни к чему.
+ * Кнопка же говорит, есть ли несохранённое, — отдельного статуса не надо.
+ */
+function TutorNote({ childId, initial }: { childId: string; initial: string }) {
+  const [note, setNote] = useState(initial);
+  const [saved, setSaved] = useState(initial);
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const dirty = note.trim() !== saved.trim();
+
+  async function save() {
+    setBusy(true);
+    setFailed(false);
+    try {
+      await saveStudentNote({ data: { childId, note } });
+      setSaved(note);
+    } catch {
+      setFailed(true);
+    }
+    setBusy(false);
+  }
+
+  return (
+    <form
+      className="sov-panel sov-form"
+      style={{ marginTop: 22 }}
+      onSubmit={(e) => {
+        e.preventDefault();
+        void save();
+      }}
+    >
+      <div className="sov-field">
+        <label htmlFor="tutornote">Заметка для себя</label>
+        <textarea
+          id="tutornote"
+          rows={2}
+          maxLength={2000}
+          placeholder="Например: повторить таблицу на 7, на следующем занятии — диктант"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+        />
+        <p style={{ color: "var(--sov-ink-soft)", fontSize: "var(--sov-t-cap)" }}>
+          Видите только вы: родителю и ученику заметка не показывается.
+        </p>
+      </div>
+      {failed ? <div className="sov-alert">Не удалось сохранить — попробуйте ещё раз</div> : null}
+      <button type="submit" className="sov-act-ghost" disabled={busy || !dirty}>
+        {/* «Сохранено» — только когда есть что: пустой блокнот не рапортует. */}
+        {busy ? "Сохраняем…" : dirty || !saved.trim() ? "Сохранить заметку" : "Сохранено"}
+      </button>
+    </form>
+  );
 }
 
 function StudentPage() {
@@ -261,6 +320,11 @@ function StudentPage() {
             {error}
           </div>
         ) : null}
+
+        {/* key: страница не размонтируется при переходе между учениками
+            (см. сброс формы выше), а черновик заметки не должен переезжать
+            в чужую карточку. */}
+        <TutorNote key={data.child.id} childId={childId} initial={data.note} />
 
         {!data.paid ? (
           <div className="sov-save-hint" style={{ marginTop: 22 }}>

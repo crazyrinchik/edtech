@@ -40,6 +40,13 @@ import {
   uid,
 } from "../core.server";
 import { FREE_CHILD_LIMIT } from "../billing";
+import {
+  DESTRUCTION_UNCLAIMED,
+  purgeChildData,
+  UNCLAIMED_DAYS,
+  unclaimedDeadlineIso,
+  unclaimedExpired,
+} from "../retention.server";
 
 /**
  * Названия тренажёров для домашнего задания. Ключ — тот же код, что уходит
@@ -358,7 +365,7 @@ export const tutorStudents = createServerFn({ method: "GET" }).handler(async () 
   const user = await requireTutor();
   const children = await db()
     .prepare(
-      `SELECT c.id, c.name, c.avatar, c.grade,
+      `SELECT c.id, c.name, c.avatar, c.grade, c.created_at,
               EXISTS (SELECT 1 FROM child_access p
                        WHERE p.child_id = c.id AND p.role = 'parent') AS parent_linked
          FROM children c JOIN child_access a ON a.child_id = c.id
@@ -371,6 +378,7 @@ export const tutorStudents = createServerFn({ method: "GET" }).handler(async () 
       name: string;
       avatar: string;
       grade: number;
+      created_at: string;
       parent_linked: number;
     }>();
 
@@ -422,6 +430,10 @@ export const tutorStudents = createServerFn({ method: "GET" }).handler(async () 
       grade: child.grade,
       parentLinked: !!child.parent_linked,
       inviteCode: invite?.code ?? null,
+      // День, когда неподтверждённый профиль будет уничтожен
+      // (retention.server.ts). Педагог должен видеть срок заранее, а не
+      // обнаружить пропажу ученика вместе с занятиями.
+      autoDeleteAt: child.parent_linked ? null : unclaimedDeadlineIso(child.created_at),
       lastLessonAt: last?.started_at ?? null,
       risk: risk ? { name: risk.name, percent: risk.percent } : null,
       assignment: current,
@@ -434,7 +446,13 @@ export const tutorStudents = createServerFn({ method: "GET" }).handler(async () 
 export const addStudent = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
-      name: z.string().trim().min(1, "Как зовут ученика?"),
+      // Одно слово, как в addChild: имени достаточно, ФИО ученика Совёнок
+      // не собирает, и пробел в этом поле — почти всегда вписанная фамилия.
+      name: z
+        .string()
+        .trim()
+        .min(1, "Как зовут ученика?")
+        .refine((s) => !/\s/.test(s), "Только имя, одним словом — без фамилии и пробелов"),
       grade: z.number().int().min(1).max(4),
       avatar: z.string().min(1),
     }),
@@ -514,15 +532,30 @@ export const inviteInfo = createServerFn({ method: "GET" })
   .handler(async ({ data }) => {
     const row = await db()
       .prepare(
-        `SELECT i.code, c.name AS child_name, c.grade AS grade, u.name AS tutor_name
+        `SELECT i.code, c.name AS child_name, c.grade AS grade, u.name AS tutor_name,
+                c.created_at AS child_created,
+                EXISTS (SELECT 1 FROM child_access p
+                         WHERE p.child_id = c.id AND p.role = 'parent') AS parent_linked
            FROM invites i
            JOIN children c ON c.id = i.child_id
            JOIN users u ON u.id = i.tutor_id
           WHERE i.code = ? AND i.used_at IS NULL AND i.expires_at > ?`,
       )
       .bind(data.code.replace(/\D/g, ""), nowIso())
-      .first<{ child_name: string; grade: number; tutor_name: string | null }>();
+      .first<{
+        child_name: string;
+        grade: number;
+        tutor_name: string | null;
+        child_created: string;
+        parent_linked: number;
+      }>();
     if (!row) return { ok: false as const };
+    // Профиль пережил свои UNCLAIMED_DAYS без родителя — код к нему уже не
+    // ведёт, даже если плановая зачистка ещё не добежала. Показывать имя из
+    // записи, которой положено быть уничтоженной, нельзя.
+    if (!row.parent_linked && unclaimedExpired(row.child_created)) {
+      return { ok: false as const };
+    }
     return {
       ok: true as const,
       childName: row.child_name,
@@ -552,6 +585,29 @@ export const acceptInvite = createServerFn({ method: "POST" })
       .bind(code, nowIso())
       .first<{ code: string; child_id: string; tutor_id: string }>();
     if (!invite) throw new Error("Приглашение не найдено или уже использовано");
+
+    // Профиль, не подтверждённый родителем за UNCLAIMED_DAYS, не активируется
+    // даже живым приглашением — согласие нельзя оформить задним числом к
+    // записи, которой положено быть уничтоженной. Сносится прямо здесь, не
+    // дожидаясь плановой зачистки (retention.server.ts), и до создания
+    // учётной записи родителя: регистрация без ученика ему ни к чему.
+    const child = await db()
+      .prepare(
+        `SELECT c.created_at,
+                EXISTS (SELECT 1 FROM child_access p
+                         WHERE p.child_id = c.id AND p.role = 'parent') AS parent_linked
+           FROM children c WHERE c.id = ?`,
+      )
+      .bind(invite.child_id)
+      .first<{ created_at: string; parent_linked: number }>();
+    if (!child) throw new Error("Приглашение не найдено или уже использовано");
+    if (!child.parent_linked && unclaimedExpired(child.created_at)) {
+      await purgeChildData(invite.child_id, DESTRUCTION_UNCLAIMED);
+      await track("child_unclaimed_purged", { childId: invite.child_id });
+      throw new Error(
+        `Профиль ученика ждал подтверждения дольше ${UNCLAIMED_DAYS} дней и был удалён вместе с данными. Попросите наставника завести профиль заново и прислать новый код.`,
+      );
+    }
 
     const email = data.email.toLowerCase().trim();
     const existing = await db()
@@ -619,6 +675,14 @@ export const studentCard = createServerFn({ method: "GET" })
       .bind(child.id)
       .first<{ ok: number }>();
     const paid = await childHasPaidAccess(child.id);
+
+    // Заметка личная, поэтому ключ выборки включает user.id: второй взрослый
+    // с доступом к тому же ученику увидит свою, а не эту. В кабинет родителя
+    // и на экран ребёнка заметки не отдаёт ни одна ручка.
+    const note = await db()
+      .prepare("SELECT note FROM tutor_notes WHERE tutor_id = ? AND child_id = ?")
+      .bind(user.id, child.id)
+      .first<{ note: string }>();
 
     const subjects = await db()
       .prepare("SELECT id, name FROM subjects ORDER BY sort_order")
@@ -738,6 +802,7 @@ export const studentCard = createServerFn({ method: "GET" })
         grade: child.grade,
         parentLinked: !!parent,
       },
+      note: note?.note ?? "",
       paid,
       subjects: subjects.results ?? [],
       topics: allTopics.map((t) => ({
@@ -754,6 +819,46 @@ export const studentCard = createServerFn({ method: "GET" })
       lessons: lessons.results ?? [],
       assignments: await buildAssignments(child.id, await activeAssignments(child.id)),
     };
+  });
+
+/**
+ * Заметка репетитора об ученике — сохранить или стереть.
+ *
+ * Пустая заметка удаляет строку, а не хранит пустоту: у большинства пар
+ * (педагог, ученик) заметки нет, и таблица должна это отражать. Лимит —
+ * страховка от вставки туда конспекта; сами формулировки на совести
+ * педагога, поле подписано как «видите только вы».
+ */
+export const saveStudentNote = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      childId: z.string(),
+      note: z.string().max(2000, "Заметка — до 2000 знаков"),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const user = await requireTutor();
+    await requireStudent(data.childId, user.id);
+    const note = data.note.trim();
+    if (!note) {
+      await db()
+        .prepare("DELETE FROM tutor_notes WHERE tutor_id = ? AND child_id = ?")
+        .bind(user.id, data.childId)
+        .run();
+      return { ok: true };
+    }
+    // UPSERT одинаково понимают и SQLite, и PostgreSQL — как ON CONFLICT
+    // DO NOTHING в соседних вставках.
+    await db()
+      .prepare(
+        `INSERT INTO tutor_notes (tutor_id, child_id, note, updated_at)
+         VALUES (?, ?, ?, ?)
+         ON CONFLICT (tutor_id, child_id)
+         DO UPDATE SET note = EXCLUDED.note, updated_at = EXCLUDED.updated_at`,
+      )
+      .bind(user.id, data.childId, note, nowIso())
+      .run();
+    return { ok: true };
   });
 
 /**

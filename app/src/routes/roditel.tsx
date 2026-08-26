@@ -884,7 +884,17 @@ function AddChildForm({
         {error ? <div className="sov-alert">{error}</div> : null}
         <div className="sov-field">
           <label htmlFor="childname">Имя ребёнка</label>
-          <input id="childname" name="name" required />
+          {/* Пробел не вводится и не вставляется: одно поле — одно имя.
+              Фамилию Совёнок не собирает, и сервер её тоже не пропустит
+              (addChild в app.functions.ts). */}
+          <input
+            id="childname"
+            name="name"
+            required
+            onInput={(e) => {
+              e.currentTarget.value = e.currentTarget.value.replace(/\s+/g, "");
+            }}
+          />
         </div>
         <div className="sov-field">
           <label htmlFor="childgrade">Класс</label>

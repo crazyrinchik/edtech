@@ -33,6 +33,11 @@ import {
   verifyPassword,
 } from "../core.server";
 import { FREE_CHILD_LIMIT } from "../billing";
+import {
+  DESTRUCTION_BY_REQUEST,
+  pdDestructionStatement,
+  purgeChildData,
+} from "../retention.server";
 import { buyOwlItemFor, equipOwlItemFor, owlState, syncCoins } from "../rewards.server";
 import {
   CHANNEL_TITLES,
@@ -435,7 +440,14 @@ export const lockParentCabinet = createServerFn({ method: "POST" }).handler(asyn
 export const addChild = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
-      name: z.string().trim().min(1, "Как зовут ребёнка?"),
+      // Одно слово: в профиле достаточно имени, фамилию и отчество Совёнок
+      // не собирает вовсе. Запрет пробелов — это и есть запрет ФИО, поле в
+      // форме их тоже не пропускает (см. roditel.tsx, repetitor.index.tsx).
+      name: z
+        .string()
+        .trim()
+        .min(1, "Как зовут ребёнка?")
+        .refine((s) => !/\s/.test(s), "Только имя, одним словом — без фамилии и пробелов"),
       grade: z.number().int().min(1).max(4),
       avatar: z.string().min(1),
       birthYear: z.number().int().min(2010).max(2025).nullable(),
@@ -845,14 +857,15 @@ export const finishTopic = createServerFn({ method: "POST" })
         };
     }
 
-    // Род ребёнка приложение не спрашивает, поэтому в сообщении нет глаголов
-    // прошедшего времени: «занятие окончено», а не «позанимался/позанималась».
+    // В мессенджер уходят только имя и само событие. Тема, проценты и зачёт
+    // остаются в кабинете: Telegram и MAX — чужие серверы, и учебным
+    // подробностям ребёнка там не место. Род ребёнка приложение не
+    // спрашивает, поэтому в сообщении нет глаголов прошедшего времени:
+    // «окончена проверочная», а не «позанимался/позанималась».
     if (data.mode === "check") {
       await notifyParent(
         user.id,
-        `Совёнок: у ${child.name} окончена проверочная по теме «${topic?.name ?? "занятие"}».\n` +
-          `Верных ответов: ${percent}%. Время: ${Math.max(1, Math.round(data.seconds / 60))} мин.\n` +
-          (passed ? "Тема зачтена." : "Для зачёта нужно 70% — тему можно пройти ещё раз."),
+        `Совёнок: у ${child.name} окончена проверочная. Подробности — в кабинете.`,
       );
     }
 
@@ -1151,45 +1164,10 @@ export const cancelSubscription = createServerFn({ method: "POST" }).handler(asy
 
 /* ------------------------------------------------- удаление своих данных */
 
-/**
- * Все следы ребёнка одним заходом. Порядок важен: настройки пунктов домашки
- * и сами пункты уходят раньше assignments, на которые смотрят их подзапросы,
- * — batch выполняется последовательно в одной транзакции.
- *
- * Удаление физическое, а не флагом: колонку deleted_at не добавить
- * (миграции идемпотентные, ADD COLUMN IF NOT EXISTS в SQLite нет), а фильтр
- * по отдельной таблице пришлось бы не забыть в каждом из десятка запросов
- * по child_id. Страховка от ошибочного удаления — ночные дампы
- * (deploy/backup-db.sh, KEEP=30): это и есть «не более 90 дней в составе
- * резервных копий» из п. 9 политики. events не трогаются — это технический
- * журнал со своим сроком хранения.
- */
-async function purgeChildData(childId: string): Promise<void> {
-  const D = db();
-  await D.batch([
-    D.prepare(
-      `DELETE FROM assignment_item_settings WHERE item_id IN (
-         SELECT id FROM assignment_items WHERE assignment_id IN (
-           SELECT id FROM assignments WHERE child_id = ?))`,
-    ).bind(childId),
-    D.prepare(
-      "DELETE FROM assignment_items WHERE assignment_id IN (SELECT id FROM assignments WHERE child_id = ?)",
-    ).bind(childId),
-    D.prepare("DELETE FROM assignments WHERE child_id = ?").bind(childId),
-    D.prepare("DELETE FROM custom_answer_files WHERE child_id = ?").bind(childId),
-    D.prepare("DELETE FROM custom_submissions WHERE child_id = ?").bind(childId),
-    D.prepare("DELETE FROM attempts WHERE child_id = ?").bind(childId),
-    D.prepare("DELETE FROM progress WHERE child_id = ?").bind(childId),
-    D.prepare("DELETE FROM lessons WHERE child_id = ?").bind(childId),
-    D.prepare("DELETE FROM drills WHERE child_id = ?").bind(childId),
-    D.prepare("DELETE FROM coin_grants WHERE child_id = ?").bind(childId),
-    D.prepare("DELETE FROM child_items WHERE child_id = ?").bind(childId),
-    D.prepare("DELETE FROM child_owl WHERE child_id = ?").bind(childId),
-    D.prepare("DELETE FROM invites WHERE child_id = ?").bind(childId),
-    D.prepare("DELETE FROM child_access WHERE child_id = ?").bind(childId),
-    D.prepare("DELETE FROM children WHERE id = ?").bind(childId),
-  ]);
-}
+// Сама зачистка и журнал уничтожения переехали в lib/retention.server.ts:
+// профили теперь сносятся не только кнопкой из кабинета, но и по сроку
+// (родитель не подтвердил профиль), а правило «DELETE только со строкой в
+// журнале» проще держать в одном модуле.
 
 /** Имя при удалении сверяется так же мягко, как ответы ребёнка. */
 function sameName(a: string, b: string): boolean {
@@ -1216,7 +1194,7 @@ export const deleteChild = createServerFn({ method: "POST" })
     if (!sameName(data.confirmName, child.name)) {
       throw new Error("Имя не совпадает с именем профиля");
     }
-    await purgeChildData(child.id);
+    await purgeChildData(child.id, DESTRUCTION_BY_REQUEST);
     if (getCookie(CHILD_COOKIE) === child.id) {
       setCookie(CHILD_COOKIE, "", { path: "/", maxAge: 0 });
     }
@@ -1254,7 +1232,9 @@ export const deleteAccount = createServerFn({ method: "POST" })
       .prepare("SELECT id FROM children WHERE parent_id = ?")
       .bind(user.id)
       .all<{ id: string }>();
-    for (const child of owned.results ?? []) await purgeChildData(child.id);
+    for (const child of owned.results ?? []) {
+      await purgeChildData(child.id, DESTRUCTION_BY_REQUEST);
+    }
 
     // Факт согласия и его отзыва переживает аккаунт: им подтверждается
     // правомерность прошлой обработки (3 года по п. 9 политики).
@@ -1286,6 +1266,10 @@ export const deleteAccount = createServerFn({ method: "POST" })
     // Платежи и подписки остаются: чеки и расчёты хранятся 5 лет по
     // налоговому законодательству независимо от отзыва согласия.
     await db().batch([
+      // Взрослый — тоже субъект персональных данных: его строка в журнале
+      // уничтожения идёт тем же batch, что и DELETE FROM users. Дети уже
+      // записаны в журнал внутри purgeChildData.
+      pdDestructionStatement(user.id, DESTRUCTION_BY_REQUEST),
       db()
         .prepare(
           `DELETE FROM custom_answer_files WHERE item_id IN (
@@ -1315,6 +1299,7 @@ export const deleteAccount = createServerFn({ method: "POST" })
       db().prepare("DELETE FROM assignments WHERE tutor_id = ?").bind(user.id),
       db().prepare("DELETE FROM custom_tasks WHERE tutor_id = ?").bind(user.id),
       db().prepare("DELETE FROM invites WHERE tutor_id = ?").bind(user.id),
+      db().prepare("DELETE FROM tutor_notes WHERE tutor_id = ?").bind(user.id),
       db().prepare("DELETE FROM sessions WHERE user_id = ?").bind(user.id),
       db().prepare("DELETE FROM parent_pins WHERE user_id = ?").bind(user.id),
       db().prepare("DELETE FROM parent_unlocks WHERE user_id = ?").bind(user.id),
@@ -1508,10 +1493,11 @@ export const saveMentalDrill = createServerFn({ method: "POST" })
         .bind(data.childId)
         .first<{ name: string }>();
       if (user && child) {
+        // Только имя и событие — счёт и время остаются в кабинете,
+        // см. комментарий у уведомления о проверочной.
         await notifyParent(
           user.id,
-          `Совёнок: у ${child.name} окончен устный счёт.\n` +
-            `Верных ответов: ${data.correct} из ${data.total}. Время: ${Math.max(1, Math.round(data.seconds / 60))} мин.`,
+          `Совёнок: у ${child.name} окончен устный счёт. Подробности — в кабинете.`,
         );
       }
     }
@@ -1573,6 +1559,29 @@ export const notifyDisconnect = createServerFn({ method: "POST" })
   });
 
 /* ------------------------------------------------------------ админка */
+
+/**
+ * Выгрузка журнала уничтожения ПДн — то, что оператор обязан предъявить по
+ * запросу Роскомнадзора (приказ от 28.10.2022 № 179, п. 5). Все требуемые
+ * приказом поля лежат в самих строках, поэтому ручка — голый SELECT: никаких
+ * доклеек из кода, журнал читается таким, каким был записан.
+ */
+export const adminDestructionLog = createServerFn({ method: "GET" }).handler(async () => {
+  await requireAdmin();
+  const rows = await db()
+    .prepare(
+      `SELECT subject_id, categories, system_name, reason, destroyed_at
+         FROM pd_destruction_log ORDER BY destroyed_at DESC`,
+    )
+    .all<{
+      subject_id: string;
+      categories: string;
+      system_name: string;
+      reason: string;
+      destroyed_at: string;
+    }>();
+  return { rows: rows.results ?? [] };
+});
 
 export const adminOverview = createServerFn({ method: "GET" }).handler(async () => {
   await requireAdmin();

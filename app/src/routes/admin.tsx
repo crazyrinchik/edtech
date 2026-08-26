@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { FormAction, SiteHeader } from "../components/brand";
 import { closedHead } from "../lib/seo";
 import {
-  adminContent, adminDeleteTask, adminOverview, adminSaveTask, adminSaveTopic, adminUpdateUser,
+  adminContent, adminDeleteTask, adminDestructionLog, adminOverview, adminSaveTask, adminSaveTopic, adminUpdateUser,
 } from "../lib/api/app.functions";
 import {
   adminBugReports, adminHandleBugReport, adminReplyToReport,
@@ -37,6 +37,8 @@ type BugReport = {
   handled_at: string | null;
   email: string | null;
 };
+/** Строка журнала уничтожения ПДн — колонки в точности по п. 5 приказа РКН № 179. */
+type DestructionRow = { subject_id: string; categories: string; system_name: string; reason: string; destroyed_at: string };
 type TopicRow = { id: string; name: string; grade: number; subject_id: string; subject_name: string; summary: string | null; is_free: number; task_count: number };
 type TaskRow = { id: string; kind: string; prompt: string; payload: string; answer: string; explanation: string; is_check: number };
 
@@ -53,10 +55,11 @@ function optionsOf(task: TaskRow): string {
 }
 
 function AdminPage() {
-  const [tab, setTab] = useState<"stats" | "content" | "users" | "reports">("stats");
+  const [tab, setTab] = useState<"stats" | "content" | "users" | "reports" | "pd">("stats");
   const [overview, setOverview] = useState<Overview | null>(null);
   const [content, setContent] = useState<Content | null>(null);
   const [reports, setReports] = useState<BugReport[] | null>(null);
+  const [pdLog, setPdLog] = useState<DestructionRow[] | null>(null);
   /** Обращение, на которое сейчас пишется ответ, и текст ответа к нему. */
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
@@ -97,6 +100,19 @@ function AdminPage() {
     })();
   }, [tab, reports]);
 
+  // Журнал уничтожения — тоже по открытию вкладки: нужен он не чаще, чем
+  // запрос от Роскомнадзора.
+  useEffect(() => {
+    if (tab !== "pd" || pdLog !== null) return;
+    (async () => {
+      try {
+        setPdLog((await adminDestructionLog()).rows);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Не удалось загрузить журнал");
+      }
+    })();
+  }, [tab, pdLog]);
+
   if (error) {
     return (
       <div className="sov">
@@ -117,7 +133,7 @@ function AdminPage() {
       <main className="sov-shell" style={{ paddingBottom: 80 }}>
         <h1 style={{ fontSize: "var(--sov-t-h1)", fontWeight: 700, marginTop: 16 }}>Администрирование</h1>
         <div className="sov-tabs">
-          {([["stats","Аналитика"],["content","Контент"],["users","Пользователи"],["reports","Обращения"]] as const).map(([id,label]) => (
+          {([["stats","Аналитика"],["content","Контент"],["users","Пользователи"],["reports","Обращения"],["pd","Уничтожение ПДн"]] as const).map(([id,label]) => (
             <button key={id} data-active={tab === id} onClick={() => setTab(id)}>{label}</button>
           ))}
         </div>
@@ -393,6 +409,37 @@ function AdminPage() {
               ) : null}
               {reports === null ? <p style={{ color: "var(--sov-ink-soft)" }}>Загружаем…</p> : null}
             </div>
+          </section>
+        ) : null}
+
+        {tab === "pd" ? (
+          <section style={{ marginTop: 24 }}>
+            <p style={{ color: "var(--sov-ink-soft)", maxWidth: "70ch" }}>
+              Журнал уничтожения персональных данных — выгрузка по п. 5 приказа Роскомнадзора
+              от 28.10.2022 № 179. Субъект назван идентификатором записи: имён и почты журнал
+              не хранит, иначе он сам стал бы копией уничтоженного. Хранится три года со дня
+              уничтожения (п. 6 приказа), старше — вычищается сам. Свежие сверху.
+            </p>
+            <table className="sov-table">
+              <thead><tr><th>Субъект</th><th>Категории</th><th>Система</th><th>Причина</th><th>Дата</th></tr></thead>
+              <tbody>
+                {/* Ключ — субъект с причиной: у одного человека может быть
+                    два события (удаление и, через три года, снятие следа). */}
+                {(pdLog ?? []).map((r) => (
+                  <tr key={`${r.subject_id}|${r.reason}`}>
+                    <td className="sov-mono">{r.subject_id}</td>
+                    <td>{r.categories}</td>
+                    <td>{r.system_name}</td>
+                    <td>{r.reason}</td>
+                    <td>{new Date(r.destroyed_at).toLocaleString("ru-RU")}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {pdLog !== null && pdLog.length === 0 ? (
+              <p style={{ color: "var(--sov-ink-soft)", marginTop: 12 }}>Уничтожений пока не было.</p>
+            ) : null}
+            {pdLog === null ? <p style={{ color: "var(--sov-ink-soft)", marginTop: 12 }}>Загружаем…</p> : null}
           </section>
         ) : null}
       </main>

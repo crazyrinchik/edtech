@@ -5,6 +5,7 @@ import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
 import { handleHealth, HEALTH_PATH } from "./lib/health.server";
 import { handleNotifyWebhook, NOTIFY_WEBHOOK_PREFIX } from "./lib/notify-webhook.server";
+import { sweepIfDue } from "./lib/retention.server";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -43,6 +44,11 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
+      // Профили, к которым родитель так и не пришёл, снимаются по сроку.
+      // Своего cron у развёртывания нет, поэтому зачистку заводит первый
+      // запрос после паузы; в остальное время это сравнение двух чисел.
+      // Стоит до ранних return: пусть её будят и вебхуки с ручкой живости.
+      await sweepIfDue();
       // Вебхуки ботов перехватываются до роутера: это не страница и не
       // серверная функция, а внешний POST от мессенджера.
       const { pathname } = new URL(request.url);
