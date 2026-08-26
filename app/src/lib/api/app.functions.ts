@@ -1237,7 +1237,7 @@ export const deleteAccount = createServerFn({ method: "POST" })
     }
 
     // Факт согласия и его отзыва переживает аккаунт: им подтверждается
-    // правомерность прошлой обработки (3 года по п. 9 политики).
+    // правомерность прошлой обработки (3 года, строка 7 таблицы раздела 3 политики).
     await db()
       .prepare(
         `INSERT INTO deleted_accounts (user_id, email, role, consent_pd, consent_child_pd, consent_at, registered_at, deleted_at)
