@@ -13,7 +13,6 @@ import { Route as VosstanovlenieRouteImport } from './routes/vosstanovlenie'
 import { Route as VhodRouteImport } from './routes/vhod'
 import { Route as UchenikRouteImport } from './routes/uchenik'
 import { Route as TablicaUmnozheniyaRouteImport } from './routes/tablica-umnozheniya'
-import { Route as SoglasieRouteImport } from './routes/soglasie'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as ShulteRouteImport } from './routes/shulte'
 import { Route as SchetRouteImport } from './routes/schet'
@@ -56,11 +55,6 @@ const UchenikRoute = UchenikRouteImport.update({
 const TablicaUmnozheniyaRoute = TablicaUmnozheniyaRouteImport.update({
   id: '/tablica-umnozheniya',
   path: '/tablica-umnozheniya',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SoglasieRoute = SoglasieRouteImport.update({
-  id: '/soglasie',
-  path: '/soglasie',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
@@ -197,7 +191,6 @@ export interface FileRoutesByFullPath {
   '/schet': typeof SchetRoute
   '/shulte': typeof ShulteRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
-  '/soglasie': typeof SoglasieRoute
   '/tablica-umnozheniya': typeof TablicaUmnozheniyaRoute
   '/uchenik': typeof UchenikRoute
   '/vhod': typeof VhodRoute
@@ -227,7 +220,6 @@ export interface FileRoutesByTo {
   '/schet': typeof SchetRoute
   '/shulte': typeof ShulteRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
-  '/soglasie': typeof SoglasieRoute
   '/tablica-umnozheniya': typeof TablicaUmnozheniyaRoute
   '/uchenik': typeof UchenikRoute
   '/vhod': typeof VhodRoute
@@ -258,7 +250,6 @@ export interface FileRoutesById {
   '/schet': typeof SchetRoute
   '/shulte': typeof ShulteRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
-  '/soglasie': typeof SoglasieRoute
   '/tablica-umnozheniya': typeof TablicaUmnozheniyaRoute
   '/uchenik': typeof UchenikRoute
   '/vhod': typeof VhodRoute
@@ -290,7 +281,6 @@ export interface FileRouteTypes {
     | '/schet'
     | '/shulte'
     | '/sitemap.xml'
-    | '/soglasie'
     | '/tablica-umnozheniya'
     | '/uchenik'
     | '/vhod'
@@ -320,7 +310,6 @@ export interface FileRouteTypes {
     | '/schet'
     | '/shulte'
     | '/sitemap.xml'
-    | '/soglasie'
     | '/tablica-umnozheniya'
     | '/uchenik'
     | '/vhod'
@@ -350,7 +339,6 @@ export interface FileRouteTypes {
     | '/schet'
     | '/shulte'
     | '/sitemap.xml'
-    | '/soglasie'
     | '/tablica-umnozheniya'
     | '/uchenik'
     | '/vhod'
@@ -381,7 +369,6 @@ export interface RootRouteChildren {
   SchetRoute: typeof SchetRoute
   ShulteRoute: typeof ShulteRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
-  SoglasieRoute: typeof SoglasieRoute
   TablicaUmnozheniyaRoute: typeof TablicaUmnozheniyaRoute
   UchenikRoute: typeof UchenikRoute
   VhodRoute: typeof VhodRoute
@@ -422,13 +409,6 @@ declare module '@tanstack/react-router' {
       path: '/tablica-umnozheniya'
       fullPath: '/tablica-umnozheniya'
       preLoaderRoute: typeof TablicaUmnozheniyaRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/soglasie': {
-      id: '/soglasie'
-      path: '/soglasie'
-      fullPath: '/soglasie'
-      preLoaderRoute: typeof SoglasieRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sitemap.xml': {
@@ -613,7 +593,6 @@ const rootRouteChildren: RootRouteChildren = {
   SchetRoute: SchetRoute,
   ShulteRoute: ShulteRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
-  SoglasieRoute: SoglasieRoute,
   TablicaUmnozheniyaRoute: TablicaUmnozheniyaRoute,
   UchenikRoute: UchenikRoute,
   VhodRoute: VhodRoute,

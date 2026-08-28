@@ -123,13 +123,6 @@ export const PUBLIC_PAGES = {
     kind: "legal",
     priority: "0.3",
   },
-  "/soglasie": {
-    title: "Согласие на обработку персональных данных, Совёнок",
-    description:
-      "Текст согласия, которое родитель подписывает за ребёнка перед началом занятий, и порядок его отзыва.",
-    kind: "legal",
-    priority: "0.3",
-  },
 } as const satisfies Record<string, PublicPage>;
 
 export type PublicPath = keyof typeof PUBLIC_PAGES;

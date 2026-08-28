@@ -262,10 +262,6 @@ function RegisterPage() {
                     публичной оферты
                   </a>{" "}
                   и даю согласие на обработку моих персональных данных на условиях{" "}
-                  <a href="/soglasie" target="_blank" rel="noreferrer">
-                    Согласия
-                  </a>{" "}
-                  и{" "}
                   <a href="/politika" target="_blank" rel="noreferrer">
                     Политики
                   </a>
@@ -281,9 +277,9 @@ function RegisterPage() {
                   <span>
                     Я родитель или иной законный представитель и даю согласие на обработку
                     персональных данных ребёнка — имя, класс, аватар, ответы и время занятий,
-                    фотографии работ — на условиях раздела II{" "}
-                    <a href="/soglasie" target="_blank" rel="noreferrer">
-                      Согласия
+                    фотографии работ — на условиях{" "}
+                    <a href="/politika" target="_blank" rel="noreferrer">
+                      Политики
                     </a>
                     .
                   </span>
