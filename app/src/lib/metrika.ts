@@ -85,7 +85,14 @@ export function isCountedPath(pathname: string): boolean {
 }
 
 /**
- * Сниппет из кабинета Метрики, слово в слово, внутри проверок домена и страницы.
+ * Сниппет из кабинета Метрики, внутри проверок домена и страницы.
+ *
+ * От присланного из кабинета он отличается одним снятым параметром:
+ * ecommerce:"dataLayer". Электронной торговли на сайте нет — подписку принимает
+ * ТБанк на своей странице, и событий о товарах и корзине Совёнок не шлёт. Опция
+ * заводила пустой window.dataLayer и обещала отчёту данные, которых не будет;
+ * в кабинете счётчика она выключена 01.09.2026. Возвращать её имеет смысл
+ * только вместе с кодом, который начнёт эти события отправлять.
  *
  * Проверки снаружи, а не первой строкой внутри — потому что `ym(...)`
  * вызывается уже после IIFE: выйди мы из неё раньше времени, заглушки
@@ -111,7 +118,7 @@ const COUNTER = `
       k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)
   })(window, document,'script','https://mc.yandex.ru/metrika/tag.js?id=${METRIKA_ID}', 'ym');
 
-  ym(${METRIKA_ID}, 'init', {ssr:true, webvisor:true, clickmap:true, ecommerce:"dataLayer", referrer: document.referrer, url: location.href, accurateTrackBounce:true, trackLinks:true});
+  ym(${METRIKA_ID}, 'init', {ssr:true, webvisor:true, clickmap:true, referrer: document.referrer, url: location.href, accurateTrackBounce:true, trackLinks:true});
 })();
 `.trim();
 
