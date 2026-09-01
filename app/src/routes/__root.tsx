@@ -10,6 +10,7 @@ import {
 import { useEffect, type ReactNode } from "react";
 
 import { Owl, SiteFooter, SiteHeader } from "../components/brand";
+import { CookieNotice } from "../components/cookie-notice";
 import { ReportProblem } from "../components/report-problem";
 import appCss from "../styles.css?url";
 import { reportHiggsfieldError } from "../lib/higgsfield-error-reporting";
@@ -17,6 +18,7 @@ import { reportHiggsfieldError } from "../lib/higgsfield-error-reporting";
 // repo by the marketplace meta API and read at BUILD time — no runtime fetch.
 // Editing it via the app settings UI rewrites this file and redeploys the app.
 import appMetaJson from "../app-meta.json";
+import { METRIKA_ID, metrikaHeadScripts, useMetrikaPageviews } from "../lib/metrika";
 import { SITE_ORIGIN } from "../lib/seo";
 
 declare const __HF_DESIGN_INSPECTOR__: boolean;
@@ -138,6 +140,10 @@ function buildHead(meta: AppMeta) {
           : [{ rel: "icon", href: favicon }]
         : []),
     ],
+    // Счётчик Яндекс.Метрики. В head, а не в конце body: визит должен
+    // записаться раньше, чем человек успеет уйти со страницы. Подробности,
+    // включая молчание на превью-стендах, — в lib/metrika.ts.
+    scripts: metrikaHeadScripts(),
   };
 }
 
@@ -244,6 +250,18 @@ function RootShell({ children }: { children: ReactNode }) {
       </head>
       <body>
         {children}
+        {/* Пиксель для тех, у кого выключен JavaScript. Страницы Совёнка
+            рисуются на сервере, поэтому такой посетитель сайт всё-таки
+            видит — и без картинки его визита в отчёте бы не было. */}
+        <noscript>
+          <div>
+            <img
+              src={`https://mc.yandex.ru/watch/${METRIKA_ID}`}
+              style={{ position: "absolute", left: "-9999px" }}
+              alt=""
+            />
+          </div>
+        </noscript>
         <Scripts />
       </body>
     </html>
@@ -252,6 +270,10 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+
+  // Переходы внутри приложения роутер делает без перезагрузки, и сама по себе
+  // Метрика их не видит: весь визит схлопнулся бы в первую страницу.
+  useMetrikaPageviews();
 
   useEffect(() => {
     if (!__HF_DESIGN_INSPECTOR__) {
@@ -276,6 +298,11 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
+      {/* Уведомление о cookie — рядом с кнопкой поддержки и по той же
+          причине: подвала нет на четырёх экранах, а карточка должна знать
+          своё место на всех. Показывается только там, где работает
+          счётчик, — решает сам компонент. */}
+      <CookieNotice />
       {/* Кнопка «Сообщить об ошибке» — здесь, а не в подвале: подвала нет
           на четырёх экранах, и среди них занятие ребёнка и нулевой урок,
           то есть ровно те, где поломку и увидят. Стоит внутри Outlet-узла

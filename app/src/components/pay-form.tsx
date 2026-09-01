@@ -38,7 +38,7 @@ export function PayForm({ onDone }: { onDone?: () => void }) {
 
   return (
     <form
-      className="sov-form"
+      className="sov-form ym-hide-content ym-disable-keys"
       style={{ marginTop: 24 }}
       onSubmit={async (event) => {
         event.preventDefault();

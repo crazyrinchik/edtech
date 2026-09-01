@@ -92,7 +92,7 @@ function NewPasswordPage() {
               Придумайте пароль, которым будете входить дальше. После смены все открытые входы
               закроются — на других устройствах придётся войти заново.
             </p>
-            <form className="sov-form" style={{ marginTop: 32 }} onSubmit={onSubmit}>
+            <form className="sov-form ym-hide-content ym-disable-keys" style={{ marginTop: 32 }} onSubmit={onSubmit}>
               {error ? <div className="sov-alert">{error}</div> : null}
               <PasswordField
                 id="password"

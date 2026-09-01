@@ -55,7 +55,7 @@ function ForgotPage() {
               Пришлём на почту ссылку, по которой можно придумать новый. Ученики, домашние задания и
               результаты занятий останутся на месте.
             </p>
-            <form className="sov-form" style={{ marginTop: 32 }} onSubmit={onSubmit}>
+            <form className="sov-form ym-hide-content ym-disable-keys" style={{ marginTop: 32 }} onSubmit={onSubmit}>
               {error ? <div className="sov-alert">{error}</div> : null}
               <div className="sov-field">
                 <label htmlFor="email">Электронная почта</label>

@@ -100,14 +100,21 @@ function InvitePage() {
             Разные ключи заставляют размонтировать первую ветку целиком. */}
         {info?.ok ? (
           <Fragment key="join">
-            <h1 style={{ fontSize: "var(--sov-t-display)" }}>
+            {/* ym-hide-content — имя ребёнка и имя репетитора не должны попасть
+                в запись Вебвизора: счётчик на этой странице работает, а данные
+                ребёнка Яндексу не передаются (п. 9.3 политики). */}
+            <h1 className="ym-hide-content" style={{ fontSize: "var(--sov-t-display)" }}>
               {info.childName}, {info.grade} класс
             </h1>
-            <p style={{ marginTop: 12, color: "var(--sov-ink-soft)" }}>
+            <p className="ym-hide-content" style={{ marginTop: 12, color: "var(--sov-ink-soft)" }}>
               {info.tutorName ? `${info.tutorName} приглашает вас` : "Репетитор приглашает вас"}{" "}
               видеть занятия и домашние задания. Платить не нужно — подписку оплачивает репетитор.
             </p>
-            <form className="sov-form" style={{ marginTop: 32 }} onSubmit={submit}>
+            <form
+              className="sov-form ym-hide-content ym-disable-keys"
+              style={{ marginTop: 32 }}
+              onSubmit={submit}
+            >
               {error ? <div className="sov-alert">{error}</div> : null}
               <div className="sov-field">
                 <label htmlFor="name">Как к вам обращаться</label>
@@ -210,7 +217,11 @@ function InvitePage() {
             <p style={{ marginTop: 12, color: "var(--sov-ink-soft)" }}>
               Код, который дал репетитор. По нему откроется профиль вашего ребёнка.
             </p>
-            <form className="sov-form" style={{ marginTop: 32 }} onSubmit={check}>
+            <form
+              className="sov-form ym-hide-content ym-disable-keys"
+              style={{ marginTop: 32 }}
+              onSubmit={check}
+            >
               {error ? <div className="sov-alert">{error}</div> : null}
               <CodeField
                 id="code"

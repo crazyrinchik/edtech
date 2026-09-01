@@ -142,7 +142,7 @@ export function ReportProblem() {
         }}
       >
         {stage === "form" ? (
-          <form className="sov-form" onSubmit={onSubmit}>
+          <form className="sov-form ym-hide-content ym-disable-keys" onSubmit={onSubmit}>
             {/* Пояснения под заголовком нет намеренно: подпись под полем
                 уже говорит, что писать, а «мы приложим адрес страницы»
                 человеку в этот момент неинтересно — он пришёл пожаловаться,

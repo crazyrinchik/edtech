@@ -850,6 +850,18 @@ body {
 
 /* ---------------------------------------------------------------- формы */
 
+/* Каждая форма Совёнка размечена так:
+     className="sov-form ym-hide-content ym-disable-keys"
+
+   Второй и третий класс никакого оформления не несут и в этом файле не
+   объявлены — их читает Вебвизор Яндекс.Метрики: ym-hide-content закрывает
+   содержимое блока и всех вложенных элементов, ym-disable-keys заменяет
+   набранное в поле звёздочками. Пароли и платёжные реквизиты Метрика маскирует
+   и сама, а вот имя ребёнка в форме регистрации — нет.
+
+   Новая форма должна получить все три класса разом. Счётчик работает не
+   везде (см. COUNTED_PATHS в lib/metrika.ts), но полагаться на это при разметке
+   формы не стоит: список страниц меняется отдельно от вёрстки. */
 .sov-form {
   display: grid;
   gap: 18px;
@@ -5924,4 +5936,96 @@ button.sov-stone:disabled {
 }
 .sov-report-row a.sov-act-ghost {
   text-decoration: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Уведомление о файлах cookie
+
+   Форма взята у карточек, к которым человек привык на больших русских
+   сайтах: полоса у нижнего края, текст со ссылкой, одна кнопка. Всё
+   остальное — своё: бумага вместо тёмной плашки, потому что тёмный
+   прямоугольник на светлой странице читается как ошибка, а не как
+   сноска.
+
+   Слева, а не справа: справа внизу живёт «Сообщить об ошибке»
+   (.sov-report__open), и накрывать собой единственную кнопку связи с
+   поддержкой карточке нельзя. z-index ниже модального листа формы, но
+   выше страницы.
+   ═══════════════════════════════════════════════════════════════════ */
+
+.sov-cookie {
+  position: fixed;
+  left: 12px;
+  bottom: 12px;
+  z-index: 29;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  max-width: 640px;
+  padding: 14px 16px;
+  border: 1px solid var(--sov-line);
+  border-radius: 12px;
+  background: var(--sov-paper);
+  box-shadow: var(--sov-shadow);
+  font-family: var(--sov-font);
+}
+.sov-cookie__text {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  color: var(--sov-ink-soft);
+}
+.sov-cookie__text a {
+  color: var(--sov-ink);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.sov-cookie__ok {
+  flex: none;
+  padding: 8px 18px;
+  border: 1px solid var(--sov-line-strong);
+  border-radius: var(--sov-radius-pill);
+  background: #fff;
+  font-family: var(--sov-font);
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--sov-ink);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+.sov-cookie__ok:hover {
+  background: var(--sov-paper-2);
+  border-color: var(--sov-ink-soft);
+}
+.sov-cookie :focus-visible {
+  outline: 3px solid var(--sov-cobalt);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.sov-cookie__ok:focus-visible {
+  border-radius: var(--sov-radius-pill);
+}
+
+/* На телефоне карточка растягивается на всю ширину, а кнопка уходит под
+   текст: в строку они помещаются только ценой кегля в 12 px. Поднята над
+   нижним краем на высоту кнопки «Сообщить об ошибке» — та на узком экране
+   сжимается до значка и остаётся нажимаемой. */
+@media (max-width: 767.98px) {
+  .sov-cookie {
+    right: 12px;
+    bottom: 58px;
+    max-width: none;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+}
+
+/* На бумаге нажать «Хорошо» нельзя, а место карточка займёт. */
+@media print {
+  .sov-cookie {
+    display: none;
+  }
 }

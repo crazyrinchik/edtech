@@ -340,7 +340,7 @@ function ParentPage() {
               <section style={{ marginTop: 24, maxWidth: 520 }}>
                 <h2 style={{ fontSize: "var(--sov-t-h3)", fontWeight: 600 }}>Настройки занятий</h2>
                 <form
-                  className="sov-form"
+                  className="sov-form ym-hide-content ym-disable-keys"
                   style={{ marginTop: 18 }}
                   onSubmit={async (e) => {
                     e.preventDefault();
@@ -446,7 +446,7 @@ function ParentPage() {
                   <>
                     <PayForm onDone={load} />
                     <form
-                      className="sov-form"
+                      className="sov-form ym-hide-content ym-disable-keys"
                       style={{ marginTop: 34 }}
                       onSubmit={async (e) => {
                         e.preventDefault();
@@ -854,7 +854,7 @@ function AddChildForm({
         <h2 style={{ fontSize: "var(--sov-t-h3)", fontWeight: 600 }}>Добавьте профиль ребёнка</h2>
       ) : null}
       <form
-        className="sov-form"
+        className="sov-form ym-hide-content ym-disable-keys"
         style={{ marginTop: 16 }}
         onSubmit={async (e) => {
           e.preventDefault();
@@ -988,7 +988,7 @@ function PinGate({ creating, onDone }: { creating: boolean; onDone: () => Promis
             ? "Четыре цифры, которые знает только взрослый. Занятия ребёнка кодом не закрываются — он заходит в них сам."
             : "Введите четыре цифры, чтобы открыть отчёты, настройки и подписку."}
         </p>
-        <form className="sov-form" style={{ marginTop: 30 }} onSubmit={submit}>
+        <form className="sov-form ym-hide-content ym-disable-keys" style={{ marginTop: 30 }} onSubmit={submit}>
           {error ? <div className="sov-alert">{error}</div> : null}
           <div className="sov-field">
             <label htmlFor="pin">{creating ? "Новый код" : "Код"}</label>
@@ -1042,7 +1042,7 @@ function ChangePinForm({ onNotice }: { onNotice: (text: string) => void }) {
 
   return (
     <form
-      className="sov-form"
+      className="sov-form ym-hide-content ym-disable-keys"
       style={{ marginTop: 16 }}
       onSubmit={async (e) => {
         e.preventDefault();
@@ -1207,7 +1207,7 @@ function DeleteChildBlock({
   }
   return (
     <form
-      className="sov-form"
+      className="sov-form ym-hide-content ym-disable-keys"
       style={{ marginTop: 16 }}
       onSubmit={async (e) => {
         e.preventDefault();
@@ -1271,7 +1271,7 @@ function DeleteAccountBlock() {
   }
   return (
     <form
-      className="sov-form"
+      className="sov-form ym-hide-content ym-disable-keys"
       style={{ marginTop: 16 }}
       onSubmit={async (e) => {
         e.preventDefault();

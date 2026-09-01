@@ -53,7 +53,7 @@ function LoginPage() {
         <p style={{ marginTop: 12, color: "var(--sov-ink-soft)" }}>
           Одна дверь для репетитора и для родителя — куда попадёте, решит ваша роль.
         </p>
-        <form className="sov-form" style={{ marginTop: 32 }} onSubmit={onSubmit}>
+        <form className="sov-form ym-hide-content ym-disable-keys" style={{ marginTop: 32 }} onSubmit={onSubmit}>
           {error ? <div className="sov-alert">{error}</div> : null}
           <div className="sov-field">
             <label htmlFor="email">Электронная почта</label>

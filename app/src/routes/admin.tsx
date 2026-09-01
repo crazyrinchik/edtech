@@ -462,7 +462,7 @@ function TopicForm({
 }) {
   return (
     <form
-      className="sov-form"
+      className="sov-form ym-hide-content ym-disable-keys"
       style={{ marginTop: 14 }}
       onSubmit={async (e) => {
         e.preventDefault();
@@ -536,7 +536,7 @@ function TaskForm({
 }) {
   return (
     <form
-      className="sov-form"
+      className="sov-form ym-hide-content ym-disable-keys"
       style={{ marginTop: 14 }}
       onSubmit={async (e) => {
         e.preventDefault();

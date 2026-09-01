@@ -149,7 +149,7 @@ function TutorBillingPage() {
                     <h2>Промокод</h2>
                     <p>Если подписку выдали промокодом, введите его здесь — платить не нужно.</p>
                     <form
-                      className="sov-form"
+                      className="sov-form ym-hide-content ym-disable-keys"
                       style={{ marginTop: 14 }}
                       onSubmit={async (event) => {
                         event.preventDefault();
@@ -264,7 +264,7 @@ function TutorDeleteAccount() {
         </div>
       ) : (
         <form
-          className="sov-form"
+          className="sov-form ym-hide-content ym-disable-keys"
           style={{ marginTop: 16 }}
           onSubmit={async (e) => {
             e.preventDefault();
