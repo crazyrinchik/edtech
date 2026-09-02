@@ -11,8 +11,9 @@
     {
       "name": "stand",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["deploy/stand.mjs"],
-      "port": 8788
+      "runtimeArgs": ["--env-file-if-exists=.env", "deploy/stand.mjs"],
+      "port": 8788,
+      "autoPort": true
     }
   ]
 }
