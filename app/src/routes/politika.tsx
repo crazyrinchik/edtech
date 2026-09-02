@@ -29,7 +29,7 @@ function PolicyPage() {
   return (
     <div className="sov">
       <SiteHeader />
-      <main className="sov-narrow sov-legal" style={{ paddingBottom: 70 }}>
+      <main className="sov-shell sov-legal" style={{ paddingBottom: 70 }}>
         {draft ? (
           <>
             <h1>Политика обработки персональных данных</h1>
