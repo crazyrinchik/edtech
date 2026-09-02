@@ -12,6 +12,7 @@ import {
   SiteHeader,
 } from "../components/brand";
 import { addChild, registerParent, setParentPin } from "../lib/api/app.functions";
+import { reachGoal } from "../lib/metrika";
 import { closedHead } from "../lib/seo";
 
 /**
@@ -83,6 +84,11 @@ function RegisterPage() {
           consentChildPd: role === "parent" && form.get("consentChildPd") === "on",
         },
       });
+      // Цель для Директа: взрослый зарегистрировался. Ставится до navigate:
+      // кабинет из счётчика исключён (п. 9.3 политики), и после перехода
+      // отметка уже не уйдёт. Ждать её не нужно — очередь window.ym держит
+      // вызов, даже если tag.js ещё грузится.
+      reachGoal("registered");
       if (role === "tutor") {
         await navigate({ to: "/repetitor" });
         return;
@@ -205,7 +211,11 @@ function RegisterPage() {
                 ? "Учеников добавите в кабинете сразу после регистрации."
                 : "Аккаунт оформляет взрослый. Профиль ребёнка добавим на следующем шаге."}
             </p>
-            <form className="sov-form ym-hide-content ym-disable-keys" style={{ marginTop: 32 }} onSubmit={submitParent}>
+            <form
+              className="sov-form ym-hide-content ym-disable-keys"
+              style={{ marginTop: 32 }}
+              onSubmit={submitParent}
+            >
               {error ? <div className="sov-alert">{error}</div> : null}
               <div className="sov-field">
                 <label htmlFor="name">Как к вам обращаться</label>
@@ -298,7 +308,11 @@ function RegisterPage() {
             <p style={{ marginTop: 12, color: "var(--sov-ink-soft)" }}>
               Достаточно имени и класса. Почту и телефон ребёнка мы не спрашиваем.
             </p>
-            <form className="sov-form ym-hide-content ym-disable-keys" style={{ marginTop: 32 }} onSubmit={submitChild}>
+            <form
+              className="sov-form ym-hide-content ym-disable-keys"
+              style={{ marginTop: 32 }}
+              onSubmit={submitChild}
+            >
               {error ? <div className="sov-alert">{error}</div> : null}
               <div className="sov-field">
                 <label htmlFor="childName">Имя ребёнка</label>
@@ -354,7 +368,11 @@ function RegisterPage() {
               Четыре цифры для входа в кабинет: отчёты, настройки и подписка. Ребёнок открывает
               занятия без кода — он нужен только взрослой части.
             </p>
-            <form className="sov-form ym-hide-content ym-disable-keys" style={{ marginTop: 32 }} onSubmit={submitPin}>
+            <form
+              className="sov-form ym-hide-content ym-disable-keys"
+              style={{ marginTop: 32 }}
+              onSubmit={submitPin}
+            >
               {error ? <div className="sov-alert">{error}</div> : null}
               <div className="sov-field">
                 <label htmlFor="pin">Код</label>

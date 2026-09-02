@@ -4,6 +4,7 @@ import { type ReactNode } from "react";
 import { Owl, QuietAction, SiteFooter, SiteHeader, StartAction } from "../components/brand";
 import { TRAINERS } from "../components/trainers";
 import { planById, priceLabel } from "../lib/billing";
+import { reachGoal } from "../lib/metrika";
 import { pageHead } from "../lib/seo";
 
 export const Route = createFileRoute("/")({
@@ -580,7 +581,15 @@ function Plans() {
               кабинете, сказано прямо под кнопкой, чтобы человек узнал
               это до нажатия, а не после. */}
           <div className="sov-plan__action">
-            <StartAction to="/registraciya" search={{ rol: "repetitor" }}>
+            {/* Обе кнопки тарифов ведут на одну и ту же регистрацию, и по
+                адресу страницы Директ не отличит «пришёл за подпиской» от
+                «создал аккаунт». Намерение видно только в клике — поэтому
+                цель висит на нём, а не на странице. */}
+            <StartAction
+              to="/registraciya"
+              search={{ rol: "repetitor" }}
+              onClick={() => reachGoal("subscribe-click")}
+            >
               Оформить подписку
             </StartAction>
           </div>

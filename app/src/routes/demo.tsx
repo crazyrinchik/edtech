@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { ChildAction, Owl, Wordmark } from "../components/brand";
 import { AutoSpeakToggle, SpeakButton, useAutoSpeak } from "../components/speak";
 import { demoAnswer, demoFinished, demoLesson } from "../lib/api/app.functions";
+import { reachGoal } from "../lib/metrika";
 import { pageHead } from "../lib/seo";
 
 export const Route = createFileRoute("/demo")({
@@ -206,6 +207,11 @@ function DemoPage() {
       setVerdict(null);
       return;
     }
+    // Цель для Директа: нулевой урок пройден целиком. Открывших /demo видно
+    // и по хитам; дошедшие до экрана результата видны только здесь. Отметка
+    // стоит до запроса demoFinished: она уходит сразу, а ответа сервера
+    // человек, закрывший вкладку на последнем задании, дожидаться не обязан.
+    reachGoal("demo-done");
     await demoFinished({ data: { correct, total: tasks.length } }).catch(() => undefined);
     setDone(true);
   }

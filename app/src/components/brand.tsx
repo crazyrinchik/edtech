@@ -58,13 +58,16 @@ export function StartAction({
   to,
   children,
   search,
+  onClick,
 }: {
   to: string;
   children: ReactNode;
   search?: Record<string, string>;
+  /** Место для цели Метрики: переход считает роутер, а намерение — клик. */
+  onClick?: () => void;
 }) {
   return (
-    <Link to={to} search={search as never} className="sov-act-start">
+    <Link to={to} search={search as never} className="sov-act-start" onClick={onClick}>
       <span className="sov-act-start__label">{children}</span>
       <span className="sov-act-start__arrow" aria-hidden="true">
         <svg viewBox="0 0 20 20" width="18" height="18">
