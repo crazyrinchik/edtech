@@ -120,6 +120,11 @@ function PaymentResultPage() {
   }, [p, navigate]);
 
   const home = role === "tutor" ? "/repetitor/podpiska" : "/roditel";
+  /* После неудачи ведём сразу к форме оплаты, а не в кабинет вообще: человек
+     только что пытался заплатить, и заставлять его заново искать вкладку —
+     лишний шаг ровно там, где терпение уже потрачено. У репетитора подписка
+     и так отдельной страницей, ему хватает home. */
+  const retry = role === "tutor" ? undefined : { tab: "billing" };
 
   return (
     <div className="sov">
@@ -184,7 +189,9 @@ function PaymentResultPage() {
               средств — попробуйте ещё раз или другой картой.
             </p>
             <div style={{ marginTop: 26 }}>
-              <QuietAction to={home}>Вернуться к оплате</QuietAction>
+              <QuietAction to={home} search={retry}>
+                Вернуться к оплате
+              </QuietAction>
             </div>
           </>
         ) : null}

@@ -25,6 +25,7 @@ import { Route as PolitikaRouteImport } from './routes/politika'
 import { Route as OplataRouteImport } from './routes/oplata'
 import { Route as OfertaRouteImport } from './routes/oferta'
 import { Route as NovyyParolRouteImport } from './routes/novyy-parol'
+import { Route as NovyyKodRouteImport } from './routes/novyy-kod'
 import { Route as KtoRouteImport } from './routes/kto'
 import { Route as DemoRouteImport } from './routes/demo'
 import { Route as ChtenieRouteImport } from './routes/chtenie'
@@ -117,6 +118,11 @@ const NovyyParolRoute = NovyyParolRouteImport.update({
   path: '/novyy-parol',
   getParentRoute: () => rootRouteImport,
 } as any)
+const NovyyKodRoute = NovyyKodRouteImport.update({
+  id: '/novyy-kod',
+  path: '/novyy-kod',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const KtoRoute = KtoRouteImport.update({
   id: '/kto',
   path: '/kto',
@@ -179,6 +185,7 @@ export interface FileRoutesByFullPath {
   '/chtenie': typeof ChtenieRoute
   '/demo': typeof DemoRoute
   '/kto': typeof KtoRoute
+  '/novyy-kod': typeof NovyyKodRoute
   '/novyy-parol': typeof NovyyParolRoute
   '/oferta': typeof OfertaRoute
   '/oplata': typeof OplataRoute
@@ -208,6 +215,7 @@ export interface FileRoutesByTo {
   '/chtenie': typeof ChtenieRoute
   '/demo': typeof DemoRoute
   '/kto': typeof KtoRoute
+  '/novyy-kod': typeof NovyyKodRoute
   '/novyy-parol': typeof NovyyParolRoute
   '/oferta': typeof OfertaRoute
   '/oplata': typeof OplataRoute
@@ -238,6 +246,7 @@ export interface FileRoutesById {
   '/chtenie': typeof ChtenieRoute
   '/demo': typeof DemoRoute
   '/kto': typeof KtoRoute
+  '/novyy-kod': typeof NovyyKodRoute
   '/novyy-parol': typeof NovyyParolRoute
   '/oferta': typeof OfertaRoute
   '/oplata': typeof OplataRoute
@@ -269,6 +278,7 @@ export interface FileRouteTypes {
     | '/chtenie'
     | '/demo'
     | '/kto'
+    | '/novyy-kod'
     | '/novyy-parol'
     | '/oferta'
     | '/oplata'
@@ -298,6 +308,7 @@ export interface FileRouteTypes {
     | '/chtenie'
     | '/demo'
     | '/kto'
+    | '/novyy-kod'
     | '/novyy-parol'
     | '/oferta'
     | '/oplata'
@@ -327,6 +338,7 @@ export interface FileRouteTypes {
     | '/chtenie'
     | '/demo'
     | '/kto'
+    | '/novyy-kod'
     | '/novyy-parol'
     | '/oferta'
     | '/oplata'
@@ -357,6 +369,7 @@ export interface RootRouteChildren {
   ChtenieRoute: typeof ChtenieRoute
   DemoRoute: typeof DemoRoute
   KtoRoute: typeof KtoRoute
+  NovyyKodRoute: typeof NovyyKodRoute
   NovyyParolRoute: typeof NovyyParolRoute
   OfertaRoute: typeof OfertaRoute
   OplataRoute: typeof OplataRoute
@@ -495,6 +508,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof NovyyParolRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/novyy-kod': {
+      id: '/novyy-kod'
+      path: '/novyy-kod'
+      fullPath: '/novyy-kod'
+      preLoaderRoute: typeof NovyyKodRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/kto': {
       id: '/kto'
       path: '/kto'
@@ -581,6 +601,7 @@ const rootRouteChildren: RootRouteChildren = {
   ChtenieRoute: ChtenieRoute,
   DemoRoute: DemoRoute,
   KtoRoute: KtoRoute,
+  NovyyKodRoute: NovyyKodRoute,
   NovyyParolRoute: NovyyParolRoute,
   OfertaRoute: OfertaRoute,
   OplataRoute: OplataRoute,

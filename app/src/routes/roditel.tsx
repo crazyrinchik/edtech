@@ -35,6 +35,7 @@ import {
   notifyToggle,
   parentReport,
   redeemPromo,
+  requestParentPinReset,
   selectChild,
   setParentPin,
   unlockParentCabinet,
@@ -44,8 +45,28 @@ import { closedHead } from "../lib/seo";
 import { plural } from "../lib/shop";
 import { FREE_CHILD_LIMIT } from "../lib/billing";
 
+/**
+ * Вкладки кабинета — списком, а не литералом внутри разметки: по нему же
+ * проверяется `?tab=` из адреса. Пока вкладка жила только в состоянии
+ * компонента, сослаться на подписку было неоткуда — ни со страницы возврата
+ * из кассы, ни из плашки выше по экрану.
+ */
+const TABS = [
+  ["progress", "Прогресс"],
+  ["history", "История"],
+  ["notify", "Напоминания"],
+  ["settings", "Настройки"],
+  ["billing", "Подписка"],
+] as const;
+
+type TabId = (typeof TABS)[number][0];
+
 export const Route = createFileRoute("/roditel")({
   head: () => closedHead("Кабинет родителя, Совёнок"),
+  // Ключ именно необязательный, а не «есть со значением undefined»: иначе
+  // роутер потребует search у каждой ссылки на кабинет во всём проекте.
+  validateSearch: (search: Record<string, unknown>): { tab?: TabId } =>
+    TABS.some(([id]) => id === search.tab) ? { tab: search.tab as TabId } : {},
   component: ParentPage,
 });
 
@@ -117,9 +138,10 @@ function ParentPage() {
   const navigate = useNavigate();
   const [account, setAccount] = useState<Account | null>(null);
   const [report, setReport] = useState<Report | null>(null);
-  const [tab, setTab] = useState<"progress" | "history" | "settings" | "billing" | "notify">(
-    "progress",
-  );
+  // Вкладка из адреса — только начальное значение: дальше её двигают кнопки,
+  // и переписывать URL на каждое переключение незачем.
+  const { tab: tabFromUrl } = Route.useSearch();
+  const [tab, setTab] = useState<TabId>(tabFromUrl ?? "progress");
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -255,16 +277,38 @@ function ParentPage() {
             <Verdict report={report} />
             <ReportTiles report={report} />
 
+            {/* Плашка про подписку — ровно та же, что у репетитора на
+                /repetitor, и по той же причине. У него она есть с самого
+                начала, а у родителя оплата лежала во вкладке, до которой
+                надо было догадаться дойти: ребёнок упирается в замок с
+                надписью «покажи взрослому», а взрослый в кабинете не видит
+                ни слова о том, что замок снимается деньгами.
+
+                Заголовок здесь один на оба случая, в отличие от репетитора.
+                У него занятое место ученика — новость: он ведёт их пачками и
+                упирается рукой именно в это. У родителя один ребёнок — это
+                норма с первого дня, и «Место ребёнка занято» на экране семьи
+                с единственным ребёнком читается как поломка, а не как
+                предложение. Упирается родитель в другое — в замок на теме,
+                поэтому первым говорим про темы, а про второй профиль
+                добавляем строкой, только когда место и правда занято. */}
+            {account.user?.subscriptionStatus !== "active" ? (
+              <div className="sov-save-hint" style={{ marginTop: 22 }}>
+                <strong>Подписка не активна</strong>
+                <span>
+                  Открыта только первая тема каждого предмета. Подписка открывает все темы с 1 по 4
+                  класс{childLimitReached ? " и снимает ограничение на число детей" : ""}.
+                </span>
+                <p style={{ marginTop: 12 }}>
+                  <button type="button" className="sov-act-ghost" onClick={() => setTab("billing")}>
+                    Оформить подписку
+                  </button>
+                </p>
+              </div>
+            ) : null}
+
             <div className="sov-tabs">
-              {(
-                [
-                  ["progress", "Прогресс"],
-                  ["history", "История"],
-                  ["notify", "Напоминания"],
-                  ["settings", "Настройки"],
-                  ["billing", "Подписка"],
-                ] as const
-              ).map(([id, label]) => (
+              {TABS.map(([id, label]) => (
                 <button key={id} data-active={tab === id} onClick={() => setTab(id)}>
                   {label}
                 </button>
@@ -954,6 +998,10 @@ function PinGate({ creating, onDone }: { creating: boolean; onDone: () => Promis
   const [repeat, setRepeat] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  /* Куда ушло письмо со ссылкой на новый код. null — ещё не просили.
+     Адрес показываем возвращённый сервером, а не введённый: спрашивать
+     почту здесь нечего, дверь кабинета стоит уже за входом в аккаунт. */
+  const [mailed, setMailed] = useState<{ sent: boolean; email: string } | null>(null);
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -1024,6 +1072,48 @@ function PinGate({ creating, onDone }: { creating: boolean; onDone: () => Promis
             {creating ? "Сохранить код" : "Открыть кабинет"}
           </FormAction>
         </form>
+        {/* Забытые четыре цифры запирали кабинет наглухо: сменить код можно
+            только изнутри или предъявив старый, и до этой кнопки обходного
+            пути не было вовсе — вместе с отчётами закрывалась и подписка.
+            На экране «придумайте код» ссылки нет: там ещё нечего вспоминать. */}
+        {!creating ? (
+          <div style={{ marginTop: 20 }}>
+            {mailed === null ? (
+              <button
+                type="button"
+                className="sov-act-ghost"
+                disabled={pending}
+                onClick={async () => {
+                  setPending(true);
+                  setError(null);
+                  try {
+                    setMailed(await requestParentPinReset());
+                  } catch (e) {
+                    setError(e instanceof Error ? e.message : "Не получилось отправить письмо");
+                  }
+                  setPending(false);
+                }}
+              >
+                Не помню код
+              </button>
+            ) : mailed.sent ? (
+              <div className="sov-save-hint" data-tone="ok" style={{ marginTop: 0 }}>
+                <strong>Письмо отправлено</strong>
+                <span>
+                  Отправили ссылку на {mailed.email}. Она работает один час и открывается один раз.
+                  Если письма нет — загляните в спам.
+                </span>
+              </div>
+            ) : (
+              <div className="sov-alert">
+                Отправка почты сейчас не настроена. Напишите на{" "}
+                <a href="mailto:ekaterinazyub@gmail.com">ekaterinazyub@gmail.com</a> — код вернём
+                руками.
+              </div>
+            )}
+          </div>
+        ) : null}
+
         <div style={{ marginTop: 24 }}>
           <Link to="/uchenik" className="sov-act-ghost" style={{ textDecoration: "none" }}>
             Вернуться к занятиям

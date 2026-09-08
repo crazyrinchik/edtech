@@ -68,8 +68,19 @@ async function activeUntil(userId: string): Promise<string | null> {
  */
 export const billingInfo = createServerFn({ method: "GET" }).handler(async () => {
   const user = await requirePayer();
+  const ready = billingReady();
+  /* Ступень воронки между регистрацией и нажатием «Оплатить». Без неё
+     «никто не платит» неотличимо от «никто не дошёл до формы», а это
+     разные беды с разным лечением: первая про кассу, вторая про то, что
+     кнопку не находят.
+
+     Отметка ставится, только когда форма и правда показывается: без ключей
+     терминала PayForm возвращает null, и записывать «увидел» было бы
+     враньём. Пишется на каждое открытие вкладки, а не раз на человека, —
+     в воронке считаются разные user_id, повторы её не раздувают. */
+  if (ready) await track("subscription_form_shown", { userId: user.id });
   return {
-    ready: billingReady(),
+    ready,
     email: user.email,
     active: user.subscriptionStatus === "active",
     until: await activeUntil(user.id),

@@ -435,6 +435,128 @@ export const lockParentCabinet = createServerFn({ method: "POST" }).handler(asyn
   return { ok: true };
 });
 
+/* ------------------------------- восстановление кода родителя по почте */
+
+/**
+ * «Не помню код».
+ *
+ * Адрес спрашивать не нужно и нельзя: дверь кабинета стоит уже за входом в
+ * аккаунт, значит человек залогинен, и почта у нас есть. Форма с полем
+ * «введите почту» здесь была бы не только лишним шагом, но и дырой — она
+ * позволила бы слать письма на чужие адреса.
+ *
+ * Ответ одинаковый и когда письмо ушло, и когда сработал предохранитель по
+ * числу заявок: иначе кнопка превращалась бы в счётчик, показывающий, сколько
+ * раз до тебя её нажимали.
+ */
+export const requestParentPinReset = createServerFn({ method: "POST" }).handler(async () => {
+  const user = await requireUser();
+  // Почта не настроена — говорим прямо, чтобы экран показал адрес поддержки
+  // вместо «проверьте ящик», которого не будет.
+  if (!mailReady()) return { sent: false, email: user.email };
+
+  const now = Date.now();
+  const recent = await db()
+    .prepare("SELECT COUNT(*) AS n FROM parent_pin_resets WHERE user_id = ? AND created_at > ?")
+    .bind(user.id, new Date(now - RESET_TTL_MS).toISOString())
+    .first<{ n: number }>();
+  if ((recent?.n ?? 0) >= RESET_MAX_PER_HOUR) return { sent: true, email: user.email };
+
+  // Прошлые неиспользованные заявки гасим: живой остаётся одна, последняя.
+  await db()
+    .prepare("DELETE FROM parent_pin_resets WHERE user_id = ? AND used_at IS NULL")
+    .bind(user.id)
+    .run();
+
+  const token = [...crypto.getRandomValues(new Uint8Array(32))]
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+  await db()
+    .prepare(
+      "INSERT INTO parent_pin_resets (token_hash, user_id, created_at, expires_at, used_at) VALUES (?, ?, ?, ?, NULL)",
+    )
+    .bind(await sha256Hex(token), user.id, nowIso(), new Date(now + RESET_TTL_MS).toISOString())
+    .run();
+
+  const link = `${appOrigin()}/novyy-kod?t=${token}`;
+  await sendMail({
+    to: user.email,
+    subject: "Совёнок: код родителя",
+    text: [
+      "Здравствуйте!",
+      "",
+      "Кто-то попросил задать заново код родителя — четыре цифры, которыми",
+      "закрыт кабинет со отчётами, настройками и подпиской.",
+      "Если это вы — откройте ссылку и придумайте новый код:",
+      "",
+      link,
+      "",
+      "Ссылка работает один час и только один раз.",
+      "",
+      "Если это были не вы, ничего делать не нужно: код остался прежним,",
+      "а ссылка сама перестанет работать. Занятия ребёнка кодом не закрыты",
+      "и всё это время открыты как обычно.",
+      "",
+      "Совёнок",
+    ].join("\n"),
+  });
+  await track("parent_pin_reset_requested", { userId: user.id });
+  return { sent: true, email: user.email };
+});
+
+/**
+ * Жива ли ссылка. Спрашивается до показа формы: узнать, что ссылка протухла,
+ * уже придумав код, — обидно и незачем.
+ */
+export const checkPinResetToken = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ token: z.string().min(1) }))
+  .handler(async ({ data }) => {
+    const row = await db()
+      .prepare("SELECT expires_at, used_at FROM parent_pin_resets WHERE token_hash = ?")
+      .bind(await sha256Hex(data.token))
+      .first<{ expires_at: string; used_at: string | null }>();
+    return { valid: !!row && !row.used_at && new Date(row.expires_at).getTime() > Date.now() };
+  });
+
+/**
+ * Новый код по ссылке из письма.
+ *
+ * Сессии здесь не требуем: владение почтой доказано самой ссылкой, а
+ * открыть её человек мог и с телефона, где в аккаунт не входил. Кто именно
+ * меняет код, говорит токен, а не кука.
+ */
+export const resetParentPin = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ token: z.string().min(1), pin: pinSchema }))
+  .handler(async ({ data }) => {
+    const hash = await sha256Hex(data.token);
+    const row = await db()
+      .prepare("SELECT user_id, expires_at, used_at FROM parent_pin_resets WHERE token_hash = ?")
+      .bind(hash)
+      .first<{ user_id: string; expires_at: string; used_at: string | null }>();
+    if (!row || row.used_at || new Date(row.expires_at).getTime() <= Date.now()) {
+      throw new Error("Ссылка устарела или уже использована. Запросите новую.");
+    }
+
+    await saveParentPin(row.user_id, data.pin);
+    await db().batch([
+      db()
+        .prepare("UPDATE parent_pin_resets SET used_at = ? WHERE token_hash = ?")
+        .bind(nowIso(), hash),
+      db()
+        .prepare("DELETE FROM parent_pin_resets WHERE user_id = ? AND used_at IS NULL")
+        .bind(row.user_id),
+      // Двери, открытые старым кодом, закрываем. Код забыт — значит,
+      // неизвестно, у кого он был и чей кабинет сейчас открыт.
+      db().prepare("DELETE FROM parent_unlocks WHERE user_id = ?").bind(row.user_id),
+    ]);
+    // И тут же открываем кабинет тому, кто только что доказал владение
+    // почтой: иначе следующим экраном у него снова спросят четыре цифры,
+    // которые он ввёл секунду назад.
+    await unlockParent(row.user_id, data.pin);
+    await track("parent_pin_reset_done", { userId: row.user_id });
+    return { ok: true };
+  });
+
 /* --------------------------------------------------------------- дети */
 
 export const addChild = createServerFn({ method: "POST" })
@@ -1606,6 +1728,46 @@ export const adminOverview = createServerFn({ method: "GET" }).handler(async () 
     )
     .first<{ n: number }>();
 
+  /* Воронка оплат по ролям.
+     Одним запросом, а не четырьмя: считать надо людей, дошедших до каждой
+     ступени, а четыре независимых COUNT(DISTINCT) не сойдутся между собой —
+     человек, заплативший вчера, попал бы в «заплатили», но выпал из
+     «нажали», если событие писалось до появления отметки.
+
+     Псевдонимы в snake_case намеренно: в прод-базе Postgres, и он приводит
+     неэкранированные camelCase-имена к нижнему регистру — sawForm вернулся
+     бы полем sawform и молча стал бы undefined.
+
+     Роли только parent и tutor: admin платить не ходит, а его строка
+     портила бы проценты. */
+  const funnel = await db()
+    .prepare(
+      `SELECT u.role AS role,
+              COUNT(*) AS registered,
+              SUM(CASE WHEN f.user_id IS NULL THEN 0 ELSE 1 END) AS saw_form,
+              SUM(CASE WHEN s.user_id IS NULL THEN 0 ELSE 1 END) AS started,
+              SUM(CASE WHEN p.user_id IS NULL THEN 0 ELSE 1 END) AS paid
+         FROM users u
+         LEFT JOIN (SELECT DISTINCT user_id FROM events WHERE name = 'subscription_form_shown') f
+                ON f.user_id = u.id
+         LEFT JOIN (SELECT DISTINCT user_id FROM events WHERE name = 'subscription_payment_started') s
+                ON s.user_id = u.id
+         LEFT JOIN (SELECT DISTINCT user_id FROM payments WHERE status = 'paid') p
+                ON p.user_id = u.id
+        WHERE u.role IN ('parent', 'tutor')
+        GROUP BY u.role`,
+    )
+    .all<{ role: string; registered: number; saw_form: number; started: number; paid: number }>();
+
+  /* Счета по состояниям. Ступени воронки говорят, докуда дошли люди, а это —
+     чем кончились деньги. Главное здесь pending: счёт заведён, человека
+     увели в банк, и ответа нет. Много таких — повод открыть личный кабинет
+     эквайринга и сверить, не теряется ли уведомление по дороге: платёж там
+     мог и пройти. */
+  const invoices = await db()
+    .prepare("SELECT status, COUNT(*) AS n FROM payments GROUP BY status")
+    .all<{ status: string; n: number }>();
+
   const hard = await db()
     .prepare(
       `SELECT t.name AS topic, COUNT(*) AS total, SUM(a.is_correct) AS correct
@@ -1637,6 +1799,16 @@ export const adminOverview = createServerFn({ method: "GET" }).handler(async () 
     activationRate: regCount ? Math.round(((firstLesson?.n ?? 0) / regCount) * 100) : 0,
     parentRate: regCount ? Math.round(((dashboards?.n ?? 0) / regCount) * 100) : 0,
     payRate: (users?.n ?? 0) ? Math.round(((paid?.n ?? 0) / (users?.n ?? 1)) * 100) : 0,
+    // Postgres отдаёт COUNT/SUM как bigint, а драйвер — строкой: без Number
+    // числа сложились бы конкатенацией уже в разметке.
+    funnel: (funnel.results ?? []).map((r) => ({
+      role: r.role,
+      registered: Number(r.registered),
+      sawForm: Number(r.saw_form),
+      started: Number(r.started),
+      paid: Number(r.paid),
+    })),
+    invoices: (invoices.results ?? []).map((r) => ({ status: r.status, n: Number(r.n) })),
     hard: (hard.results ?? []).map((h) => ({
       topic: h.topic,
       percent: Math.round((h.correct / h.total) * 100),

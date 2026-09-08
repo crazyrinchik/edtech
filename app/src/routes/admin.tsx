@@ -10,6 +10,12 @@ import {
   adminBugReports, adminHandleBugReport, adminReplyToReport,
 } from "../lib/api/feedback.functions";
 
+const ROLE_TITLE: Record<string, string> = { parent: "Родители", tutor: "Репетиторы" };
+/** Состояния счёта из payments — теми словами, какими о них думают, а не какими они лежат в базе. */
+const INVOICE_TITLE: Record<string, string> = {
+  pending: "ждут ответа банка", paid: "оплачены", failed: "не прошли", refunded: "возвращены",
+};
+
 export const Route = createFileRoute("/admin")({
   head: () => closedHead("Админка, Совёнок"),
   component: AdminPage,
@@ -18,6 +24,8 @@ export const Route = createFileRoute("/admin")({
 type Overview = {
   dau: number; wau: number; users: number; paid: number;
   activationRate: number; parentRate: number; payRate: number;
+  funnel: { role: string; registered: number; sawForm: number; started: number; paid: number }[];
+  invoices: { status: string; n: number }[];
   hard: { topic: string; percent: number }[];
   popular: { topic: string; lessons: number }[];
   usersList: { id: string; email: string; name: string | null; role: string; subscription_status: string; blocked: number }[];
@@ -152,6 +160,42 @@ function AdminPage() {
               <div className="sov-metric"><b>{overview.payRate}%</b><span>конверсия в оплату</span></div>
               <div className="sov-metric"><b>{overview.popular.length}</b><span>тем со статистикой</span></div>
             </div>
+            {/* Воронка оплат.
+
+                Раньше здесь были только «зарегистрировались» и «с подпиской»,
+                а между ними — пустота, в которую одинаково укладывались четыре
+                разные беды: не нашли форму, нашли и передумали, ушли в банк и
+                не заплатили, заплатили — а уведомление не доехало. Лечатся они
+                по-разному, и отличать их надо до того, как что-то менять. */}
+            <div style={{ marginTop: 36 }}>
+              <h2 style={{ fontSize: "var(--sov-t-h3)", fontWeight: 600 }}>Воронка оплат</h2>
+              <table className="sov-table">
+                <thead><tr><th>Кто</th><th>Завели аккаунт</th><th>Увидели форму</th><th>Нажали «Оплатить»</th><th>Заплатили</th></tr></thead>
+                <tbody>
+                  {overview.funnel.map((r) => (
+                    <tr key={r.role}>
+                      <td>{ROLE_TITLE[r.role] ?? r.role}</td>
+                      <td>{r.registered}</td><td>{r.sawForm}</td><td>{r.started}</td><td>{r.paid}</td>
+                    </tr>
+                  ))}
+                  {overview.funnel.length === 0 ? <tr><td colSpan={5}>Данных пока нет</td></tr> : null}
+                </tbody>
+              </table>
+              <p style={{ marginTop: 12, color: "var(--sov-ink-soft)", fontSize: "var(--sov-t-cap)" }}>
+                Счета: {overview.invoices.length
+                  ? overview.invoices.map((i) => `${INVOICE_TITLE[i.status] ?? i.status} — ${i.n}`).join(", ")
+                  : "ни одного"}.
+              </p>
+              {/* Честная оговорка, без которой колонка врёт: отметка о показе
+                  формы появилась вместе с этой таблицей, и все, кто заходил
+                  раньше, в неё не попали. Ноль в свежей колонке у старых
+                  аккаунтов — это «не знаем», а не «не дошли». */}
+              <p style={{ marginTop: 6, color: "var(--sov-ink-soft)", fontSize: "var(--sov-t-cap)" }}>
+                «Увидели форму» считается с выкладки этой таблицы: у тех, кто регистрировался раньше,
+                там ноль просто потому, что тогда не считали. Остальные три колонки — за всё время.
+              </p>
+            </div>
+
             <div className="sov-split" style={{ marginTop: 36 }}>
               <div>
                 <h2 style={{ fontSize: "var(--sov-t-h3)", fontWeight: 600 }}>Проблемные темы</h2>
