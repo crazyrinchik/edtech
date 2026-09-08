@@ -3554,6 +3554,17 @@ a.sov-level:active .sov-level__num {
   font-size: 1.15rem;
   font-weight: 800;
 }
+/* Кто задал: «от наставника» или «от родителей». Мелко и мягко — это
+   подпись к названию, а не второе название. */
+.sov-homework__by {
+  display: block;
+  margin-top: 2px;
+  font-style: normal;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--sov-ink-soft);
+}
 .sov-homework__due {
   font-size: 0.88rem;
   font-weight: 800;
@@ -5209,6 +5220,16 @@ button.sov-stone:disabled {
   color: var(--sov-warn);
   background: var(--sov-warn-bg);
 }
+/* «Задать» — кнопка в той же таблетке: с неё родитель уходит во вкладку
+   заданий, где просевшая тема уже стоит первой. */
+button.sov-risks__state {
+  border: 0;
+  font-family: inherit;
+  cursor: pointer;
+}
+button.sov-risks__state:hover {
+  filter: brightness(0.95);
+}
 .sov-risks__row strong {
   display: block;
   font-size: 1rem;
@@ -5503,70 +5524,6 @@ button.sov-stone:disabled {
   gap: 8px 18px;
   margin-top: 12px;
   font-size: 1rem;
-}
-
-/* Таблица Пифагора. На телефоне она шире экрана — прокручивается сама,
-   а не жмётся до нечитаемых цифр. */
-.sov-pifagor {
-  margin-top: 16px;
-}
-.sov-pifagor__scroll {
-  overflow-x: auto;
-}
-.sov-pifagor table {
-  border-collapse: collapse;
-  font-family: var(--sov-mono);
-}
-.sov-pifagor th,
-.sov-pifagor td {
-  border: 1px solid var(--sov-line);
-  padding: 0;
-  text-align: center;
-  min-width: 42px;
-  height: 38px;
-  font-size: 0.95rem;
-  color: var(--sov-ink-soft);
-}
-.sov-pifagor th {
-  background: var(--sov-paper-2);
-  color: var(--sov-ink);
-  font-weight: 800;
-}
-.sov-pifagor th button {
-  width: 100%;
-  height: 38px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  font: 800 0.95rem/1 var(--sov-mono);
-  color: inherit;
-}
-.sov-pifagor td[data-lit="true"] {
-  background: var(--sov-cobalt-soft);
-  color: var(--sov-cobalt);
-  font-weight: 700;
-}
-.sov-pifagor td[data-hit="true"] {
-  background: var(--sov-cobalt);
-  color: #fff;
-  font-weight: 800;
-}
-.sov-pifagor td[data-off="true"] {
-  color: var(--sov-paper-3);
-}
-.sov-pifagor__column {
-  margin-top: 16px;
-}
-.sov-pifagor__column strong {
-  font-size: 1rem;
-  font-weight: 800;
-}
-.sov-pifagor__list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 18px;
-  margin-top: 8px;
-  color: var(--sov-ink-soft);
 }
 
 /* Мелочи настройки: пояснение под рядом чипов и ссылки «выбрать все». */

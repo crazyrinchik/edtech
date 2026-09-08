@@ -4,6 +4,15 @@
  * Отдельный модуль, а не продолжение app.functions.ts: там девятьсот строк
  * родительского и детского сценария, и смешивать с ними чужую роль незачем.
  *
+ * Домашку выдаёт не только репетитор. Родитель, который занимается с
+ * ребёнком сам, задаёт ровно то же: темы, тренажёры с настройками, своё
+ * задание с файлом — и сам его проверяет. Поэтому ручки домашки пускают
+ * обоих взрослых (requireAssigner), а колонка tutor_id в assignments и
+ * custom_tasks значит «кто задал», а не «репетитор»: переименовать её
+ * нельзя — миграции только CREATE IF NOT EXISTS. Убрать задание и
+ * поставить оценку может только автор: план репетитора не правится из
+ * семьи, а домашнее задание от родителей — из кабинета репетитора.
+ *
  * Выполнение домашки нигде не хранится. Оно считается из lessons и drills за
  * окно с момента выдачи: занятия и заходы в тренажёр пишутся и так, а
  * отдельное поле «сдано» немедленно разошлось бы с фактическими попытками.
@@ -34,6 +43,7 @@ import {
   materializeTopic,
   nowIso,
   requireChildAccess,
+  requireParentAccess,
   requireUser,
   startSession,
   track,
@@ -108,6 +118,47 @@ async function requireTutor() {
   return user;
 }
 
+/**
+ * Взрослый, который может задавать домашку: репетитор или родитель.
+ *
+ * Родитель проходит через код кабинета (requireParentAccess), как и все
+ * остальные родительские ручки: вход в приложение один на семью, и без
+ * кода ребёнок с того же планшета мог бы снять себе задание или поставить
+ * оценку своему же ответу.
+ */
+async function requireAssigner() {
+  const user = await requireUser();
+  if (user.role === "tutor" || user.role === "admin") return user;
+  if (user.role === "parent") return requireParentAccess();
+  throw new Error("Задавать домашнюю работу может репетитор или родитель");
+}
+
+/**
+ * Ученик, которому этот взрослый может задавать: любая роль в child_access.
+ * Для репетитора это его ученик, для родителя — его ребёнок.
+ */
+async function requireAssignable(childId: string, userId: string) {
+  return requireChildAccess(childId, userId);
+}
+
+/**
+ * Задание, которое этот взрослый выдал сам: снять его и оценить ответ
+ * может только автор. Репетитор не трогает домашку от родителей, родитель
+ * — план репетитора; админ может и то и другое.
+ */
+async function requireOwnAssignment(assignmentId: string, user: { id: string; role: string }) {
+  const row = await db()
+    .prepare("SELECT child_id, tutor_id FROM assignments WHERE id = ?")
+    .bind(assignmentId)
+    .first<{ child_id: string; tutor_id: string }>();
+  if (!row) throw new Error("Задание не найдено");
+  await requireChildAccess(row.child_id, user.id);
+  if (row.tutor_id !== user.id && user.role !== "admin") {
+    throw new Error("Это задание выдали не вы — изменить его может только тот, кто задал");
+  }
+  return row;
+}
+
 /** Доступ к ученику именно как репетитора: родителю сюда нельзя. */
 async function requireStudent(childId: string, userId: string) {
   const child = await requireChildAccess(childId, userId);
@@ -136,6 +187,8 @@ type AssignmentRow = {
   comment: string | null;
   due_at: string | null;
   created_at: string;
+  /** Роль автора на момент запроса; NULL, если учётной записи уже нет. */
+  author_role: string | null;
 };
 
 export type AssignmentItemView = {
@@ -164,6 +217,14 @@ export type AssignmentView = {
   comment: string | null;
   dueAt: string | null;
   createdAt: string;
+  /**
+   * Кто задал: репетитор или родитель. Ребёнку это подпись на карточке
+   * («от наставника» / «от родителей»), взрослому — признак чужого
+   * задания, у которого нет кнопки «удалить».
+   */
+  author: "tutor" | "parent";
+  /** Выдал ли задание тот, кто сейчас смотрит. У ребёнка всегда false. */
+  mine: boolean;
   items: AssignmentItemView[];
   doneCount: number;
   total: number;
@@ -177,7 +238,11 @@ export type AssignmentView = {
  * верных не ниже целевой. Берётся лучший результат в окне, а не последний:
  * ребёнок, который со второго раза сделал на 90%, задание выполнил.
  */
-async function buildAssignments(childId: string, rows: AssignmentRow[]): Promise<AssignmentView[]> {
+async function buildAssignments(
+  childId: string,
+  rows: AssignmentRow[],
+  viewerId: string | null = null,
+): Promise<AssignmentView[]> {
   if (rows.length === 0) return [];
   const ids = rows.map((r) => r.id);
   const placeholders = ids.map(() => "?").join(", ");
@@ -340,6 +405,9 @@ async function buildAssignments(childId: string, rows: AssignmentRow[]): Promise
       comment: row.comment,
       dueAt: row.due_at,
       createdAt: row.created_at,
+      // Админ, задавший из кабинета репетитора, для ребёнка тоже наставник.
+      author: row.author_role === "parent" ? "parent" : "tutor",
+      mine: viewerId !== null && row.tutor_id === viewerId,
       items: views,
       doneCount,
       total: views.length,
@@ -349,10 +417,15 @@ async function buildAssignments(childId: string, rows: AssignmentRow[]): Promise
 }
 
 async function activeAssignments(childId: string): Promise<AssignmentRow[]> {
+  // LEFT JOIN: задания удалённого взрослого уходят вместе с ним
+  // (deleteAccount), но если строка всё же осталась без автора, домашка
+  // должна показаться, а не пропасть из-за JOIN.
   const rows = await db()
     .prepare(
-      `SELECT * FROM assignments WHERE child_id = ? AND canceled_at IS NULL
-        ORDER BY created_at DESC LIMIT 20`,
+      `SELECT a.*, u.role AS author_role FROM assignments a
+         LEFT JOIN users u ON u.id = a.tutor_id
+        WHERE a.child_id = ? AND a.canceled_at IS NULL
+        ORDER BY a.created_at DESC LIMIT 20`,
     )
     .bind(childId)
     .all<AssignmentRow>();
@@ -657,19 +730,28 @@ export const acceptInvite = createServerFn({ method: "POST" })
 export const studentCard = createServerFn({ method: "GET" })
   .inputValidator(z.object({ childId: z.string() }))
   .handler(async ({ data }) => {
-    const user = await requireTutor();
+    const user = await requireAssigner();
     // Контент создаётся лениво, при первом обращении. Раньше это делали только
     // ручки из app.functions — и на чистой базе педагог, пришедший по прямой
     // ссылке на карточку ученика (а не через список), видел форму выдачи без
     // единой темы: ни вкладок предметов, ни чипов. Сеяли за него /repetitor
     // и /uchenik, но полагаться на порядок захода тут нечего.
     await ensureSeeded();
-    const child = (await requireStudent(data.childId, user.id)) as unknown as {
+    const child = (await requireAssignable(data.childId, user.id)) as unknown as {
       id: string;
       name: string;
       avatar: string;
       grade: number;
     };
+    // В какой роли смотрящий стоит рядом с учеником: от неё зависит, кого
+    // предлагать в «Отправить ещё» — других учеников или братьев и сестёр.
+    const viewerRole =
+      (
+        await db()
+          .prepare("SELECT role FROM child_access WHERE child_id = ? AND user_id = ?")
+          .bind(child.id, user.id)
+          .first<{ role: string }>()
+      )?.role ?? "tutor";
     const parent = await db()
       .prepare("SELECT 1 AS ok FROM child_access WHERE child_id = ? AND role = 'parent' LIMIT 1")
       .bind(child.id)
@@ -766,17 +848,17 @@ export const studentCard = createServerFn({ method: "GET" })
         a.sort_order - b.sort_order,
     );
 
-    // Остальные ученики педагога — для выдачи одной домашки сразу группе.
-    // Только имя и аватар: список нужен, чтобы отметить галочками, а не
-    // чтобы читать в нём статистику.
+    // Остальные ученики педагога (у родителя — остальные дети) — для выдачи
+    // одной домашки сразу нескольким. Только имя и аватар: список нужен,
+    // чтобы отметить галочками, а не чтобы читать в нём статистику.
     const classmates = await db()
       .prepare(
         `SELECT c.id, c.name, c.grade, c.avatar
            FROM child_access ca JOIN children c ON c.id = ca.child_id
-          WHERE ca.user_id = ? AND ca.role = 'tutor' AND c.id <> ?
+          WHERE ca.user_id = ? AND ca.role = ? AND c.id <> ?
           ORDER BY c.grade, c.name`,
       )
-      .bind(user.id, child.id)
+      .bind(user.id, viewerRole, child.id)
       .all<{ id: string; name: string; grade: number; avatar: string }>();
 
     const lessons = await db()
@@ -817,7 +899,7 @@ export const studentCard = createServerFn({ method: "GET" })
       })),
       classmates: classmates.results ?? [],
       lessons: lessons.results ?? [],
-      assignments: await buildAssignments(child.id, await activeAssignments(child.id)),
+      assignments: await buildAssignments(child.id, await activeAssignments(child.id), user.id),
     };
   });
 
@@ -894,11 +976,11 @@ export const createAssignment = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data }) => {
-    const user = await requireTutor();
+    const user = await requireAssigner();
     // Дубли в списке убираем до проверки прав: иначе один и тот же ученик
     // получил бы две одинаковые домашки за один клик.
     const childIds = [...new Set(data.childIds)];
-    for (const childId of childIds) await requireStudent(childId, user.id);
+    for (const childId of childIds) await requireAssignable(childId, user.id);
 
     // Тема каталога до первой выдачи в базе не существует: без этого ученик
     // получал бы пункт домашки, ведущий в никуда.
@@ -955,7 +1037,7 @@ export const createAssignment = createServerFn({ method: "POST" })
       await track("assignment_created", {
         userId: user.id,
         childId,
-        props: { items: data.items.length, students: childIds.length },
+        props: { items: data.items.length, students: childIds.length, role: user.role },
       });
     }
     return { ids };
@@ -964,13 +1046,8 @@ export const createAssignment = createServerFn({ method: "POST" })
 export const cancelAssignment = createServerFn({ method: "POST" })
   .inputValidator(z.object({ id: z.string() }))
   .handler(async ({ data }) => {
-    const user = await requireTutor();
-    const row = await db()
-      .prepare("SELECT child_id FROM assignments WHERE id = ?")
-      .bind(data.id)
-      .first<{ child_id: string }>();
-    if (!row) throw new Error("Задание не найдено");
-    await requireStudent(row.child_id, user.id);
+    const user = await requireAssigner();
+    await requireOwnAssignment(data.id, user);
     await db()
       .prepare("UPDATE assignments SET canceled_at = ? WHERE id = ?")
       .bind(nowIso(), data.id)
@@ -993,13 +1070,8 @@ export const cancelAssignment = createServerFn({ method: "POST" })
 export const deleteAssignment = createServerFn({ method: "POST" })
   .inputValidator(z.object({ id: z.string() }))
   .handler(async ({ data }) => {
-    const user = await requireTutor();
-    const row = await db()
-      .prepare("SELECT child_id FROM assignments WHERE id = ?")
-      .bind(data.id)
-      .first<{ child_id: string }>();
-    if (!row) throw new Error("Задание не найдено");
-    await requireStudent(row.child_id, user.id);
+    const user = await requireAssigner();
+    await requireOwnAssignment(data.id, user);
 
     const items = await db()
       .prepare("SELECT id, kind, ref_id FROM assignment_items WHERE assignment_id = ?")
@@ -1053,7 +1125,12 @@ export const childAssignments = createServerFn({ method: "GET" })
    Репетитору нужно видеть всю программу целиком, а не срез под одного
    ученика: он готовится к занятию, сверяется с учебником и решает, что
    давать дальше. Содержимое заданий открывает подписка — это и есть то,
-   за что он платит; без неё видны названия тем и бесплатные темы. */
+   за что он платит; без неё видны названия тем и бесплатные темы.
+
+   Родителю, который занимается сам, нужно то же самое: посмотреть, что
+   проходят во втором классе по Петерсон, и задать тему оттуда. Поэтому
+   обзор и выдача «сразу нескольким» открыты обоим взрослым — через
+   requireAssigner, как и остальная домашка. */
 
 /**
  * Список программ для выбора: репетитор узнаёт учебник по названию и авторам.
@@ -1063,7 +1140,7 @@ export const childAssignments = createServerFn({ method: "GET" })
  * одинаковыми вариантами.
  */
 export const programs = createServerFn({ method: "GET" }).handler(async () => {
-  await requireTutor();
+  await requireAssigner();
   return {
     programs: programList()
       .filter((p) => !p.isDefault)
@@ -1130,15 +1207,17 @@ export const curriculum = createServerFn({ method: "GET" })
     }),
   )
   .handler(async ({ data }) => {
-    const user = await requireTutor();
+    const user = await requireAssigner();
     const paid = user.subscriptionStatus === "active";
     const program = programById(data.programId);
 
+    // Все, кому этот взрослый может задавать: у репетитора ученики, у
+    // родителя дети. Роль в child_access не фильтруется — она и есть право.
     const students = await db()
       .prepare(
         `SELECT c.id, c.name, c.grade FROM children c
            JOIN child_access a ON a.child_id = c.id
-          WHERE a.user_id = ? AND a.role = 'tutor'
+          WHERE a.user_id = ?
           ORDER BY c.created_at`,
       )
       .bind(user.id)
@@ -1203,7 +1282,7 @@ export const curriculum = createServerFn({ method: "GET" })
 export const topicTasks = createServerFn({ method: "GET" })
   .inputValidator(z.object({ topicId: z.string() }))
   .handler(async ({ data }) => {
-    const user = await requireTutor();
+    const user = await requireAssigner();
     const topic = topicByCode(data.topicId);
     if (!topic) throw new Error("Тема не найдена");
     if (!isFreeTopic(topic.code) && user.subscriptionStatus !== "active") {
@@ -1239,7 +1318,7 @@ export const assignTopic = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data }) => {
-    const user = await requireTutor();
+    const user = await requireAssigner();
     // Тема каталога до первой выдачи в базе не существует — создаём её вместе
     // с заданиями, иначе ученику будет некуда зайти.
     if (topicByCode(data.topicId)) await materializeTopic(data.topicId);
@@ -1249,7 +1328,7 @@ export const assignTopic = createServerFn({ method: "POST" })
       .first<{ id: string; name: string }>();
     if (!topic) throw new Error("Тема не найдена");
 
-    for (const childId of data.childIds) await requireStudent(childId, user.id);
+    for (const childId of data.childIds) await requireAssignable(childId, user.id);
     await requireTopicsOpen(data.childIds, [topic.id]);
 
     for (const childId of data.childIds) {
@@ -1272,7 +1351,7 @@ export const assignTopic = createServerFn({ method: "POST" })
 
     await track("assignment_bulk", {
       userId: user.id,
-      props: { topic: topic.id, students: data.childIds.length },
+      props: { topic: topic.id, students: data.childIds.length, role: user.role },
     });
     return { count: data.childIds.length };
   });
@@ -1304,8 +1383,11 @@ export const createCustomAssignment = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data }) => {
-    const user = await requireTutor();
+    const user = await requireAssigner();
     if (!data.body && !data.file) throw new Error("Добавьте текст задания или файл");
+    // Права на каждого — до вставки custom_tasks: иначе чужой ребёнок в
+    // списке оставлял бы в базе задание, на которое никто не ссылается.
+    for (const childId of data.childIds) await requireAssignable(childId, user.id);
     if (data.file) {
       // base64 раздувает вес примерно на треть — считаем исходный размер.
       const bytes = Math.floor((data.file.data.length * 3) / 4);
@@ -1331,7 +1413,6 @@ export const createCustomAssignment = createServerFn({ method: "POST" })
       .run();
 
     for (const childId of data.childIds) {
-      await requireStudent(childId, user.id);
       const id = uid("asg");
       await db().batch([
         db()
@@ -1351,7 +1432,7 @@ export const createCustomAssignment = createServerFn({ method: "POST" })
 
     await track("custom_assignment", {
       userId: user.id,
-      props: { students: data.childIds.length, withFile: !!data.file },
+      props: { students: data.childIds.length, withFile: !!data.file, role: user.role },
     });
     return { count: data.childIds.length };
   });
@@ -1511,17 +1592,18 @@ export const gradeCustomAnswer = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data }) => {
-    const user = await requireTutor();
-    const row = await db()
+    const user = await requireAssigner();
+    const item = await db()
       .prepare(
-        `SELECT a.child_id FROM assignment_items ai
+        `SELECT a.id AS assignment_id FROM assignment_items ai
            JOIN assignments a ON a.id = ai.assignment_id
           WHERE ai.id = ? AND ai.kind = 'custom'`,
       )
       .bind(data.itemId)
-      .first<{ child_id: string }>();
-    if (!row) throw new Error("Задание не найдено");
-    await requireStudent(row.child_id, user.id);
+      .first<{ assignment_id: string }>();
+    if (!item) throw new Error("Задание не найдено");
+    // Оценивает тот, кто задал: проверять своё задание — часть его выдачи.
+    const row = await requireOwnAssignment(item.assignment_id, user);
 
     await db()
       .prepare(
@@ -1630,13 +1712,15 @@ export const assignDrill = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data }) => {
-    const user = await requireTutor();
+    const user = await requireAssigner();
     const title = DRILL_TITLES[data.kind] ?? "Устный счёт";
     const settings =
       data.settings && Object.keys(data.settings).length ? JSON.stringify(data.settings) : null;
 
+    // Права на всех — до первой вставки, чтобы чужой ребёнок в списке не
+    // оставил половину группы с заданием, а половину без.
+    for (const childId of data.childIds) await requireAssignable(childId, user.id);
     for (const childId of data.childIds) {
-      await requireStudent(childId, user.id);
       const id = uid("asg");
       const itemId = uid("ai");
       await db().batch([
@@ -1663,7 +1747,7 @@ export const assignDrill = createServerFn({ method: "POST" })
     }
     await track("drill_assigned", {
       userId: user.id,
-      props: { kind: data.kind, students: data.childIds.length },
+      props: { kind: data.kind, students: data.childIds.length, role: user.role },
     });
     return { count: data.childIds.length };
   });

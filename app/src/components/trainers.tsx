@@ -34,7 +34,7 @@ export const TRAINERS = [
     to: "/tablica-umnozheniya",
     Icon: MultiplyIcon,
     title: "Таблица умножения",
-    blurb: "В обе стороны, с таблицей под рукой",
+    blurb: "В обе стороны: умножить, разделить, найти множитель",
   },
   {
     id: "pravopisanie",

@@ -20,6 +20,7 @@ import {
   WeekStrip,
   weekBuckets,
 } from "../components/figures";
+import { HomeworkDesk, type HomeworkCard } from "../components/homework-desk";
 import { PayForm } from "../components/pay-form";
 import {
   addChild,
@@ -41,6 +42,7 @@ import {
   unlockParentCabinet,
   updateChild,
 } from "../lib/api/app.functions";
+import { studentCard } from "../lib/api/tutor.functions";
 import { closedHead } from "../lib/seo";
 import { plural } from "../lib/shop";
 import { FREE_CHILD_LIMIT } from "../lib/billing";
@@ -53,6 +55,7 @@ import { FREE_CHILD_LIMIT } from "../lib/billing";
  */
 const TABS = [
   ["progress", "Прогресс"],
+  ["homework", "Задания"],
   ["history", "История"],
   ["notify", "Напоминания"],
   ["settings", "Настройки"],
@@ -316,8 +319,14 @@ function ParentPage() {
             </div>
 
             {tab === "progress" ? (
-              <ProgressTab report={report} onHistory={() => setTab("history")} />
+              <ProgressTab
+                report={report}
+                onHistory={() => setTab("history")}
+                onAssign={() => setTab("homework")}
+              />
             ) : null}
+
+            {tab === "homework" ? <HomeworkTab childId={report.child.id} /> : null}
 
             {tab === "history" ? (
               <section style={{ marginTop: 24 }}>
@@ -527,6 +536,65 @@ function ParentPage() {
   );
 }
 
+/**
+ * Вкладка «Задания»: то же, что карточка ученика у репетитора.
+ *
+ * Карточка грузится отдельно от отчёта: в ней вся программа с долей
+ * верных по каждой теме, и тащить её на каждую вкладку кабинета незачем.
+ * Ручка та же, что у репетитора (studentCard), — роль она смотрит сама.
+ */
+function HomeworkTab({ childId }: { childId: string }) {
+  const [card, setCard] = useState<HomeworkCard | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      setCard(await studentCard({ data: { childId } }));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Не удалось открыть задания");
+    }
+  }, [childId]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  if (error && !card) {
+    return (
+      <div className="sov-alert" style={{ marginTop: 24 }}>
+        {error}
+      </div>
+    );
+  }
+  if (!card) {
+    return (
+      <p className="sov-mono" style={{ marginTop: 24 }}>
+        Открываем задания…
+      </p>
+    );
+  }
+
+  return (
+    <section style={{ marginTop: 24 }}>
+      <h2 style={{ fontSize: "var(--sov-t-h3)", fontWeight: 600 }}>Домашняя работа</h2>
+      <p style={{ marginTop: 8, color: "var(--sov-ink-soft)", fontSize: "var(--sov-t-cap)" }}>
+        Задавайте темы и тренажёры или своё задание с файлом — ребёнок увидит их на своём экране
+        первыми. Задания наставника здесь тоже видны, но убрать их может только он.
+      </p>
+      {/* Те же разделы, что у репетитора: программа по классам и учебникам с
+          заданиями и ответами, и тренажёры с настройками. Там же можно
+          задать тему сразу всем детям. */}
+      <p style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <QuietAction to="/roditel/temy">Темы и задания</QuietAction>
+        <QuietAction to="/roditel/trenazhery">Тренажёры</QuietAction>
+      </p>
+      {/* key по ребёнку: при переключении детей в шапке черновик выбора
+          не должен переезжать к другому. */}
+      <HomeworkDesk key={childId} childId={childId} card={card} audience="parent" onReload={load} />
+    </section>
+  );
+}
+
 const DRILL_NAMES: Record<string, string> = {
   mental: "Устный счёт",
   reading: "Скорочтение",
@@ -599,8 +667,8 @@ function Verdict({ report }: { report: Report }) {
         {report.risk.length === 0
           ? "Ни одна тема не просела ниже порога."
           : unassigned.length === 0
-            ? `Все просевшие темы (${report.risk.length}) педагог уже задавал — вмешиваться не нужно.`
-            : `Ниже порога ${report.risk.length} ${plural(report.risk.length, "тема", "темы", "тем")}, и «${unassigned[0].topic}» педагог пока не задавал.`}
+            ? `Все просевшие темы (${report.risk.length}) уже заданы — вмешиваться не нужно.`
+            : `Ниже порога ${report.risk.length} ${plural(report.risk.length, "тема", "темы", "тем")}, и «${unassigned[0].topic}» пока никто не задавал — можно задать во вкладке «Задания».`}
       </span>
     </div>
   );
@@ -690,7 +758,15 @@ function ReportTiles({ report }: { report: Report }) {
  * стояло одно среднее за всё время, и падение скорости чтения в ней
  * было невидимо.
  */
-function ProgressTab({ report, onHistory }: { report: Report; onHistory: () => void }) {
+function ProgressTab({
+  report,
+  onHistory,
+  onAssign,
+}: {
+  report: Report;
+  onHistory: () => void;
+  onAssign: () => void;
+}) {
   const drillSeries = (kind: string) =>
     report.drillRuns
       .filter((r) => r.kind === kind)
@@ -760,10 +836,23 @@ function ProgressTab({ report, onHistory }: { report: Report; onHistory: () => v
                       {/* Чья это забота. Процент без ответа на этот вопрос
                           заставляет родителя гадать: писать педагогу или он
                           уже занимается. Тема в работе — метка спокойная,
-                          зелёная; не задана — охряная, как и сама зона. */}
-                      <span className="sov-risks__state" data-tone={r.assigned ? "ok" : "warn"}>
-                        {r.assigned ? "задана" : "не задана"}
-                      </span>
+                          зелёная; не задана — охряная, как и сама зона, и
+                          это кнопка: задать её родитель может сам, во
+                          вкладке «Задания» просевшие темы стоят первыми. */}
+                      {r.assigned ? (
+                        <span className="sov-risks__state" data-tone="ok">
+                          задана
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          className="sov-risks__state"
+                          data-tone="warn"
+                          onClick={onAssign}
+                        >
+                          задать
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -1036,7 +1125,11 @@ function PinGate({ creating, onDone }: { creating: boolean; onDone: () => Promis
             ? "Четыре цифры, которые знает только взрослый. Занятия ребёнка кодом не закрываются — он заходит в них сам."
             : "Введите четыре цифры, чтобы открыть отчёты, настройки и подписку."}
         </p>
-        <form className="sov-form ym-hide-content ym-disable-keys" style={{ marginTop: 30 }} onSubmit={submit}>
+        <form
+          className="sov-form ym-hide-content ym-disable-keys"
+          style={{ marginTop: 30 }}
+          onSubmit={submit}
+        >
           {error ? <div className="sov-alert">{error}</div> : null}
           <div className="sov-field">
             <label htmlFor="pin">{creating ? "Новый код" : "Код"}</label>

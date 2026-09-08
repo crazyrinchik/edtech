@@ -117,9 +117,14 @@ function makeQuestion(level: Level, directions: Direction[]): Question {
  *
  * Таблицу учат не для того, чтобы отвечать на «семью восемь», а чтобы
  * узнавать 56 как семь восьмёрок: поэтому кроме умножения тренажёр
- * спрашивает деление и пропущенный множитель. Сама таблица при этом не
- * спрятана — её открывают прямо на примере, и нужная клетка подсвечена.
- * Подсмотреть в таблицу полезнее, чем угадать: угаданное не запоминается.
+ * спрашивает деление и пропущенный множитель.
+ *
+ * Самой таблицы на экране нет. Раньше она раскрывалась под примером и
+ * после ошибки открывалась сама — и ребёнок отвечал, глядя в неё, а не
+ * из головы: тренажёр превращался в упражнение на поиск клетки. Заодно
+ * развёрнутая таблица на телефоне уводила кнопку «Дальше» за край экрана.
+ * Правильный ответ после ошибки показывается словами, а промахи
+ * собираются в список «стоит повторить» на финальном экране.
  */
 function TablePage() {
   const navigate = useNavigate();
@@ -140,7 +145,6 @@ function TablePage() {
   const [verdict, setVerdict] = useState<{ ok: boolean; answer: number } | null>(null);
   const [correct, setCorrect] = useState(0);
   const [misses, setMisses] = useState<Question[]>([]);
-  const [openTable, setOpenTable] = useState(false);
 
   const [childId, setChildId] = useState<string | null>(null);
   const [signedIn, setSignedIn] = useState(false);
@@ -170,7 +174,6 @@ function TablePage() {
     setVerdict(null);
     setCorrect(0);
     setMisses([]);
-    setOpenTable(false);
     setSaved(false);
     startedAt.current = Date.now();
     setStage("play");
@@ -180,12 +183,7 @@ function TablePage() {
     if (!question || verdict) return;
     const ok = value.trim() !== "" && Number(value.trim()) === question.answer;
     if (ok) setCorrect((n) => n + 1);
-    else {
-      setMisses((prev) => [...prev, question]);
-      // После ошибки таблица открывается сама на нужной клетке: правильный
-      // ответ цифрой ребёнок прочитает и забудет, место в таблице — нет.
-      setOpenTable(true);
-    }
+    else setMisses((prev) => [...prev, question]);
     setVerdict({ ok, answer: question.answer });
   }
 
@@ -214,7 +212,6 @@ function TablePage() {
     setQuestion(makeQuestion(level, directions));
     setValue("");
     setVerdict(null);
-    setOpenTable(false);
   }
 
   if (stage === "setup") {
@@ -226,8 +223,8 @@ function TablePage() {
             <h2>Таблица умножения</h2>
             <p style={{ marginTop: 10, color: "var(--sov-ink-soft)", fontWeight: 500 }}>
               Примеры идут в обе стороны: и «семью восемь», и «пятьдесят шесть разделить на восемь».
-              Таблица открывается на любом примере — подсматривать в неё можно, за это ничего не
-              снимается.
+              Подсматривать некуда — считаем из головы, а что не получилось, соберём в конце, чтобы
+              повторить.
             </p>
 
             <div className="sov-setup">
@@ -304,10 +301,6 @@ function TablePage() {
               </div>
             ) : null}
           </div>
-          {/* Отдельной карточки «Сама таблица» здесь больше нет: та же
-              таблица открывается прямо на примере и после ошибки встаёт на
-              нужной клетке. На стартовом экране она отвечала на вопрос,
-              которого ребёнок ещё не задал, и отодвигала кнопку «Начать». */}
         </div>
         <SiteFooter />
       </div>
@@ -422,44 +415,16 @@ function TablePage() {
             ) : null}
           </form>
 
-          {/* Порядок тот же, что в правописании: сначала разбор, потом то,
-              куда в нём смотреть, и только потом «дальше». Таблица после
-              ошибки разворачивается сама и занимает пол-экрана — стой она
-              выше, разбор оказался бы под ней и его бы не читали. */}
+          {/* Разбор коротко: ответ цифрой и сразу «дальше». Таблицы под
+              примером больше нет — см. докстринг TablePage. */}
           {verdict ? (
             <div className="sov-feedback" data-kind={verdict.ok ? "right" : "wrong"}>
               <div>
                 <strong>{verdict.ok ? "Верно" : "Пока не так"}</strong>
-                <span>
-                  {verdict.ok
-                    ? "Идём дальше."
-                    : `Правильный ответ: ${verdict.answer}. В таблице это клетка ${question?.a} × ${question?.b}.`}
-                </span>
+                <span>{verdict.ok ? "Идём дальше." : `Правильный ответ: ${verdict.answer}.`}</span>
               </div>
             </div>
           ) : null}
-
-          <div className="sov-reveal" data-open={openTable}>
-            <button
-              type="button"
-              className="sov-reveal__btn"
-              aria-expanded={openTable}
-              onClick={() => setOpenTable((o) => !o)}
-            >
-              <span>Таблица умножения</span>
-              <span className="sov-reveal__sign" aria-hidden="true">
-                {openTable ? "Свернуть" : "Открыть"}
-              </span>
-            </button>
-            {openTable ? (
-              <div className="sov-reveal__body">
-                <PythagorasTable
-                  level={level}
-                  hit={question ? { a: question.a, b: question.b } : null}
-                />
-              </div>
-            ) : null}
-          </div>
 
           {verdict ? (
             <div style={{ marginTop: 22 }}>
@@ -472,78 +437,4 @@ function TablePage() {
       </div>
     </div>
   );
-}
-
-/**
- * Таблица Пифагора для выбранного уровня.
- *
- * Строки берутся из уровня: до сотни это привычные 2–10, дальше — второй
- * десяток. Клетки, которых на уровне «до 10» быть не может, приглушены —
- * ребёнок видит границу того, что от него сейчас спрашивают, а не пустоту.
- */
-function PythagorasTable({ level, hit }: { level: Level; hit?: { a: number; b: number } | null }) {
-  const rows = level === "beyond" ? range(11, 20) : range(2, 10);
-  const cols = range(2, 10);
-  const [picked, setPicked] = useState<number | null>(null);
-
-  return (
-    <div className="sov-pifagor">
-      <div className="sov-pifagor__scroll">
-        <table>
-          <thead>
-            <tr>
-              <th aria-hidden="true">×</th>
-              {cols.map((b) => (
-                <th key={b}>
-                  <button type="button" onClick={() => setPicked(picked === b ? null : b)}>
-                    {b}
-                  </button>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((a) => (
-              <tr key={a}>
-                <th>
-                  <button type="button" onClick={() => setPicked(picked === a ? null : a)}>
-                    {a}
-                  </button>
-                </th>
-                {cols.map((b) => (
-                  <td
-                    key={b}
-                    data-lit={picked !== null && (a === picked || b === picked)}
-                    data-hit={
-                      !!hit && ((hit.a === a && hit.b === b) || (hit.a === b && hit.b === a))
-                    }
-                    data-off={level === "ten" && a * b > 10}
-                  >
-                    {a * b}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {picked !== null ? (
-        <div className="sov-pifagor__column">
-          <strong>Столбик {picked}</strong>
-          <div className="sov-pifagor__list">
-            {range(1, 10).map((b) => (
-              <span key={b} className="sov-mono">
-                {picked} × {b} = {picked * b}
-              </span>
-            ))}
-          </div>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function range(from: number, to: number): number[] {
-  return Array.from({ length: to - from + 1 }, (_, i) => from + i);
 }

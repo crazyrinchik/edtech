@@ -3,8 +3,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { TrainersScreen } from "../components/trainers-screen";
 import { closedHead } from "../lib/seo";
 
-// Сам экран общий с кабинетом родителя — см. components/trainers-screen.
-export const Route = createFileRoute("/repetitor/trenazhery")({
+// Подчёркивание в имени файла — см. roditel_.temy.tsx.
+export const Route = createFileRoute("/roditel_/trenazhery")({
   head: () => closedHead("Тренажёры, Совёнок"),
-  component: () => <TrainersScreen audience="tutor" />,
+  component: () => <TrainersScreen audience="parent" />,
 });

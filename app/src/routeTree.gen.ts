@@ -33,6 +33,8 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as RepetitorIndexRouteImport } from './routes/repetitor.index'
 import { Route as UrokTopicIdRouteImport } from './routes/urok.$topicId'
+import { Route as RoditelTrenazheryRouteImport } from './routes/roditel_.trenazhery'
+import { Route as RoditelTemyRouteImport } from './routes/roditel_.temy'
 import { Route as RepetitorTrenazheryRouteImport } from './routes/repetitor.trenazhery'
 import { Route as RepetitorTemyRouteImport } from './routes/repetitor.temy'
 import { Route as RepetitorPodpiskaRouteImport } from './routes/repetitor.podpiska'
@@ -158,6 +160,16 @@ const UrokTopicIdRoute = UrokTopicIdRouteImport.update({
   path: '/urok/$topicId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RoditelTrenazheryRoute = RoditelTrenazheryRouteImport.update({
+  id: '/roditel_/trenazhery',
+  path: '/roditel/trenazhery',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RoditelTemyRoute = RoditelTemyRouteImport.update({
+  id: '/roditel_/temy',
+  path: '/roditel/temy',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RepetitorTrenazheryRoute = RepetitorTrenazheryRouteImport.update({
   id: '/repetitor/trenazhery',
   path: '/repetitor/trenazhery',
@@ -205,6 +217,8 @@ export interface FileRoutesByFullPath {
   '/repetitor/podpiska': typeof RepetitorPodpiskaRoute
   '/repetitor/temy': typeof RepetitorTemyRoute
   '/repetitor/trenazhery': typeof RepetitorTrenazheryRoute
+  '/roditel/temy': typeof RoditelTemyRoute
+  '/roditel/trenazhery': typeof RoditelTrenazheryRoute
   '/urok/$topicId': typeof UrokTopicIdRoute
   '/repetitor/': typeof RepetitorIndexRoute
   '/repetitor/uchenik/$childId': typeof RepetitorUchenikChildIdRoute
@@ -235,6 +249,8 @@ export interface FileRoutesByTo {
   '/repetitor/podpiska': typeof RepetitorPodpiskaRoute
   '/repetitor/temy': typeof RepetitorTemyRoute
   '/repetitor/trenazhery': typeof RepetitorTrenazheryRoute
+  '/roditel/temy': typeof RoditelTemyRoute
+  '/roditel/trenazhery': typeof RoditelTrenazheryRoute
   '/urok/$topicId': typeof UrokTopicIdRoute
   '/repetitor': typeof RepetitorIndexRoute
   '/repetitor/uchenik/$childId': typeof RepetitorUchenikChildIdRoute
@@ -266,6 +282,8 @@ export interface FileRoutesById {
   '/repetitor/podpiska': typeof RepetitorPodpiskaRoute
   '/repetitor/temy': typeof RepetitorTemyRoute
   '/repetitor/trenazhery': typeof RepetitorTrenazheryRoute
+  '/roditel_/temy': typeof RoditelTemyRoute
+  '/roditel_/trenazhery': typeof RoditelTrenazheryRoute
   '/urok/$topicId': typeof UrokTopicIdRoute
   '/repetitor/': typeof RepetitorIndexRoute
   '/repetitor/uchenik/$childId': typeof RepetitorUchenikChildIdRoute
@@ -298,6 +316,8 @@ export interface FileRouteTypes {
     | '/repetitor/podpiska'
     | '/repetitor/temy'
     | '/repetitor/trenazhery'
+    | '/roditel/temy'
+    | '/roditel/trenazhery'
     | '/urok/$topicId'
     | '/repetitor/'
     | '/repetitor/uchenik/$childId'
@@ -328,6 +348,8 @@ export interface FileRouteTypes {
     | '/repetitor/podpiska'
     | '/repetitor/temy'
     | '/repetitor/trenazhery'
+    | '/roditel/temy'
+    | '/roditel/trenazhery'
     | '/urok/$topicId'
     | '/repetitor'
     | '/repetitor/uchenik/$childId'
@@ -358,6 +380,8 @@ export interface FileRouteTypes {
     | '/repetitor/podpiska'
     | '/repetitor/temy'
     | '/repetitor/trenazhery'
+    | '/roditel_/temy'
+    | '/roditel_/trenazhery'
     | '/urok/$topicId'
     | '/repetitor/'
     | '/repetitor/uchenik/$childId'
@@ -389,6 +413,8 @@ export interface RootRouteChildren {
   RepetitorPodpiskaRoute: typeof RepetitorPodpiskaRoute
   RepetitorTemyRoute: typeof RepetitorTemyRoute
   RepetitorTrenazheryRoute: typeof RepetitorTrenazheryRoute
+  RoditelTemyRoute: typeof RoditelTemyRoute
+  RoditelTrenazheryRoute: typeof RoditelTrenazheryRoute
   UrokTopicIdRoute: typeof UrokTopicIdRoute
   RepetitorIndexRoute: typeof RepetitorIndexRoute
   RepetitorUchenikChildIdRoute: typeof RepetitorUchenikChildIdRoute
@@ -564,6 +590,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof UrokTopicIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/roditel_/trenazhery': {
+      id: '/roditel_/trenazhery'
+      path: '/roditel/trenazhery'
+      fullPath: '/roditel/trenazhery'
+      preLoaderRoute: typeof RoditelTrenazheryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/roditel_/temy': {
+      id: '/roditel_/temy'
+      path: '/roditel/temy'
+      fullPath: '/roditel/temy'
+      preLoaderRoute: typeof RoditelTemyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/repetitor/trenazhery': {
       id: '/repetitor/trenazhery'
       path: '/repetitor/trenazhery'
@@ -621,6 +661,8 @@ const rootRouteChildren: RootRouteChildren = {
   RepetitorPodpiskaRoute: RepetitorPodpiskaRoute,
   RepetitorTemyRoute: RepetitorTemyRoute,
   RepetitorTrenazheryRoute: RepetitorTrenazheryRoute,
+  RoditelTemyRoute: RoditelTemyRoute,
+  RoditelTrenazheryRoute: RoditelTrenazheryRoute,
   UrokTopicIdRoute: UrokTopicIdRoute,
   RepetitorIndexRoute: RepetitorIndexRoute,
   RepetitorUchenikChildIdRoute: RepetitorUchenikChildIdRoute,
