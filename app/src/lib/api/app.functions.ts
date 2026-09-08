@@ -1,7 +1,15 @@
 import { createServerFn } from "@tanstack/react-start";
 import type { TaskPayload } from "../content/seed";
 import { CATALOG } from "../content/curriculum.data";
-import { catalogIndex, isFreeTopic, topicByCode } from "../content/curriculum";
+import {
+  catalogIndex,
+  isFreeTopic,
+  programById,
+  splitTopicId,
+  topicByCode,
+  topicDbName,
+} from "../content/curriculum";
+import { programsWithOwnTasks } from "../content/practice";
 import { DEMO_TASKS, READING_TEXTS } from "../content/seed";
 import { getCookie, getRequest, setCookie } from "@tanstack/react-start/server";
 import { z } from "zod";
@@ -21,6 +29,7 @@ import {
   lockParent,
   materializeTopic,
   nowIso,
+  regenerateTopic,
   requireAdmin,
   requireChildAccess,
   requireParentAccess,
@@ -72,6 +81,16 @@ type AdminTopicRow = {
   is_free: number;
   subject_name: string;
   task_count: number;
+};
+
+/** Строка списка тем в админке: из базы или ещё не заведённая тема каталога. */
+type AdminContentTopic = AdminTopicRow & {
+  /** Короткое имя программы у варианта под её уровень; у общей темы пусто. */
+  program: string | null;
+  /** Задания темы можно вернуть из генератора (тема каталога, не сид и не своя). */
+  generated: boolean;
+  /** Строка уже есть в базе; иначе заведётся при выборе. */
+  materialized: boolean;
 };
 
 type AdminUserRow = {
@@ -659,7 +678,11 @@ export const getSkillMap = createServerFn({ method: "GET" })
       .prepare("SELECT * FROM subjects ORDER BY sort_order")
       .all<{ id: string; name: string }>();
     const topics = await db()
-      .prepare("SELECT * FROM topics WHERE grade = ? ORDER BY subject_id, sort_order")
+      // Варианты под программу («код@программа») на карту не попадают: это
+      // та же тема другого уровня, ребёнку она приходит домашкой от взрослого.
+      .prepare(
+        "SELECT * FROM topics WHERE grade = ? AND id NOT LIKE '%@%' ORDER BY subject_id, sort_order",
+      )
       .bind(child.grade)
       .all<TopicRow>();
 
@@ -967,7 +990,7 @@ export const finishTopic = createServerFn({ method: "POST" })
       const row = await db()
         .prepare(
           `SELECT name, is_free FROM topics
-            WHERE subject_id = ? AND grade = ? AND sort_order > ?
+            WHERE subject_id = ? AND grade = ? AND sort_order > ? AND id NOT LIKE '%@%'
             ORDER BY sort_order LIMIT 1`,
         )
         .bind(topic.subject_id, topic.grade, topic.sort_order)
@@ -1033,7 +1056,7 @@ export const parentReport = createServerFn({ method: "GET" })
     // базы и каталога, что и карта тем у ребёнка (см. getSkillMap): иначе
     // «5 из 3» у третьеклассника, которому каталог ещё не материализовали.
     const gradeTopics = await db()
-      .prepare("SELECT id FROM topics WHERE grade = ?")
+      .prepare("SELECT id FROM topics WHERE grade = ? AND id NOT LIKE '%@%'")
       .bind(child.grade)
       .all<{ id: string }>();
     const topicsTotal = {
@@ -1820,27 +1843,102 @@ export const adminOverview = createServerFn({ method: "GET" }).handler(async () 
   };
 });
 
+/**
+ * Темы для админки: всё, что есть в базе, плюс каталог, которого там ещё нет.
+ *
+ * Тема каталога заводится в базе лениво, при первом открытии, и раньше до
+ * этого момента администратор её не видел: поправить задание можно было
+ * только после того, как его уже кто-то решал. Теперь в списке стоят и
+ * незаведённые темы каталога, и варианты под программу, у которых свой
+ * уровень заданий; выбор такой темы заводит её в базе тут же.
+ */
 export const adminContent = createServerFn({ method: "GET" })
   .inputValidator(z.object({ topicId: z.string().nullable() }))
   .handler(async ({ data }) => {
     await requireAdmin();
     await ensureSeeded();
-    const topics = await db()
+    if (data.topicId && topicByCode(data.topicId)) await materializeTopic(data.topicId);
+
+    const rows = await db()
       .prepare(
         `SELECT t.*, s.name AS subject_name, (SELECT COUNT(*) FROM tasks WHERE topic_id = t.id) AS task_count
            FROM topics t JOIN subjects s ON s.id = t.subject_id
           ORDER BY s.sort_order, t.grade, t.sort_order`,
       )
       .all<AdminTopicRow>();
+    const known = new Map((rows.results ?? []).map((t) => [t.id, t]));
+    const subjectNames = new Map((rows.results ?? []).map((t) => [t.subject_id, t.subject_name]));
+
+    const topics: AdminContentTopic[] = [];
+    const seen = new Set<string>();
+    const push = (id: string, row: AdminTopicRow | null) => {
+      if (seen.has(id)) return;
+      seen.add(id);
+      const catalog = topicByCode(id);
+      const { programId } = splitTopicId(id);
+      const program = programById(programId);
+      if (row) {
+        topics.push({
+          ...row,
+          program: program?.short ?? null,
+          generated: !!catalog,
+          materialized: true,
+        });
+        return;
+      }
+      if (!catalog) return;
+      topics.push({
+        id,
+        subject_id: catalog.subject,
+        grade: catalog.grade,
+        sort_order: 1000 + catalogIndex(id),
+        name: topicDbName(id) ?? catalog.title,
+        summary: null,
+        is_free: isFreeTopic(id) ? 1 : 0,
+        subject_name: subjectNames.get(catalog.subject) ?? catalog.subject,
+        task_count: 0,
+        program: program?.short ?? null,
+        generated: true,
+        materialized: false,
+      });
+    };
+    for (const row of rows.results ?? []) push(row.id, row);
+    for (const topic of CATALOG) {
+      push(topic.code, known.get(topic.code) ?? null);
+      for (const programId of programsWithOwnTasks(topic.code)) {
+        const id = `${topic.code}@${programId}`;
+        push(id, known.get(id) ?? null);
+      }
+    }
+    topics.sort(
+      (a, b) =>
+        a.subject_id.localeCompare(b.subject_id) ||
+        a.grade - b.grade ||
+        a.sort_order - b.sort_order ||
+        (a.program ?? "").localeCompare(b.program ?? ""),
+    );
+
     let tasks: TaskRow[] = [];
     if (data.topicId) {
-      const rows = await db()
+      const taskRows = await db()
         .prepare("SELECT * FROM tasks WHERE topic_id = ? ORDER BY sort_order")
         .bind(data.topicId)
         .all<TaskRow>();
-      tasks = (rows.results ?? []) as TaskRow[];
+      tasks = (taskRows.results ?? []) as TaskRow[];
     }
-    return { topics: (topics.results ?? []) as AdminTopicRow[], tasks };
+    return { topics, tasks };
+  });
+
+/**
+ * Заново взять задания темы из генератора. Ручные правки при этом
+ * пропадают — кнопка в админке об этом спрашивает.
+ */
+export const adminRegenerateTopic = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ topicId: z.string() }))
+  .handler(async ({ data }) => {
+    await requireAdmin();
+    const count = await regenerateTopic(data.topicId);
+    return { count };
   });
 
 export const adminSaveTopic = createServerFn({ method: "POST" })
@@ -1902,21 +2000,7 @@ export const adminSaveTask = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     await requireAdmin();
-    const payload = JSON.stringify(
-      data.kind === "choice"
-        ? {
-            options: data.options
-              .split("|")
-              .map((s) => s.trim())
-              .filter(Boolean),
-          }
-        : data.kind === "match"
-          ? {
-              left: data.options.split("|").map((s) => s.trim()),
-              right: data.answer.split("|").map((s) => s.trim()),
-            }
-          : {},
-    );
+    const payload = JSON.stringify(taskPayloadFor(data.kind, data.options, data.answer));
     if (data.id) {
       await db()
         .prepare(
@@ -1957,6 +2041,42 @@ export const adminSaveTask = createServerFn({ method: "POST" })
       .run();
     return { id };
   });
+
+/**
+ * Варианты и ответ должны сходиться с типом, иначе задание нерешаемо:
+ * у выбора правильный ответ обязан быть среди вариантов, у сопоставления
+ * левый и правый столбцы — одной длины. Ребёнок такую ошибку увидит как
+ * «всё неверно», поэтому она ловится при сохранении.
+ */
+function taskPayloadFor(
+  kind: "choice" | "input" | "match",
+  options: string,
+  answer: string,
+): TaskPayload {
+  const split = (s: string) =>
+    s
+      .split("|")
+      .map((x) => x.trim())
+      .filter(Boolean);
+  if (kind === "choice") {
+    const list = split(options);
+    if (list.length < 2) throw new Error("Для выбора нужны хотя бы два варианта через |");
+    if (new Set(list).size !== list.length) throw new Error("Варианты повторяются");
+    if (!list.includes(answer.trim()))
+      throw new Error("Правильный ответ должен совпадать с одним из вариантов");
+    return { options: list };
+  }
+  if (kind === "match") {
+    const left = split(options);
+    const right = split(answer);
+    if (left.length < 2) throw new Error("Для сопоставления нужны хотя бы две пары");
+    if (left.length !== right.length) {
+      throw new Error("Левый столбец (варианты) и правый (ответ) должны быть одной длины");
+    }
+    return { left, right };
+  }
+  return {};
+}
 
 export const adminDeleteTask = createServerFn({ method: "POST" })
   .inputValidator(z.object({ id: z.string() }))

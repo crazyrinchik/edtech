@@ -29,8 +29,9 @@ import {
   programList,
   topicByCode,
   topicsFor,
+  variantTopicId,
 } from "../content/curriculum";
-import { CHECK_SIZE, topicTasks as catalogTasks } from "../content/practice";
+import { CHECK_SIZE, hasOwnTasks } from "../content/practice";
 import { PRACTICE_SIZE } from "../content/practice.core";
 
 import {
@@ -1244,19 +1245,28 @@ export const curriculum = createServerFn({ method: "GET" })
         name: subject.name,
         fromProgram,
         topics: topicsFor(fromProgram ? (program?.id ?? null) : null, subject.id, data.grade).map(
-          (topic) => ({
-            code: topic.code,
-            title: topic.title,
-            hours: topic.hours,
-            chapters: topic.chapters,
-            inProgram: topic.inProgram,
-            practice: PRACTICE_SIZE,
-            check: CHECK_SIZE,
-            free: isFreeTopic(topic.code),
-            // Без подписки открыты только бесплатные темы — ровно то же правило,
-            // по которому тема открывается ученику.
-            locked: !paid && !isFreeTopic(topic.code),
-          }),
+          (topic) => {
+            // У программы по теме может быть свой уровень заданий — тогда
+            // задаётся и открывается её вариант («код@программа»), а не
+            // общая тема. Где своего уровня нет, идёт общий набор, и экран
+            // говорит об этом, а не выдаёт его за авторский.
+            const own = fromProgram && !!program && hasOwnTasks(topic.code, program.id);
+            return {
+              code: topic.code,
+              topicId: own && program ? variantTopicId(topic.code, program.id) : topic.code,
+              own,
+              title: topic.title,
+              hours: topic.hours,
+              chapters: topic.chapters,
+              inProgram: topic.inProgram,
+              practice: PRACTICE_SIZE,
+              check: CHECK_SIZE,
+              free: isFreeTopic(topic.code),
+              // Без подписки открыты только бесплатные темы — ровно то же правило,
+              // по которому тема открывается ученику.
+              locked: !paid && !isFreeTopic(topic.code),
+            };
+          },
         ),
       };
     });
@@ -1278,7 +1288,14 @@ export const curriculum = createServerFn({ method: "GET" })
     };
   });
 
-/** Задания темы целиком: тренировка, проверочная, ответы и разборы. */
+/**
+ * Задания темы целиком: тренировка, проверочная, ответы и разборы.
+ *
+ * Читаются из базы, а не из генератора: то, что администратор поправил в
+ * задании, взрослый должен увидеть здесь тем же, чем его увидит ребёнок.
+ * Тема заводится в базе при первом открытии — так же, как при выдаче.
+ * Принимает и вариант под программу («код@программа»).
+ */
 export const topicTasks = createServerFn({ method: "GET" })
   .inputValidator(z.object({ topicId: z.string() }))
   .handler(async ({ data }) => {
@@ -1288,18 +1305,44 @@ export const topicTasks = createServerFn({ method: "GET" })
     if (!isFreeTopic(topic.code) && user.subscriptionStatus !== "active") {
       throw new Error("Задания этой темы открывает подписка");
     }
+    await materializeTopic(data.topicId);
+    const rows = await db()
+      .prepare("SELECT * FROM tasks WHERE topic_id = ? ORDER BY sort_order")
+      .bind(data.topicId)
+      .all<{
+        id: string;
+        kind: "choice" | "input" | "match";
+        prompt: string;
+        payload: string;
+        answer: string;
+        explanation: string;
+        is_check: number;
+      }>();
 
     return {
-      topic: { id: topic.code, name: topic.title },
-      tasks: catalogTasks(topic.code).map((task, index) => ({
-        id: `${topic.code}#${index}`,
-        kind: task.kind,
-        prompt: task.prompt,
-        options: task.payload.options ?? [],
-        answer: task.answer,
-        explanation: task.explanation,
-        check: task.isCheck,
-      })),
+      topic: { id: data.topicId, name: topic.title },
+      tasks: (rows.results ?? []).map((task) => {
+        const payload = JSON.parse(task.payload || "{}") as {
+          options?: string[];
+          left?: string[];
+          right?: string[];
+        };
+        // У сопоставления ответ — правый столбец; взрослому удобнее видеть
+        // пары целиком, чем сверять два списка глазами.
+        const pairs =
+          task.kind === "match"
+            ? (payload.left ?? []).map((l, i) => `${l} → ${payload.right?.[i] ?? ""}`)
+            : [];
+        return {
+          id: task.id,
+          kind: task.kind,
+          prompt: task.prompt,
+          options: task.kind === "choice" ? (payload.options ?? []) : pairs,
+          answer: task.kind === "match" ? (payload.right ?? []).join(", ") : task.answer,
+          explanation: task.explanation,
+          check: task.is_check === 1,
+        };
+      }),
     };
   });
 

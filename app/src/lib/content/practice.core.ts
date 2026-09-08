@@ -55,6 +55,9 @@ export function rng(seedText: string): Rng {
 
 /* -------------------------------------------------------------- карточки */
 
+/** Генератор карточки: тема описывается списком таких функций. */
+export type Family = (r: Rng) => SeedTask;
+
 export const choice = (
   prompt: string,
   options: string[],
@@ -118,7 +121,7 @@ export function pickOne(
  */
 export function assemble(
   seedText: string,
-  families: ((r: Rng) => SeedTask)[],
+  families: Family[],
   size: number = PRACTICE_SIZE,
 ): SeedTask[] {
   const r = rng(seedText);

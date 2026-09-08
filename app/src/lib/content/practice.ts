@@ -4,13 +4,22 @@
  * Набор выводится из кода темы, поэтому одинаков на всех устройствах и при
  * каждом заходе. Это важнее, чем разнообразие: id задания складывается из
  * кода темы и номера, а по этим id хранятся попытки ученика.
+ *
+ * Вторая координата — программа. У Петерсон, НШ XXI века, Перспективы,
+ * Планеты знаний и Эльконина — Давыдова по части тем свой уровень заданий
+ * (practice.programs.ts); там, где программа идёт базовым темпом, набор
+ * общий. Своё зерно у варианта своё: иначе задания «те же числа, другой
+ * уровень» совпали бы по id с общими.
  */
 
 import { CATALOG } from "./curriculum.data";
 import type { SeedTask } from "./practice.core";
 import { PRACTICE_SIZE, assemble } from "./practice.core";
 import { MATH_FAMILIES } from "./practice.math";
+import { programFamilies } from "./practice.programs";
 import { RUS_FAMILIES } from "./practice.rus";
+
+export { programsWithOwnTasks } from "./practice.programs";
 
 /** Сколько заданий идёт в проверочную работу по теме. */
 export const CHECK_SIZE = 5;
@@ -22,26 +31,37 @@ export function hasPractice(code: string): boolean {
   return code in FAMILIES;
 }
 
+/** У программы по этой теме свой набор, а не общий. */
+export function hasOwnTasks(code: string, programId: string | null | undefined): boolean {
+  return programFamilies(programId, code) !== null;
+}
+
+function familiesFor(code: string, programId: string | null | undefined) {
+  const own = programFamilies(programId, code);
+  if (own) return { families: own, seed: `${code}@${programId}` };
+  return { families: FAMILIES[code] ?? null, seed: code };
+}
+
 /** Тренировка: ровно тридцать карточек. */
-export function practiceTasks(code: string): SeedTask[] {
-  const families = FAMILIES[code];
+export function practiceTasks(code: string, programId: string | null = null): SeedTask[] {
+  const { families, seed } = familiesFor(code, programId);
   if (!families) return [];
-  return assemble(code, families, PRACTICE_SIZE);
+  return assemble(seed, families, PRACTICE_SIZE);
 }
 
 /**
  * Проверочная: те же правила, но другие числа и слова — иначе ребёнок сдаёт
  * работу по памяти, а не по умению.
  */
-export function checkTasks(code: string): SeedTask[] {
-  const families = FAMILIES[code];
+export function checkTasks(code: string, programId: string | null = null): SeedTask[] {
+  const { families, seed } = familiesFor(code, programId);
   if (!families) return [];
-  return assemble(`${code}#check`, families, CHECK_SIZE).map((t) => ({ ...t, isCheck: true }));
+  return assemble(`${seed}#check`, families, CHECK_SIZE).map((t) => ({ ...t, isCheck: true }));
 }
 
 /** Тренировка и проверочная подряд — в этом порядке они и лежат в базе. */
-export function topicTasks(code: string): SeedTask[] {
-  return [...practiceTasks(code), ...checkTasks(code)];
+export function topicTasks(code: string, programId: string | null = null): SeedTask[] {
+  return [...practiceTasks(code, programId), ...checkTasks(code, programId)];
 }
 
 /**

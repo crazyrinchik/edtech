@@ -4,13 +4,20 @@ import { useCallback, useEffect, useState } from "react";
 import { FormAction, SiteHeader } from "../components/brand";
 import { closedHead } from "../lib/seo";
 import {
-  adminContent, adminDeleteTask, adminDestructionLog, adminOverview, adminSaveTask, adminSaveTopic, adminUpdateUser,
+  adminContent, adminDeleteTask, adminDestructionLog, adminOverview, adminRegenerateTopic, adminSaveTask, adminSaveTopic, adminUpdateUser,
 } from "../lib/api/app.functions";
 import {
   adminBugReports, adminHandleBugReport, adminReplyToReport,
 } from "../lib/api/feedback.functions";
 
 const ROLE_TITLE: Record<string, string> = { parent: "Родители", tutor: "Репетиторы" };
+const KIND_TITLE: Record<string, string> = { input: "ввод ответа", choice: "выбор варианта", match: "сопоставление" };
+/** Что писать в «варианты» и «ответ» у каждого типа: формат разный, а поля одни. */
+const KIND_HINT: Record<TaskValues["kind"], { options: string; answer: string }> = {
+  input: { options: "Для ввода ответа варианты не нужны.", answer: "Что ребёнок должен напечатать. Регистр, пробелы и «ё» не важны." },
+  choice: { options: "Варианты через |, от двух до четырёх. Правильный — один из них.", answer: "В точности один из вариантов." },
+  match: { options: "Левый столбец через |: то, что сопоставляют.", answer: "Правый столбец через | в том же порядке, что и левый." },
+};
 /** Состояния счёта из payments — теми словами, какими о них думают, а не какими они лежат в базе. */
 const INVOICE_TITLE: Record<string, string> = {
   pending: "ждут ответа банка", paid: "оплачены", failed: "не прошли", refunded: "возвращены",
@@ -47,7 +54,11 @@ type BugReport = {
 };
 /** Строка журнала уничтожения ПДн — колонки в точности по п. 5 приказа РКН № 179. */
 type DestructionRow = { subject_id: string; categories: string; system_name: string; reason: string; destroyed_at: string };
-type TopicRow = { id: string; name: string; grade: number; subject_id: string; subject_name: string; summary: string | null; is_free: number; task_count: number };
+/** Тема в списке админки: из базы или тема каталога, которая заведётся при выборе (см. adminContent). */
+type TopicRow = {
+  id: string; name: string; grade: number; subject_id: string; subject_name: string; summary: string | null; is_free: number; task_count: number;
+  program: string | null; generated: boolean; materialized: boolean;
+};
 type TaskRow = { id: string; kind: string; prompt: string; payload: string; answer: string; explanation: string; is_check: number };
 
 /** Варианты для формы: в базе они лежат в payload, а правятся строкой «а|б|в». */
@@ -78,6 +89,12 @@ function AdminPage() {
   const [editingTopic, setEditingTopic] = useState<TopicRow | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  /** Ошибка сохранения задания: варианты не сходятся с ответом и т. п. Страницу не роняет. */
+  const [taskError, setTaskError] = useState<string | null>(null);
+  /** Фильтры списка тем: каталог с вариантами под программы — две сотни строк, глазами не пройти. */
+  const [filterSubject, setFilterSubject] = useState<string>("");
+  const [filterGrade, setFilterGrade] = useState<number>(0);
+  const [filterProgram, setFilterProgram] = useState<string>("");
 
   const loadContent = useCallback(async (id: string | null) => {
     setContent(await adminContent({ data: { topicId: id } }));
@@ -132,8 +149,16 @@ function AdminPage() {
     );
   }
 
-  const topics: TopicRow[] = content?.topics ?? [];
+  const allTopics: TopicRow[] = content?.topics ?? [];
+  const programNames = [...new Set(allTopics.map((t) => t.program).filter((p): p is string => !!p))].sort((a, b) => a.localeCompare(b, "ru"));
+  const topics = allTopics.filter(
+    (t) =>
+      (!filterSubject || t.subject_id === filterSubject) &&
+      (!filterGrade || t.grade === filterGrade) &&
+      (filterProgram === "" || (filterProgram === "base" ? !t.program : t.program === filterProgram)),
+  );
   const tasks: TaskRow[] = content?.tasks ?? [];
+  const currentTopic = allTopics.find((t) => t.id === topicId) ?? null;
 
   return (
     <div className="sov">
@@ -226,21 +251,47 @@ function AdminPage() {
             <div className="sov-split" style={{ alignItems: "start" }}>
               <div>
                 <h2 style={{ fontSize: "var(--sov-t-h3)", fontWeight: 600 }}>Темы</h2>
+                <p style={{ marginTop: 6, color: "var(--sov-ink-soft)", fontSize: "var(--sov-t-small)" }}>
+                  Весь каталог, включая темы, которые ещё никто не открывал, и варианты под программы
+                  со своим уровнем заданий. Тема заводится в базе при выборе, задания в ней правятся на месте.
+                </p>
+                <div className="sov-admin-filters">
+                  <select value={filterSubject} onChange={(e) => setFilterSubject(e.target.value)} aria-label="Предмет">
+                    <option value="">Все предметы</option>
+                    <option value="math">Математика</option>
+                    <option value="rus">Русский язык</option>
+                  </select>
+                  <select value={filterGrade} onChange={(e) => setFilterGrade(Number(e.target.value))} aria-label="Класс">
+                    <option value={0}>Все классы</option>
+                    {[1, 2, 3, 4].map((g) => (<option key={g} value={g}>{g} класс</option>))}
+                  </select>
+                  <select value={filterProgram} onChange={(e) => setFilterProgram(e.target.value)} aria-label="Программа">
+                    <option value="">Общие и по программам</option>
+                    <option value="base">Только общий набор</option>
+                    {programNames.map((p) => (<option key={p} value={p}>{p}</option>))}
+                  </select>
+                  <span className="sov-mono" style={{ color: "var(--sov-ink-soft)" }}>{topics.length} тем</span>
+                </div>
                 <table className="sov-table">
                   <thead><tr><th>Название</th><th>Класс</th><th>Заданий</th><th></th></tr></thead>
                   <tbody>
                     {topics.map((t) => (
-                      <tr key={t.id} style={{ cursor: "pointer", background: topicId === t.id ? "var(--sov-cobalt-soft)" : undefined }} onClick={() => { setTopicId(t.id); setEditingTask(null); void loadContent(t.id); }}>
-                        <td>{t.name} <span className="sov-mono" style={{ color: "var(--sov-ink-soft)" }}>{t.subject_name}</span></td>
-                        <td>{t.grade}</td>
-                        <td>{t.task_count}</td>
+                      <tr key={t.id} style={{ cursor: "pointer", background: topicId === t.id ? "var(--sov-cobalt-soft)" : undefined }} onClick={() => { setTopicId(t.id); setEditingTask(null); setTaskError(null); void loadContent(t.id); }}>
                         <td>
-                          <button
-                            className="sov-act-ghost"
-                            onClick={(e) => { e.stopPropagation(); setEditingTopic(t); }}
-                          >
-                            Изменить
-                          </button>
+                          {t.name} <span className="sov-mono" style={{ color: "var(--sov-ink-soft)" }}>{t.subject_name}</span>
+                          {t.program ? <span className="sov-admin-tag">уровень {t.program}</span> : null}
+                        </td>
+                        <td>{t.grade}</td>
+                        <td>{t.materialized ? t.task_count : <span className="sov-mono" style={{ color: "var(--sov-ink-soft)" }}>ещё не заведена</span>}</td>
+                        <td>
+                          {t.materialized ? (
+                            <button
+                              className="sov-act-ghost"
+                              onClick={(e) => { e.stopPropagation(); setEditingTopic(t); }}
+                            >
+                              Изменить
+                            </button>
+                          ) : null}
                         </td>
                       </tr>
                     ))}
@@ -271,15 +322,50 @@ function AdminPage() {
                 <h2 style={{ fontSize: "var(--sov-t-h3)", fontWeight: 600 }}>
                   {topicId ? "Задания темы" : "Выберите тему слева"}
                 </h2>
+                {topicId && currentTopic ? (
+                  <p style={{ marginTop: 6, color: "var(--sov-ink-soft)", fontSize: "var(--sov-t-small)" }}>
+                    {currentTopic.name}
+                    {currentTopic.program ? ` · задания уровня ${currentTopic.program}` : ""}
+                    {" · "}
+                    {tasks.filter((t) => !t.is_check).length} тренировочных, {tasks.filter((t) => t.is_check).length} в проверочной
+                  </p>
+                ) : null}
                 {topicId ? (
                   <>
+                    {/* Тема каталога сама себя не обновляет: генераторы
+                        поправили, а в базе лежит старый набор. Кнопка
+                        берёт задания заново — и стирает ручные правки,
+                        поэтому спрашивает. */}
+                    {currentTopic?.generated ? (
+                      <div style={{ marginTop: 8 }}>
+                        <button
+                          className="sov-act-ghost"
+                          disabled={pending}
+                          onClick={async () => {
+                            if (!window.confirm("Заменить все задания темы набором из генератора? Ручные правки в этой теме пропадут.")) return;
+                            setPending(true);
+                            setTaskError(null);
+                            try {
+                              await adminRegenerateTopic({ data: { topicId } });
+                              setEditingTask(null);
+                              await loadContent(topicId);
+                            } catch (e) {
+                              setTaskError(e instanceof Error ? e.message : "Не удалось обновить задания");
+                            }
+                            setPending(false);
+                          }}
+                        >
+                          Вернуть задания из генератора
+                        </button>
+                      </div>
+                    ) : null}
                     <table className="sov-table">
                       <thead><tr><th>Вопрос</th><th>Тип</th><th></th></tr></thead>
                       <tbody>
                         {tasks.map((t) => (
                           <tr key={t.id} style={{ background: editingTask?.id === t.id ? "var(--sov-cobalt-soft)" : undefined }}>
                             <td>{t.prompt}{t.is_check ? " ·  проверочная" : ""}</td>
-                            <td>{t.kind}</td>
+                            <td>{KIND_TITLE[t.kind] ?? t.kind}</td>
                             <td style={{ display: "flex", gap: 8 }}>
                               <button className="sov-act-ghost" onClick={() => setEditingTask(t)}>
                                 Изменить
@@ -302,17 +388,23 @@ function AdminPage() {
                     <h3 style={{ fontSize: "var(--sov-t-body)", fontWeight: 600, marginTop: 32 }}>
                       {editingTask ? "Правка задания" : "Новое задание"}
                     </h3>
+                    {taskError ? <div className="sov-alert" style={{ marginTop: 10 }}>{taskError}</div> : null}
                     <TaskForm
                       key={editingTask?.id ?? "new-task"}
                       task={editingTask}
                       pending={pending}
-                      onCancel={() => setEditingTask(null)}
+                      onCancel={() => { setEditingTask(null); setTaskError(null); }}
                       onSubmit={async (values) => {
                         setPending(true);
-                        await adminSaveTask({ data: { ...values, id: editingTask?.id ?? null, topicId } });
+                        setTaskError(null);
+                        try {
+                          await adminSaveTask({ data: { ...values, id: editingTask?.id ?? null, topicId } });
+                          setEditingTask(null);
+                          await loadContent(topicId);
+                        } catch (e) {
+                          setTaskError(e instanceof Error ? e.message : "Не удалось сохранить задание");
+                        }
                         setPending(false);
-                        setEditingTask(null);
-                        await loadContent(topicId);
                       }}
                     />
                   </>
@@ -584,6 +676,8 @@ function TaskForm({
   onSubmit: (values: TaskValues) => Promise<void>;
   onCancel: () => void;
 }) {
+  const [kind, setKind] = useState<TaskValues["kind"]>((task?.kind as TaskValues["kind"]) ?? "input");
+  const hint = KIND_HINT[kind];
   return (
     <form
       className="sov-form ym-hide-content ym-disable-keys"
@@ -603,7 +697,7 @@ function TaskForm({
     >
       <div className="sov-field">
         <label htmlFor="kind">Тип</label>
-        <select id="kind" name="kind" defaultValue={task?.kind ?? "input"}>
+        <select id="kind" name="kind" value={kind} onChange={(e) => setKind(e.target.value as TaskValues["kind"])}>
           <option value="input">Ввод ответа</option>
           <option value="choice">Выбор варианта</option>
           <option value="match">Сопоставление</option>
@@ -615,12 +709,13 @@ function TaskForm({
       </div>
       <div className="sov-field">
         <label htmlFor="options">Варианты через вертикальную черту</label>
-        <input id="options" name="options" placeholder="5|7|9" defaultValue={task ? optionsOf(task) : ""} />
-        <span className="sov-field__hint">Заполняется для выбора и сопоставления.</span>
+        <input id="options" name="options" placeholder={kind === "match" ? "кот|дом|лес" : "5|7|9"} defaultValue={task ? optionsOf(task) : ""} disabled={kind === "input"} />
+        <span className="sov-field__hint">{hint.options}</span>
       </div>
       <div className="sov-field">
         <label htmlFor="answer">Правильный ответ</label>
-        <input id="answer" name="answer" defaultValue={task?.answer ?? ""} required />
+        <input id="answer" name="answer" placeholder={kind === "match" ? "животное|жилище|деревья" : ""} defaultValue={task?.answer ?? ""} required />
+        <span className="sov-field__hint">{hint.answer}</span>
       </div>
       <div className="sov-field">
         <label htmlFor="explanation">Объяснение при ошибке</label>

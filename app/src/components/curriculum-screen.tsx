@@ -90,17 +90,18 @@ export function CurriculumScreen({ audience }: { audience: Audience }) {
     else localStorage.removeItem(PROGRAM_KEY);
   }
 
-  async function toggleTopic(code: string) {
-    if (openTopic === code) {
+  /** id — общая тема или её вариант под программу («код@программа»). */
+  async function toggleTopic(id: string) {
+    if (openTopic === id) {
       setOpenTopic(null);
       setTasks(null);
       return;
     }
-    setOpenTopic(code);
+    setOpenTopic(id);
     setTasks(null);
     setError(null);
     try {
-      setTasks(await topicTasks({ data: { topicId: code } }));
+      setTasks(await topicTasks({ data: { topicId: id } }));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Не удалось открыть задания");
     }
@@ -122,9 +123,10 @@ export function CurriculumScreen({ audience }: { audience: Audience }) {
         <p
           style={{ marginTop: 12, color: "var(--sov-ink-soft)", fontWeight: 500, maxWidth: "62ch" }}
         >
-          Выберите класс, а при желании и программу школы: набор тем в классе один и тот же для всех
-          учебников, программа меняет порядок и названия. На каждую тему готовы 30 тренировочных
-          заданий и проверочная.
+          Выберите класс, а при желании и программу школы. Набор тем в классе задан стандартом и
+          один для всех учебников, а программа меняет порядок, названия и уровень заданий: там, где
+          учебник идёт вперёд или говорит на своём языке, у темы свой набор. На каждую тему готовы
+          30 тренировочных заданий и проверочная.
         </p>
 
         <section className="sov-course">
@@ -220,10 +222,24 @@ export function CurriculumScreen({ audience }: { audience: Audience }) {
                     общего списка.
                   </p>
                 ) : null}
+                {/* Сколько тем идёт со своим уровнем. Ноль — тоже ответ:
+                    Школа России и есть базовый темп, по которому написан
+                    общий набор, и выдавать его за особый нельзя. */}
+                {subject.fromProgram && data.program ? (
+                  <p className="sov-quest__note">
+                    {subject.topics.filter((t) => t.own).length
+                      ? `${subject.topics.filter((t) => t.own).length} ${plural(subject.topics.filter((t) => t.own).length, "тема", "темы", "тем")} со своим уровнем заданий под ${data.program.short}, остальные — общий набор.`
+                      : `${data.program.short} идёт базовым темпом: задания общие.`}
+                  </p>
+                ) : null}
 
                 <div className="sov-prog">
                   {subject.topics.map((topic, index) => (
-                    <article key={topic.code} className="sov-prog__item" data-locked={topic.locked}>
+                    <article
+                      key={topic.topicId}
+                      className="sov-prog__item"
+                      data-locked={topic.locked}
+                    >
                       <div className="sov-prog__head">
                         <div className="sov-prog__title">
                           <strong>
@@ -235,6 +251,11 @@ export function CurriculumScreen({ audience }: { audience: Audience }) {
                             {topic.hours ? ` · ${topic.hours} ч в школе` : ""}
                             {topic.free ? " · открыта всем" : ""}
                           </span>
+                          {topic.own && data.program ? (
+                            <span className="sov-prog__own">
+                              Задания уровня {data.program.short}
+                            </span>
+                          ) : null}
                           {/* Как эта тема называется в выбранном учебнике.
                               Каталог и программа — разные вещи: тема здесь
                               одна и содержит задания, а учебник разбивает
@@ -262,9 +283,9 @@ export function CurriculumScreen({ audience }: { audience: Audience }) {
                           <button
                             type="button"
                             className="sov-act-ghost"
-                            onClick={() => toggleTopic(topic.code)}
+                            onClick={() => toggleTopic(topic.topicId)}
                           >
-                            {openTopic === topic.code ? "Свернуть" : "Задания"}
+                            {openTopic === topic.topicId ? "Свернуть" : "Задания"}
                           </button>
                           {/* «Задать» — то, ради чего сюда пришли, и в паре
                               одинаковых тихих плашек оно терялось. Обводка
@@ -275,7 +296,9 @@ export function CurriculumScreen({ audience }: { audience: Audience }) {
                           <button
                             type="button"
                             className="sov-act-quiet sov-prog__assign"
-                            onClick={() => setAssignTo(assignTo === topic.code ? null : topic.code)}
+                            onClick={() =>
+                              setAssignTo(assignTo === topic.topicId ? null : topic.topicId)
+                            }
                             disabled={data.students.length === 0 || topic.locked}
                             title={
                               topic.locked
@@ -288,17 +311,17 @@ export function CurriculumScreen({ audience }: { audience: Audience }) {
                         </div>
                       </div>
 
-                      {assignTo === topic.code ? (
+                      {assignTo === topic.topicId ? (
                         <AssignPanel
-                          topicId={topic.code}
+                          topicId={topic.topicId}
                           students={data.students}
                           words={words}
                           onDone={() => setAssignTo(null)}
                         />
                       ) : null}
 
-                      {openTopic === topic.code ? (
-                        tasks && tasks.topic.id === topic.code ? (
+                      {openTopic === topic.topicId ? (
+                        tasks && tasks.topic.id === topic.topicId ? (
                           <ol className="sov-tasks">
                             {tasks.tasks.map((task) => (
                               <li key={task.id} data-check={task.check}>

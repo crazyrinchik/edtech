@@ -9,7 +9,11 @@
  * в разных местах года и под разными названиями.
  *
  * Тем от выбора программы не становится больше и меньше: набор задан ФОП НОО,
- * программа меняет только порядок и названия.
+ * программа меняет порядок и названия. А вот уровень заданий внутри темы
+ * у программ разный (practice.programs.ts), поэтому тема под программу
+ * живёт в базе отдельной строкой с id вида «код@программа» — см.
+ * variantTopicId. Все функции ниже принимают и такой id: каталожная
+ * часть у варианта та же.
  *
  * Разбор отличий (DELTAS в curriculum.data) экран больше не показывает:
  * репетитор приходит сюда за списком тем и кнопкой «задать», а не за
@@ -111,8 +115,37 @@ export function programSubjects(programId: string | null): SubjectId[] {
   return program.subjects;
 }
 
-export function topicByCode(code: string) {
+/* ------------------------------------------------- варианты под программу */
+
+/** Тема под уровень программы: своя строка в базе, свои задания, тот же код каталога. */
+export function variantTopicId(code: string, programId: string): string {
+  return `${code}@${programId}`;
+}
+
+/** «m2.ar.muldiv@peterson» → код каталога и программа; у общей темы программа пустая. */
+export function splitTopicId(id: string): { code: string; programId: string | null } {
+  const at = id.indexOf("@");
+  if (at < 0) return { code: id, programId: null };
+  return { code: id.slice(0, at), programId: id.slice(at + 1) };
+}
+
+export function isVariantTopicId(id: string): boolean {
+  return id.includes("@");
+}
+
+/** Тема каталога по коду или по id варианта; сид и свои темы админки — null. */
+export function topicByCode(id: string) {
+  const { code } = splitTopicId(id);
   return CATALOG.find((t) => t.code === code) ?? null;
+}
+
+/** Как тема называется в базе: вариант несёт имя программы, чтобы в отчётах не путаться. */
+export function topicDbName(id: string): string | null {
+  const topic = topicByCode(id);
+  if (!topic) return null;
+  const { programId } = splitTopicId(id);
+  const program = programById(programId);
+  return program ? `${topic.title} · ${program.short}` : topic.title;
 }
 
 /**
@@ -120,13 +153,14 @@ export function topicByCode(code: string) {
  * подписки должен увидеть, из чего состоят задания, но не получить всю
  * программу целиком.
  */
-export function isFreeTopic(code: string): boolean {
-  const topic = topicByCode(code);
+export function isFreeTopic(id: string): boolean {
+  const topic = topicByCode(id);
   if (!topic) return false;
-  return catalogSlice(topic.subject, topic.grade)[0]?.code === code;
+  return catalogSlice(topic.subject, topic.grade)[0]?.code === topic.code;
 }
 
 /** Порядковый номер темы в каталоге — им же сортируются строки в базе. */
-export function catalogIndex(code: string): number {
+export function catalogIndex(id: string): number {
+  const { code } = splitTopicId(id);
   return CATALOG.findIndex((t) => t.code === code);
 }

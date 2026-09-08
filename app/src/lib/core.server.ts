@@ -3,7 +3,13 @@ import { getCookie, getRequest, setCookie } from "@tanstack/react-start/server";
 import type { D1Database } from "@cloudflare/workers-types";
 
 import { bindings } from "./bindings.server";
-import { catalogIndex, isFreeTopic, topicByCode } from "./content/curriculum";
+import {
+  catalogIndex,
+  isFreeTopic,
+  splitTopicId,
+  topicByCode,
+  topicDbName,
+} from "./content/curriculum";
 import { topicTasks as catalogTasks } from "./content/practice";
 import { SEED_SUBJECTS, SEED_TOPICS } from "./content/seed";
 import { createPgGateway } from "./pg-gateway.server";
@@ -468,17 +474,21 @@ export async function ensureSeeded(): Promise<void> {
  *
  * Живёт здесь, а не в кабинете репетитора: тему открывает и ребёнок без
  * педагога, когда идёт по карте своего класса.
+ *
+ * Принимает и id варианта под программу («код@программа»): строка темы
+ * тогда своя, с именем программы, а задания — из генераторов её уровня.
+ * Однажды заведённые задания генератор больше не трогает: их правит
+ * администратор, и его правки переживают выкладки.
  */
-export async function materializeTopic(code: string): Promise<void> {
-  const topic = topicByCode(code);
+export async function materializeTopic(id: string): Promise<void> {
+  const topic = topicByCode(id);
   if (!topic) throw new Error("Тема не найдена");
   const existing = await db()
     .prepare("SELECT id FROM topics WHERE id = ?")
-    .bind(code)
+    .bind(id)
     .first<{ id: string }>();
   if (existing) return;
 
-  const tasks = catalogTasks(code);
   await db().batch([
     db()
       .prepare(
@@ -486,34 +496,55 @@ export async function materializeTopic(code: string): Promise<void> {
          VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
       )
       .bind(
-        code,
+        id,
         topic.subject,
         topic.grade,
         // Сид ложится в начало дорожки, каталог — следом за ним.
-        1000 + catalogIndex(code),
-        topic.title,
+        1000 + catalogIndex(id),
+        topicDbName(id) ?? topic.title,
         topic.hours ? `${topic.hours} ч по федеральной рабочей программе` : null,
-        isFreeTopic(code) ? 1 : 0,
+        isFreeTopic(id) ? 1 : 0,
       ),
-    ...tasks.map((task, index) =>
-      db()
-        .prepare(
-          `INSERT INTO tasks (id, topic_id, kind, sort_order, prompt, payload, answer, explanation, is_check)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
-        )
-        .bind(
-          `${code}#${index}`,
-          code,
-          task.kind,
-          index,
-          task.prompt,
-          JSON.stringify(task.payload),
-          task.answer,
-          task.explanation,
-          task.isCheck ? 1 : 0,
-        ),
-    ),
+    ...generatedTaskInserts(id),
   ]);
+}
+
+/**
+ * Вернуть теме задания из генератора.
+ *
+ * Нужно администратору, когда генераторы поправили, а тема уже лежит в
+ * базе со старым набором: сама по себе она не обновится. Ручные правки
+ * при этом пропадают — об этом админка предупреждает. Id заданий те же
+ * («код#номер»), поэтому попытки ученика не повисают в воздухе.
+ */
+export async function regenerateTopic(id: string): Promise<number> {
+  if (!topicByCode(id)) throw new Error("Задания из генератора есть только у тем каталога");
+  await materializeTopic(id);
+  const inserts = generatedTaskInserts(id);
+  await db().batch([db().prepare("DELETE FROM tasks WHERE topic_id = ?").bind(id), ...inserts]);
+  return inserts.length;
+}
+
+function generatedTaskInserts(id: string) {
+  const { code, programId } = splitTopicId(id);
+  return catalogTasks(code, programId).map((task, index) =>
+    db()
+      .prepare(
+        `INSERT INTO tasks (id, topic_id, kind, sort_order, prompt, payload, answer, explanation, is_check)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
+      )
+      .bind(
+        `${id}#${index}`,
+        id,
+        task.kind,
+        index,
+        task.prompt,
+        JSON.stringify(task.payload),
+        task.answer,
+        task.explanation,
+        task.isCheck ? 1 : 0,
+      ),
+  );
 }
 
 /** Ответ сравнивается мягко: регистр, пробелы и «ё» не должны валить ребёнка. */
