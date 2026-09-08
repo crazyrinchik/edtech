@@ -533,9 +533,15 @@ function TopicForm({
       </div>
       <div className="sov-field">
         <label htmlFor="tgrade">Класс</label>
+        {/* Все четыре класса начальной школы: каталог и валидатор
+            adminSaveTopic принимают 1–4, а список здесь застрял на двух
+            классах сида — тему третьего или четвёртого нельзя было ни
+            завести, ни перенести. */}
         <select id="tgrade" name="grade" defaultValue={String(topic?.grade ?? 1)}>
           <option value="1">1</option>
           <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
         </select>
       </div>
       <div className="sov-field">
