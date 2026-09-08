@@ -2200,6 +2200,21 @@ a.sov-level:active .sov-level__num {
   color: var(--sov-warn);
 }
 
+/* ── взрослая сноска под результатом тренажёра ──────────────────── */
+.sov-bridge {
+  margin-top: 18px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--sov-ink-soft);
+}
+.sov-bridge a {
+  color: inherit;
+  text-underline-offset: 3px;
+}
+.sov-bridge a:hover {
+  color: var(--sov-cobalt);
+}
+
 /* ── тропа занятия: пройденные вопросы ──────────────────────────── */
 .sov-track {
   position: relative;

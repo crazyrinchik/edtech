@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { ChildAction, Owl, Wordmark } from "../components/brand";
 import { AutoSpeakToggle, SpeakButton, useAutoSpeak } from "../components/speak";
+import { ParentBridge } from "../components/trainers";
 import { demoAnswer, demoFinished, demoLesson } from "../lib/api/app.functions";
 import { reachGoal } from "../lib/metrika";
 import { pageHead } from "../lib/seo";
@@ -164,6 +165,8 @@ function DemoPage() {
                 Пройти ещё раз
               </button>
             </div>
+
+            <ParentBridge />
           </div>
         </div>
       </div>

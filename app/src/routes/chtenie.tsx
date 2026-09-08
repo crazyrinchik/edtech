@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { ChildAction, Owl, SiteFooter } from "../components/brand";
 import { SpeakButton } from "../components/speak";
-import { TrainerTop } from "../components/trainers";
+import { ParentBridge, TrainerTop } from "../components/trainers";
 import { me, readingResult, readingTexts } from "../lib/api/app.functions";
 import { drillSearch, pickNumber } from "../lib/drill-search";
 import { pageHead } from "../lib/seo";
@@ -349,6 +349,8 @@ function ReadingPage() {
                 </button>
               ) : null}
             </div>
+
+            {!signedIn ? <ParentBridge /> : null}
           </div>
         </div>
       </div>

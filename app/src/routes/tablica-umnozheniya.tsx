@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { ChildAction, Owl, SiteFooter } from "../components/brand";
 import { SpeakButton } from "../components/speak";
-import { TrainerTop } from "../components/trainers";
+import { ParentBridge, TrainerTop } from "../components/trainers";
 import { me, saveTableDrill } from "../lib/api/app.functions";
 import { drillSearch, pickMany, pickNumber, pickOne } from "../lib/drill-search";
 import { useEnterAction } from "../lib/keys";
@@ -363,6 +363,8 @@ function TablePage() {
                 </button>
               ) : null}
             </div>
+
+            {!signedIn ? <ParentBridge /> : null}
           </div>
         </div>
       </div>

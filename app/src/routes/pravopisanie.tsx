@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 
 import { ChildAction, Owl, SiteFooter } from "../components/brand";
-import { TrainerTop } from "../components/trainers";
+import { ParentBridge, TrainerTop } from "../components/trainers";
 import { me, saveSpellingDrill } from "../lib/api/app.functions";
 import { drillSearch, pickMany, pickNumber } from "../lib/drill-search";
 import { useEnterAction } from "../lib/keys";
@@ -371,6 +371,8 @@ function SpellingPage() {
                 </button>
               ) : null}
             </div>
+
+            {!signedIn ? <ParentBridge /> : null}
           </div>
         </div>
       </div>

@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { ChildAction, Owl, SiteFooter } from "../components/brand";
-import { TrainerTop } from "../components/trainers";
+import { ParentBridge, TrainerTop } from "../components/trainers";
 import { me, saveShulteDrill } from "../lib/api/app.functions";
 import { drillSearch, pickNumber } from "../lib/drill-search";
 import { pageHead } from "../lib/seo";
@@ -157,6 +157,8 @@ function ShultePage() {
                   Другой размер
                 </button>
               </div>
+
+              {saved === false ? <ParentBridge /> : null}
             </div>
           ) : (
             <>

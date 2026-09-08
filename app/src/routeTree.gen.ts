@@ -16,6 +16,7 @@ import { Route as TablicaUmnozheniyaRouteImport } from './routes/tablica-umnozhe
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as ShulteRouteImport } from './routes/shulte'
 import { Route as SchetRouteImport } from './routes/schet'
+import { Route as RoditelyamRouteImport } from './routes/roditelyam'
 import { Route as RoditelRouteImport } from './routes/roditel'
 import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as RegistraciyaRouteImport } from './routes/registraciya'
@@ -73,6 +74,11 @@ const ShulteRoute = ShulteRouteImport.update({
 const SchetRoute = SchetRouteImport.update({
   id: '/schet',
   path: '/schet',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RoditelyamRoute = RoditelyamRouteImport.update({
+  id: '/roditelyam',
+  path: '/roditelyam',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RoditelRoute = RoditelRouteImport.update({
@@ -207,6 +213,7 @@ export interface FileRoutesByFullPath {
   '/registraciya': typeof RegistraciyaRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/roditel': typeof RoditelRoute
+  '/roditelyam': typeof RoditelyamRoute
   '/schet': typeof SchetRoute
   '/shulte': typeof ShulteRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -239,6 +246,7 @@ export interface FileRoutesByTo {
   '/registraciya': typeof RegistraciyaRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/roditel': typeof RoditelRoute
+  '/roditelyam': typeof RoditelyamRoute
   '/schet': typeof SchetRoute
   '/shulte': typeof ShulteRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -272,6 +280,7 @@ export interface FileRoutesById {
   '/registraciya': typeof RegistraciyaRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/roditel': typeof RoditelRoute
+  '/roditelyam': typeof RoditelyamRoute
   '/schet': typeof SchetRoute
   '/shulte': typeof ShulteRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -306,6 +315,7 @@ export interface FileRouteTypes {
     | '/registraciya'
     | '/robots.txt'
     | '/roditel'
+    | '/roditelyam'
     | '/schet'
     | '/shulte'
     | '/sitemap.xml'
@@ -338,6 +348,7 @@ export interface FileRouteTypes {
     | '/registraciya'
     | '/robots.txt'
     | '/roditel'
+    | '/roditelyam'
     | '/schet'
     | '/shulte'
     | '/sitemap.xml'
@@ -370,6 +381,7 @@ export interface FileRouteTypes {
     | '/registraciya'
     | '/robots.txt'
     | '/roditel'
+    | '/roditelyam'
     | '/schet'
     | '/shulte'
     | '/sitemap.xml'
@@ -403,6 +415,7 @@ export interface RootRouteChildren {
   RegistraciyaRoute: typeof RegistraciyaRoute
   RobotsDottxtRoute: typeof RobotsDottxtRoute
   RoditelRoute: typeof RoditelRoute
+  RoditelyamRoute: typeof RoditelyamRoute
   SchetRoute: typeof SchetRoute
   ShulteRoute: typeof ShulteRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
@@ -469,6 +482,13 @@ declare module '@tanstack/react-router' {
       path: '/schet'
       fullPath: '/schet'
       preLoaderRoute: typeof SchetRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/roditelyam': {
+      id: '/roditelyam'
+      path: '/roditelyam'
+      fullPath: '/roditelyam'
+      preLoaderRoute: typeof RoditelyamRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/roditel': {
@@ -651,6 +671,7 @@ const rootRouteChildren: RootRouteChildren = {
   RegistraciyaRoute: RegistraciyaRoute,
   RobotsDottxtRoute: RobotsDottxtRoute,
   RoditelRoute: RoditelRoute,
+  RoditelyamRoute: RoditelyamRoute,
   SchetRoute: SchetRoute,
   ShulteRoute: ShulteRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
