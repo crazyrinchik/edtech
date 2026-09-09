@@ -22,6 +22,7 @@ import {
 } from "../components/figures";
 import { HomeworkDesk, type HomeworkCard } from "../components/homework-desk";
 import { PayForm } from "../components/pay-form";
+import { PromoBanner } from "../components/promo-banner";
 import {
   addChild,
   cancelSubscription,
@@ -147,6 +148,9 @@ function ParentPage() {
   const [tab, setTab] = useState<TabId>(tabFromUrl ?? "progress");
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  // Код акции с баннера: вкладка «Подписка» открывается с ним, и форма
+  // оплаты применяет его сама.
+  const [promo, setPromo] = useState<string | undefined>(undefined);
 
   /* Место занято: подписки нет, а профиль уже заведён. Считается по
      тому же account, который и так пришёл, — лишнего запроса не нужно. */
@@ -265,8 +269,29 @@ function ParentPage() {
           </div>
         ) : null}
 
+        {/* Разовая акция для тех, кто был зарегистрирован к её запуску —
+            та же плашка, что у репетитора на /repetitor. Стоит над
+            профилями и вкладками: живёт один день и должна читаться первой.
+            Показывается и без профиля ребёнка: платит родитель, а не
+            профиль. */}
+        <PromoBanner
+          onPay={(code) => {
+            setPromo(code);
+            setTab("billing");
+          }}
+        />
+
         {!report ? (
           <>
+            {/* Вкладки, а с ними и «Подписка», появляются только с профилем
+                ребёнка. Нажавший «Оплатить со скидкой» до того, как завёл
+                профиль, должен всё же увидеть форму, а не пустоту. */}
+            {promo ? (
+              <section style={{ marginTop: 24, maxWidth: 520 }}>
+                <h2 style={{ fontSize: "var(--sov-t-h3)", fontWeight: 600 }}>Подписка</h2>
+                <PayForm onDone={load} promo={promo} />
+              </section>
+            ) : null}
             <AddChildForm onAdded={load} limited={childLimitReached} />
             {/* Без этого блока родитель, удаливший единственный профиль,
                 не смог бы отозвать согласие целиком: вкладка настроек
@@ -482,7 +507,7 @@ function ParentPage() {
                   <>
                     {/* Продлить можно, не дожидаясь конца срока: остаток
                         оплаченного периода прибавляется к новому. */}
-                    <PayForm onDone={load} />
+                    <PayForm onDone={load} promo={promo} />
                     <button
                       className="sov-act-ghost"
                       style={{ marginTop: 28 }}
@@ -497,7 +522,7 @@ function ParentPage() {
                   </>
                 ) : (
                   <>
-                    <PayForm onDone={load} />
+                    <PayForm onDone={load} promo={promo} />
                     <form
                       className="sov-form ym-hide-content ym-disable-keys"
                       style={{ marginTop: 34 }}

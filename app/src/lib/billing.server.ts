@@ -10,6 +10,7 @@
 
 import { db, nowIso, track, uid } from "./core.server";
 import { planById, type PlanId } from "./billing";
+import { recordPaymentPromo, settlePaymentPromo } from "./promo.server";
 
 export type PaymentRow = {
   id: string;
@@ -22,25 +23,43 @@ export type PaymentRow = {
   paid_at: string | null;
 };
 
-/** Заводит счёт в состоянии pending — до вебхука он ничего не открывает. */
+/**
+ * Заводит счёт в состоянии pending — до вебхука он ничего не открывает.
+ *
+ * Скидка по промокоду приходит уже проверенной (promoDiscount в
+ * promo.server.ts) и ложится в сумму счёта: в кассу и в чек уходит то,
+ * что человек на самом деле платит. Полная цена и размер скидки остаются
+ * рядом в payment_promo — для отчёта и чтобы вебхук погасил предложение.
+ */
 export async function createPayment(input: {
   userId: string;
   plan: PlanId;
   email: string;
+  promo?: { code: string; amount: number; discount: number } | null;
 }): Promise<{ id: string; amount: number; description: string }> {
   const plan = planById(input.plan);
   if (!plan) throw new Error("Неизвестный тариф");
 
+  const amount = input.promo ? input.promo.amount : plan.amount;
   const id = uid("pay");
   await db()
     .prepare(
       `INSERT INTO payments (id, user_id, plan, months, amount, currency, status, email, created_at)
        VALUES (?, ?, ?, ?, ?, 'RUB', 'pending', ?, ?)`,
     )
-    .bind(id, input.userId, plan.id, plan.months, plan.amount, input.email, nowIso())
+    .bind(id, input.userId, plan.id, plan.months, amount, input.email, nowIso())
     .run();
+  if (input.promo) {
+    await recordPaymentPromo({
+      paymentId: id,
+      userId: input.userId,
+      code: input.promo.code,
+      fullAmount: plan.amount,
+      discount: input.promo.discount,
+    });
+  }
 
-  return { id, amount: plan.amount, description: plan.receipt };
+  return { id, amount, description: plan.receipt };
 }
 
 export async function paymentById(id: string): Promise<PaymentRow | null> {
@@ -84,9 +103,10 @@ export async function applyPaidPayment(
     .run();
 
   const until = await extendSubscription(payment.user_id, payment.plan, payment.months);
+  const promo = await settlePaymentPromo(payment.id);
   await track("subscription_paid", {
     userId: payment.user_id,
-    props: { plan: payment.plan, amount: payment.amount, paymentId: payment.id },
+    props: { plan: payment.plan, amount: payment.amount, paymentId: payment.id, promo },
   });
   return { until };
 }

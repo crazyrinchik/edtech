@@ -6041,3 +6041,154 @@ button.sov-risks__state:hover {
   color: var(--sov-cobalt, inherit);
   white-space: nowrap;
 }
+
+/* ---------------------------------------------------- акция SOVENOK50
+
+   Единственная тёмная плашка в кабинете — и это намеренно. Остальные
+   подсказки (.sov-save-hint) светлые и живут в кабинете постоянно, а эта
+   появляется на один день и должна читаться первой, не споря с ними за
+   внимание одним и тем же тоном. Кобальт — свой, не «акционный» красный:
+   продукт детский, и кричать в нём не принято. */
+.sov-promo {
+  position: relative;
+  margin-top: 22px;
+  border-radius: var(--sov-radius-feature);
+  padding: 22px 56px 22px 24px;
+  background: var(--sov-cobalt);
+  color: #fff;
+  display: grid;
+  gap: 8px;
+}
+.sov-promo__eyebrow {
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #c9d7ff;
+}
+.sov-promo__title {
+  font-size: 1.45rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+.sov-promo__text {
+  font-size: 0.95rem;
+  line-height: 1.55;
+  max-width: 62ch;
+  color: #e6ecff;
+}
+.sov-promo__code {
+  font-family: var(--sov-mono);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: var(--sov-radius-input);
+  padding: 2px 8px;
+  color: #fff;
+  user-select: all;
+  white-space: nowrap;
+}
+.sov-promo__price {
+  white-space: nowrap;
+}
+.sov-promo__price b {
+  color: #fff;
+}
+.sov-promo__price s {
+  color: #b7c6ff;
+  font-size: 0.88em;
+}
+.sov-promo__act {
+  margin-top: 8px;
+}
+.sov-promo__act .sov-act-child {
+  background: #fff;
+  color: var(--sov-cobalt);
+  font-size: 1rem;
+  padding: 13px 26px;
+  min-height: 48px;
+}
+.sov-promo__act .sov-act-child:hover:not(:disabled),
+.sov-promo__act .sov-act-child:active:not(:disabled) {
+  background: var(--sov-cobalt-soft);
+  color: var(--sov-cobalt-deep);
+}
+.sov-promo__close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: var(--sov-radius-pill);
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.sov-promo__close:hover {
+  background: rgba(255, 255, 255, 0.26);
+}
+@media (max-width: 560px) {
+  .sov-promo {
+    padding: 20px 20px 20px;
+  }
+  .sov-promo__close {
+    top: 10px;
+    right: 10px;
+  }
+  .sov-promo__act .sov-act-child {
+    width: 100%;
+  }
+}
+
+/* Промокод в форме оплаты: ссылка → поле с кнопкой → зелёная плашка. */
+.sov-link {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  color: var(--sov-cobalt);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.sov-link:hover {
+  color: var(--sov-cobalt-deep);
+}
+.sov-promo-toggle {
+  margin-top: 14px;
+  font-size: var(--sov-t-cap);
+}
+.sov-promo-field__row {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+}
+.sov-promo-field__row input {
+  flex: 1;
+  min-width: 0;
+  text-transform: uppercase;
+  font-family: var(--sov-mono);
+  letter-spacing: 0.06em;
+}
+.sov-promo-field__row .sov-act-ghost {
+  flex: none;
+}
+.sov-promo-error {
+  color: var(--sov-bad);
+}
+.sov-promo-applied {
+  margin-top: 16px;
+}
+/* Старая цена рядом с новой: мельче и серым, чтобы не спорила с той, что
+   платят. */
+.sov-tariff__was {
+  margin-left: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--sov-ink-soft);
+}

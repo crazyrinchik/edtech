@@ -51,6 +51,7 @@ import {
   uid,
 } from "../core.server";
 import { FREE_CHILD_LIMIT } from "../billing";
+import { PROMO_CODE } from "../promo";
 import {
   DESTRUCTION_UNCLAIMED,
   purgeChildData,
@@ -1707,6 +1708,12 @@ export const tutorRedeemPromo = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const user = await requireTutor();
     const code = data.code.trim().toUpperCase();
+    // Код акции — не «подписка бесплатно», а скидка на оплату; поле для
+    // него в форме оплаты, и человека надо туда направить, а не отвечать
+    // «такого нет» на код, который он только что прочёл на баннере.
+    if (code === PROMO_CODE) {
+      throw new Error(`${PROMO_CODE} — это скидка на оплату: введите его в форме оплаты`);
+    }
     const promo = await db()
       .prepare("SELECT code, months, used_by FROM promo_codes WHERE code = ?")
       .bind(code)

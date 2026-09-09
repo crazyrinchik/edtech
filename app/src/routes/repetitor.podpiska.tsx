@@ -15,6 +15,11 @@ import {
 
 export const Route = createFileRoute("/repetitor/podpiska")({
   head: () => closedHead("Подписка, Совёнок"),
+  // Код акции из адреса: сюда ведёт кнопка баннера в кабинете. Ключ
+  // необязательный, как и tab у /roditel, иначе роутер потребует search
+  // у каждой ссылки на подписку.
+  validateSearch: (search: Record<string, unknown>): { promo?: string } =>
+    typeof search.promo === "string" && search.promo ? { promo: search.promo } : {},
   component: TutorBillingPage,
 });
 
@@ -38,6 +43,7 @@ const DATE = new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", y
  */
 function TutorBillingPage() {
   const navigate = useNavigate();
+  const { promo } = Route.useSearch();
   const [data, setData] = useState<Data | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -97,7 +103,7 @@ function TutorBillingPage() {
                     Новый срок считается от даты окончания, а не от дня оплаты: остаток оплаченного
                     не сгорает.
                   </p>
-                  <PayForm onDone={load} />
+                  <PayForm onDone={load} promo={promo} />
                 </div>
 
                 <div className="sov-sub-quiet">
@@ -141,7 +147,7 @@ function TutorBillingPage() {
                     <li>Проверочные работы и звёзды</li>
                     <li>Зоны риска по каждой теме</li>
                   </ul>
-                  <PayForm onDone={load} />
+                  <PayForm onDone={load} promo={promo} />
                 </div>
 
                 <div className="sov-sub-quiet">

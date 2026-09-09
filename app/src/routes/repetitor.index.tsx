@@ -9,6 +9,7 @@ import {
   SiteFooter,
   SiteHeader,
 } from "../components/brand";
+import { PromoBanner } from "../components/promo-banner";
 import { logout, me } from "../lib/api/app.functions";
 import { addStudent, createInvite, tutorStudents } from "../lib/api/tutor.functions";
 import { FREE_CHILD_LIMIT } from "../lib/billing";
@@ -149,6 +150,16 @@ function TutorPage() {
           </div>
         ) : null}
 
+        {/* Разовая акция для тех, кто был зарегистрирован к её запуску.
+            Выше плашки о подписке: та живёт здесь всегда, а эта — один
+            день, и читаться должна первой. Кнопка уводит на страницу
+            подписки с кодом в адресе — форма оплаты применит его сама. */}
+        {data ? (
+          <PromoBanner
+            onPay={(code) => navigate({ to: "/repetitor/podpiska", search: { promo: code } })}
+          />
+        ) : null}
+
         {/* Одна плашка на два случая, а не две подряд.
 
             Пока ученик один, подписка ограничивает только темы, и текст
@@ -279,8 +290,8 @@ function TutorPage() {
                         должен обнаружить пропажу ученика задним числом. */}
                     {s.autoDeleteAt ? (
                       <p className="sov-student__risk">
-                        Профиль удалится {DUE_LABEL.format(new Date(s.autoDeleteAt))}, если
-                        родитель не примет приглашение
+                        Профиль удалится {DUE_LABEL.format(new Date(s.autoDeleteAt))}, если родитель
+                        не примет приглашение
                       </p>
                     ) : null}
                   </>

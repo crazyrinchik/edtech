@@ -18,6 +18,7 @@ import { PLANS, planById } from "../billing";
 import { createPayment, markOrder, paymentById } from "../billing.server";
 import { billingReady, createOrder } from "../tbank.server";
 import { db, requireUser, track } from "../core.server";
+import { dismissPromoOffer, promoBannerFor, promoDiscount, verifyPromo } from "../promo.server";
 
 const PLAN_IDS = PLANS.map((p) => p.id) as [string, ...string[]];
 
@@ -101,6 +102,7 @@ export const startPayment = createServerFn({ method: "POST" })
       plan: z.enum(PLAN_IDS),
       email: z.string().trim().email("Проверьте адрес: на него придёт чек"),
       offerAccepted: z.boolean(),
+      promo: z.string().trim().max(32).optional(),
     }),
   )
   .handler(async ({ data }) => {
@@ -111,8 +113,13 @@ export const startPayment = createServerFn({ method: "POST" })
     const plan = planById(data.plan);
     if (!plan) throw new Error("Неизвестный тариф");
 
+    // Код проверяется заново в момент счёта, а не только когда его ввели:
+    // между «Применить» и «Оплатить» мог кончиться день или пройти оплата
+    // из другой вкладки, и цена в кнопке уже неправда.
+    const promo = data.promo ? await promoDiscount(user, data.promo, plan.amount) : null;
+
     const email = data.email.trim().toLowerCase();
-    const payment = await createPayment({ userId: user.id, plan: plan.id, email });
+    const payment = await createPayment({ userId: user.id, plan: plan.id, email, promo });
 
     const origin = siteOrigin();
     const order = await createOrder({
@@ -129,10 +136,47 @@ export const startPayment = createServerFn({ method: "POST" })
 
     await track("subscription_payment_started", {
       userId: user.id,
-      props: { plan: plan.id, amount: payment.amount, paymentId: payment.id, offerAccepted: true },
+      props: {
+        plan: plan.id,
+        amount: payment.amount,
+        paymentId: payment.id,
+        offerAccepted: true,
+        promo: promo?.code ?? null,
+      },
     });
 
     return { url: order.url, paymentId: payment.id };
+  });
+
+/* ------------------------------------------------------ акция SOVENOK50 */
+
+/**
+ * Баннер для кабинета: есть ли у этого человека предложение и до какого
+ * часа. Первый вызов заводит предложение, и с него идёт отсчёт дня.
+ */
+export const promoOffer = createServerFn({ method: "GET" }).handler(async () => {
+  const user = await requirePayer();
+  return await promoBannerFor(user);
+});
+
+export const dismissPromo = createServerFn({ method: "POST" }).handler(async () => {
+  const user = await requirePayer();
+  await dismissPromoOffer(user.id);
+  return { ok: true };
+});
+
+/**
+ * Проверка кода из формы оплаты. Возвращает срок и процент — цену со
+ * скидкой форма считает сама той же функцией, что и сервер
+ * (discountedAmount в promo.ts).
+ */
+export const checkPromo = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ code: z.string().trim().min(1).max(32) }))
+  .handler(async ({ data }) => {
+    const user = await requirePayer();
+    const offer = await verifyPromo(user, data.code);
+    await track("promo_applied", { userId: user.id, props: { code: offer.code } });
+    return offer;
   });
 
 /**
