@@ -29,7 +29,7 @@ export const PLANS: Plan[] = [
   {
     id: "month",
     title: "Месяц",
-    amount: 999,
+    amount: 399,
     months: 1,
     receipt: "Подписка «Совёнок» на 1 месяц",
     note: null,
@@ -37,7 +37,7 @@ export const PLANS: Plan[] = [
   {
     id: "year",
     title: "Год",
-    amount: 9990,
+    amount: 3999,
     months: 12,
     receipt: "Подписка «Совёнок» на 12 месяцев",
     note: "Два месяца в подарок",
@@ -69,7 +69,7 @@ export function planById(id: string): Plan | undefined {
 export const FREE_CHILD_LIMIT = 1;
 
 /**
- * «9 990 ₽» — неразрывные пробелы и в разряде, и перед знаком рубля: цена
+ * «3 999 ₽» — неразрывные пробелы и в разряде, и перед знаком рубля: цена
  * не должна разрываться переносом строки ни в одном месте.
  *
  * Пробел записан escape-последовательностью, а не самим символом: в
