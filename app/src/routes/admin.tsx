@@ -35,7 +35,8 @@ type Overview = {
   invoices: { status: string; n: number }[];
   hard: { topic: string; percent: number }[];
   popular: { topic: string; lessons: number }[];
-  usersList: { id: string; email: string; name: string | null; role: string; subscription_status: string; blocked: number }[];
+  usersList: { id: string; email: string; name: string | null; role: string; subscription_status: string; blocked: number; utm_campaign: string | null }[];
+  campaigns: { campaign: string; signups: number; paid: number }[];
 };
 type Content = { topics: TopicRow[]; tasks: TaskRow[] };
 /** Обращение из кнопки «Сообщить об ошибке» (см. lib/api/feedback.functions.ts). */
@@ -243,6 +244,24 @@ function AdminPage() {
                 </table>
               </div>
             </div>
+
+            {/* Реклама и деньги в одной таблице. В Метрике этой связки нет и
+                не будет: страница оплаты вне счётчика, а Директ видит только
+                клик и регистрацию. Метка приезжает из адреса объявления при
+                регистрации (lib/attribution.ts), поэтому строка «без метки» —
+                это поиск, закладки, приглашения и всё остальное даром. */}
+            <div style={{ marginTop: 32 }}>
+              <h2 style={{ fontSize: "var(--sov-t-h3)", fontWeight: 600 }}>Откуда пришли и кто платит</h2>
+              <table className="sov-table">
+                <thead><tr><th>Кампания</th><th>Регистраций</th><th>С подпиской</th></tr></thead>
+                <tbody>
+                  {overview.campaigns.map((c) => (
+                    <tr key={c.campaign}><td>{c.campaign}</td><td>{c.signups}</td><td>{c.paid}</td></tr>
+                  ))}
+                  {overview.campaigns.length === 0 ? <tr><td colSpan={3}>Пока никто не пришёл по метке</td></tr> : null}
+                </tbody>
+              </table>
+            </div>
           </section>
         ) : null}
 
@@ -417,13 +436,14 @@ function AdminPage() {
         {tab === "users" && overview ? (
           <section style={{ marginTop: 24 }}>
             <table className="sov-table">
-              <thead><tr><th>Почта</th><th>Роль</th><th>Подписка</th><th>Статус</th><th>Действия</th></tr></thead>
+              <thead><tr><th>Почта</th><th>Роль</th><th>Подписка</th><th>Откуда</th><th>Статус</th><th>Действия</th></tr></thead>
               <tbody>
                 {overview.usersList.map((u) => (
                   <tr key={u.id}>
                     <td>{u.email}</td>
                     <td>{u.role}</td>
                     <td>{u.subscription_status}</td>
+                    <td>{u.utm_campaign ?? "—"}</td>
                     <td>{u.blocked ? "заблокирован" : "активен"}</td>
                     <td style={{ display: "flex", gap: 8 }}>
                       <button className="sov-act-ghost" onClick={async () => {

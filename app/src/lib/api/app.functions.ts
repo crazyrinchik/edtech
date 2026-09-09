@@ -101,6 +101,8 @@ type AdminUserRow = {
   subscription_status: string;
   blocked: number;
   created_at: string;
+  /** Кампания Директа, если человек пришёл по объявлению; иначе null. */
+  utm_campaign: string | null;
 };
 
 type TaskRow = {
@@ -168,6 +170,58 @@ export type ChildRecord = {
   created_at: string;
 };
 
+/**
+ * Рекламная метка визита: что принимаем с клиента и с какими ограничениями.
+ * Клиент собирает её из адреса сам (lib/attribution.ts), но верить ему на
+ * слово нельзя: строка приходит с чужой машины и попадает в базу.
+ */
+const adSourceSchema = z.object({
+  utm_source: z.string().max(200).optional(),
+  utm_medium: z.string().max(200).optional(),
+  utm_campaign: z.string().max(200).optional(),
+  utm_content: z.string().max(200).optional(),
+  utm_term: z.string().max(200).optional(),
+  yclid: z.string().max(200).optional(),
+  landing: z.string().max(200).optional(),
+});
+
+/**
+ * Откуда пришёл этот аккаунт — строкой в отдельной таблице.
+ *
+ * Молча пропускает регистрации без метки: их большинство, и пустая строка в
+ * отчёте «по кампаниям» только мешала бы. Ошибку записи глотаем по той же
+ * причине, что и в track(): человек регистрируется, а не сдаёт отчёт по
+ * рекламе, и падать здесь нельзя.
+ */
+async function rememberSignupSource(
+  userId: string,
+  source: z.infer<typeof adSourceSchema> | null | undefined,
+): Promise<void> {
+  if (!source) return;
+  const values = [
+    source.utm_source ?? null,
+    source.utm_medium ?? null,
+    source.utm_campaign ?? null,
+    source.utm_content ?? null,
+    source.utm_term ?? null,
+    source.yclid ?? null,
+    source.landing ?? null,
+  ];
+  if (values.every((v) => v === null)) return;
+  try {
+    await db()
+      .prepare(
+        `INSERT INTO signup_source
+           (user_id, utm_source, utm_medium, utm_campaign, utm_content, utm_term, yclid, landing, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
+      )
+      .bind(userId, ...values, nowIso())
+      .run();
+  } catch {
+    /* отчёт по рекламе не стоит сломанной регистрации */
+  }
+}
+
 export const registerParent = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
@@ -177,6 +231,11 @@ export const registerParent = createServerFn({ method: "POST" })
       role: z.enum(["parent", "tutor"]).default("parent"),
       consentPd: z.boolean(),
       consentChildPd: z.boolean(),
+      // Рекламная метка визита, если человек пришёл по объявлению. Форма её
+      // не показывает и не спрашивает — она приезжает из адреса посадочной
+      // (см. lib/attribution.ts). Необязательная: регистрация из поиска,
+      // закладки или приглашения проходит ровно так же.
+      source: adSourceSchema.nullish(),
     }),
   )
   .handler(async ({ data }) => {
@@ -217,6 +276,7 @@ export const registerParent = createServerFn({ method: "POST" })
       )
       .run();
     await startSession(id);
+    await rememberSignupSource(id, data.source);
     await track("register", { userId: id, props: { role: data.role } });
     return { ok: true };
   });
@@ -1811,9 +1871,25 @@ export const adminOverview = createServerFn({ method: "GET" }).handler(async () 
 
   const usersList = await db()
     .prepare(
-      "SELECT id, email, name, role, subscription_status, blocked, created_at FROM users ORDER BY created_at DESC LIMIT 50",
+      `SELECT u.id, u.email, u.name, u.role, u.subscription_status, u.blocked, u.created_at,
+              s.utm_campaign
+         FROM users u LEFT JOIN signup_source s ON s.user_id = u.id
+        ORDER BY u.created_at DESC LIMIT 50`,
     )
     .all<AdminUserRow>();
+
+  // Сколько привела каждая кампания и сколько из приведённых платят. Это
+  // единственное место, где реклама встречается с деньгами: Метрика до
+  // оплаты не достаёт (страница оплаты вне счётчика, п. 9.3 политики), а
+  // Директ знает только клики и регистрации.
+  const campaigns = await db()
+    .prepare(
+      `SELECT s.utm_campaign AS campaign, COUNT(*) AS signups,
+              SUM(CASE WHEN u.subscription_status = 'active' THEN 1 ELSE 0 END) AS paid
+         FROM signup_source s JOIN users u ON u.id = s.user_id
+        GROUP BY s.utm_campaign ORDER BY COUNT(*) DESC LIMIT 12`,
+    )
+    .all<{ campaign: string | null; signups: number; paid: number }>();
 
   const regCount = registered?.n ?? 0;
   return {
@@ -1840,6 +1916,13 @@ export const adminOverview = createServerFn({ method: "GET" }).handler(async () 
     })),
     popular: popular.results ?? [],
     usersList: (usersList.results ?? []) as AdminUserRow[],
+    // Number по той же причине, что и у воронки выше: Postgres отдаёт
+    // COUNT и SUM строками.
+    campaigns: (campaigns.results ?? []).map((r) => ({
+      campaign: r.campaign ?? "без метки",
+      signups: Number(r.signups),
+      paid: Number(r.paid),
+    })),
   };
 });
 

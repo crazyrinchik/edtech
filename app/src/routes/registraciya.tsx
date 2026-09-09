@@ -12,6 +12,7 @@ import {
   SiteHeader,
 } from "../components/brand";
 import { addChild, registerParent, setParentPin } from "../lib/api/app.functions";
+import { currentAdSource } from "../lib/attribution";
 import { reachGoal } from "../lib/metrika";
 import { closedHead } from "../lib/seo";
 
@@ -82,6 +83,10 @@ function RegisterPage() {
           role,
           consentPd: form.get("consentPd") === "on",
           consentChildPd: role === "parent" && form.get("consentChildPd") === "on",
+          // Метка объявления, по которому человек пришёл. Её собрал корневой
+          // роут из адреса посадочной; здесь она просто едет вместе с формой
+          // и нигде на экране не показывается.
+          source: currentAdSource(),
         },
       });
       // Цель для Директа: взрослый зарегистрировался. Ставится до navigate:

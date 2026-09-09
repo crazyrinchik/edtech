@@ -18,6 +18,7 @@ import { reportHiggsfieldError } from "../lib/higgsfield-error-reporting";
 // repo by the marketplace meta API and read at BUILD time — no runtime fetch.
 // Editing it via the app settings UI rewrites this file and redeploys the app.
 import appMetaJson from "../app-meta.json";
+import { useAdSourceCapture } from "../lib/attribution";
 import { METRIKA_ID, metrikaHeadScripts, useMetrikaPageviews } from "../lib/metrika";
 import { SITE_ORIGIN } from "../lib/seo";
 
@@ -274,6 +275,10 @@ function RootComponent() {
   // Переходы внутри приложения роутер делает без перезагрузки, и сама по себе
   // Метрика их не видит: весь визит схлопнулся бы в первую страницу.
   useMetrikaPageviews();
+
+  // По той же причине здесь ловится и рекламная метка: она приходит в адресе
+  // посадочной, а регистрация случается через несколько переходов.
+  useAdSourceCapture();
 
   useEffect(() => {
     if (!__HF_DESIGN_INSPECTOR__) {
