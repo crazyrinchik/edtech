@@ -21,12 +21,20 @@ export type TrainerId = "schet" | "tablica" | "pravopisanie" | "chtenie" | "shul
  * это видно сразу. Заодно ✖️ и ✍️ на части Android рисуются в чёрно-белом
  * начертании и просто теряются на бумаге.
  */
+/*
+ * «short» — короткое имя. Полных названий пять, и в строку они не встают ни
+ * в шапке тренажёра, ни в ленте первого экрана витрины. Лежит оно здесь, а
+ * не отдельным словарём рядом с разметкой, по той же причине, по которой
+ * здесь лежит сам список: два места с короткими именами разъезжаются так же
+ * незаметно, как разъезжались шапки, пока каждый тренажёр писал свою.
+ */
 export const TRAINERS = [
   {
     id: "schet",
     to: "/schet",
     Icon: AbacusIcon,
     title: "Устный счёт",
+    short: "Счёт",
     blurb: "Примеры на время, скорость и точность",
   },
   {
@@ -34,6 +42,7 @@ export const TRAINERS = [
     to: "/tablica-umnozheniya",
     Icon: MultiplyIcon,
     title: "Таблица умножения",
+    short: "Умножение",
     blurb: "В обе стороны: умножить, разделить, найти множитель",
   },
   {
@@ -41,6 +50,7 @@ export const TRAINERS = [
     to: "/pravopisanie",
     Icon: PencilIcon,
     title: "Правописание",
+    short: "Правописание",
     blurb: "Буква в слове и правило рядом с ней",
   },
   {
@@ -48,6 +58,7 @@ export const TRAINERS = [
     to: "/chtenie",
     Icon: BookIcon,
     title: "Скорочтение",
+    short: "Скорочтение",
     blurb: "Слова по одному и вопросы по тексту",
   },
   {
@@ -55,6 +66,7 @@ export const TRAINERS = [
     to: "/shulte",
     Icon: GridIcon,
     title: "Таблица Шульте",
+    short: "Шульте",
     blurb: "Найти числа по порядку, тренируя поле зрения",
   },
 ] as const satisfies readonly {
@@ -62,6 +74,7 @@ export const TRAINERS = [
   to: string;
   Icon: (p: { size?: number }) => React.ReactElement;
   title: string;
+  short: string;
   blurb: string;
 }[];
 
@@ -106,7 +119,7 @@ export function TrainerTop({
             style={{ textDecoration: "none" }}
             aria-current={t.id === current ? "page" : undefined}
           >
-            {SHORT[t.id]}
+            {t.short}
           </Link>
         ))}
         {lessons ? (
@@ -118,15 +131,6 @@ export function TrainerTop({
     </div>
   );
 }
-
-/** Короткие подписи для шапки: полные названия в строку не помещаются. */
-const SHORT: Record<TrainerId, string> = {
-  schet: "Счёт",
-  tablica: "Умножение",
-  pravopisanie: "Правописание",
-  chtenie: "Скорочтение",
-  shulte: "Шульте",
-};
 
 /**
  * Взрослая сноска на экране результата тренажёра.
