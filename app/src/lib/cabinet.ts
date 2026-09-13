@@ -1,13 +1,85 @@
 /**
- * Слова и адреса разделов «Темы и задания» и «Тренажёры», которые зависят
- * от того, чей это кабинет — репетитора или родителя. Отдельным модулем,
- * а не в файле экрана: fast refresh требует, чтобы файл с компонентом
- * экспортировал только компоненты.
+ * Кабинет взрослого один, а ролей в нём две — и живут они на разных
+ * уровнях.
+ *
+ * Раньше кабинетов было два: /roditel со вкладками и /repetitor со списком
+ * учеников, — и половина экранов существовала в двух адресах с одинаковым
+ * содержимым. Разница на поверку оказалась маленькой, и теперь она описана
+ * данными.
+ *
+ * Учётная запись отвечает на вопрос «можно ли брать чужих детей»: это не
+ * оформление, а обязательства — пригласить законного представителя, дать
+ * ему подписать согласие, не знать его пароля. Отсюда роль tutor.
+ *
+ * А «чей это ребёнок» — свойство связи, а не записи: оно лежит в
+ * child_access.role и у одного взрослого может быть разным для разных
+ * детей. Пока на этот вопрос отвечала роль записи, репетитор со своим
+ * первоклассником был невозможен — всё, что он заводил, становилось
+ * учеником, с приглашением родителя самому себе.
  */
 
 export type Audience = "tutor" | "parent";
 
-/** Слова и адреса, которые зависят от того, чей это кабинет. */
+/** Кем взрослый приходится конкретному ребёнку. */
+export type Access = "parent" | "tutor";
+
+/** Что можно в этой учётной записи. */
+export type Caps = {
+  audience: Audience;
+  /** Дверь с кодом из четырёх цифр. Только в семье: компьютер общий. */
+  pin: boolean;
+  /** Заводить чужих детей — с приглашением их родителей. */
+  canTakeStudents: boolean;
+  /** Подпись ссылки на список: у репетитора там ученики. */
+  homeLabel: string;
+};
+
+/** Что можно с конкретным ребёнком. */
+export type LinkCaps = {
+  access: Access;
+  /** «ребёнок» или «ученик» — в именительном и дательном. */
+  who: string;
+  whoDat: string;
+  /** Личная заметка: saveStudentNote пускает только репетитора ученика. */
+  note: boolean;
+  /** Приглашение родителя кодом — только к ученику. */
+  invite: boolean;
+  /** Лимит времени, звук, удаление профиля — дело семьи. */
+  childSettings: boolean;
+};
+
+/** Админ ходит по кабинету как репетитор — так было и до общего кабинета. */
+export function capsFor(role: string | undefined): Caps {
+  const tutor = role === "tutor" || role === "admin";
+  return {
+    audience: tutor ? "tutor" : "parent",
+    pin: !tutor,
+    canTakeStudents: tutor,
+    homeLabel: tutor ? "Ученики" : "Дети",
+  };
+}
+
+export function linkCaps(access: string | undefined): LinkCaps {
+  return access === "tutor"
+    ? {
+        access: "tutor",
+        who: "ученик",
+        whoDat: "ученику",
+        note: true,
+        invite: true,
+        childSettings: false,
+      }
+    : {
+        access: "parent",
+        who: "ребёнок",
+        whoDat: "ребёнку",
+        note: false,
+        invite: false,
+        childSettings: true,
+      };
+}
+
+/** Слова разделов, которые зависят от того, чей это кабинет. */
 export const SCREEN_WORDS: Record<
   Audience,
   {
@@ -24,9 +96,9 @@ export const SCREEN_WORDS: Record<
 > = {
   tutor: {
     back: "К ученикам",
-    backTo: "/repetitor",
-    topicsTo: "/repetitor/temy",
-    drillsTo: "/repetitor/trenazhery",
+    backTo: "/kabinet",
+    topicsTo: "/kabinet/temy",
+    drillsTo: "/kabinet/trenazhery",
     whoDat: "ученику",
     pick: "Выберите учеников",
     assigned: "Задано ученикам",
@@ -37,9 +109,9 @@ export const SCREEN_WORDS: Record<
   },
   parent: {
     back: "В кабинет",
-    backTo: "/roditel",
-    topicsTo: "/roditel/temy",
-    drillsTo: "/roditel/trenazhery",
+    backTo: "/kabinet",
+    topicsTo: "/kabinet/temy",
+    drillsTo: "/kabinet/trenazhery",
     whoDat: "ребёнку",
     pick: "Выберите, кому",
     assigned: "Задано",
@@ -52,22 +124,17 @@ export const SCREEN_WORDS: Record<
 /**
  * Куда отправить взрослого, если он открыл не свой раздел.
  *
- * Возвращает адрес, на который надо уйти, или null, если оставаться можно.
- * Родитель за закрытым кодом уходит в кабинет: там дверь с кодом, и
- * серверные ручки без него всё равно откажут (requireAssigner).
+ * Осталась ровно одна причина уйти: родитель за закрытой дверью. Раздел по
+ * роли больше не выбирается — темы и тренажёры живут по одному адресу на
+ * обе роли, и отправлять репетитора «в его копию» стало некуда.
  */
-export function wrongDoor(
-  audience: Audience,
-  account: { user: { role: string } | null; parentPinSet: boolean; parentUnlocked: boolean },
-  section: "temy" | "trenazhery",
-): string | null {
+export function wrongDoor(account: {
+  user: { role: string } | null;
+  parentPinSet: boolean;
+  parentUnlocked: boolean;
+}): string | null {
   if (!account.user) return "/vhod";
-  const role = account.user.role;
-  if (audience === "parent") {
-    if (role === "tutor") return `/repetitor/${section}`;
-    if (account.parentPinSet && !account.parentUnlocked) return "/roditel";
-    return null;
-  }
-  if (role !== "tutor" && role !== "admin") return `/roditel/${section}`;
+  const caps = capsFor(account.user.role);
+  if (caps.pin && account.parentPinSet && !account.parentUnlocked) return "/kabinet";
   return null;
 }

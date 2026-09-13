@@ -1,10 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { TrainersScreen } from "../components/trainers-screen";
-import { closedHead } from "../lib/seo";
-
-// Сам экран общий с кабинетом родителя — см. components/trainers-screen.
+// Тренажёры переехали на общий адрес — см. kabinet.trenazhery.tsx.
 export const Route = createFileRoute("/repetitor/trenazhery")({
-  head: () => closedHead("Тренажёры, Совёнок"),
-  component: () => <TrainersScreen audience="tutor" />,
+  beforeLoad: () => {
+    throw redirect({ to: "/kabinet/trenazhery" });
+  },
 });

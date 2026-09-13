@@ -95,7 +95,7 @@ function RegisterPage() {
       // вызов, даже если tag.js ещё грузится.
       reachGoal("registered");
       if (role === "tutor") {
-        await navigate({ to: "/repetitor" });
+        await navigate({ to: "/kabinet" });
         return;
       }
       setStep("child");

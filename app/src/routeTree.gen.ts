@@ -33,12 +33,18 @@ import { Route as ChtenieRouteImport } from './routes/chtenie'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as RepetitorIndexRouteImport } from './routes/repetitor.index'
+import { Route as KabinetIndexRouteImport } from './routes/kabinet.index'
 import { Route as UrokTopicIdRouteImport } from './routes/urok.$topicId'
 import { Route as RoditelTrenazheryRouteImport } from './routes/roditel_.trenazhery'
 import { Route as RoditelTemyRouteImport } from './routes/roditel_.temy'
 import { Route as RepetitorTrenazheryRouteImport } from './routes/repetitor.trenazhery'
 import { Route as RepetitorTemyRouteImport } from './routes/repetitor.temy'
 import { Route as RepetitorPodpiskaRouteImport } from './routes/repetitor.podpiska'
+import { Route as KabinetTrenazheryRouteImport } from './routes/kabinet.trenazhery'
+import { Route as KabinetTemyRouteImport } from './routes/kabinet.temy'
+import { Route as KabinetPodpiskaRouteImport } from './routes/kabinet.podpiska'
+import { Route as KabinetNastroykiRouteImport } from './routes/kabinet.nastroyki'
+import { Route as KabinetChildIdRouteImport } from './routes/kabinet.$childId'
 import { Route as RepetitorUchenikChildIdRouteImport } from './routes/repetitor.uchenik.$childId'
 
 const VosstanovlenieRoute = VosstanovlenieRouteImport.update({
@@ -161,6 +167,11 @@ const RepetitorIndexRoute = RepetitorIndexRouteImport.update({
   path: '/repetitor/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const KabinetIndexRoute = KabinetIndexRouteImport.update({
+  id: '/kabinet/',
+  path: '/kabinet/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const UrokTopicIdRoute = UrokTopicIdRouteImport.update({
   id: '/urok/$topicId',
   path: '/urok/$topicId',
@@ -189,6 +200,31 @@ const RepetitorTemyRoute = RepetitorTemyRouteImport.update({
 const RepetitorPodpiskaRoute = RepetitorPodpiskaRouteImport.update({
   id: '/repetitor/podpiska',
   path: '/repetitor/podpiska',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const KabinetTrenazheryRoute = KabinetTrenazheryRouteImport.update({
+  id: '/kabinet/trenazhery',
+  path: '/kabinet/trenazhery',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const KabinetTemyRoute = KabinetTemyRouteImport.update({
+  id: '/kabinet/temy',
+  path: '/kabinet/temy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const KabinetPodpiskaRoute = KabinetPodpiskaRouteImport.update({
+  id: '/kabinet/podpiska',
+  path: '/kabinet/podpiska',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const KabinetNastroykiRoute = KabinetNastroykiRouteImport.update({
+  id: '/kabinet/nastroyki',
+  path: '/kabinet/nastroyki',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const KabinetChildIdRoute = KabinetChildIdRouteImport.update({
+  id: '/kabinet/$childId',
+  path: '/kabinet/$childId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RepetitorUchenikChildIdRoute = RepetitorUchenikChildIdRouteImport.update({
@@ -221,12 +257,18 @@ export interface FileRoutesByFullPath {
   '/uchenik': typeof UchenikRoute
   '/vhod': typeof VhodRoute
   '/vosstanovlenie': typeof VosstanovlenieRoute
+  '/kabinet/$childId': typeof KabinetChildIdRoute
+  '/kabinet/nastroyki': typeof KabinetNastroykiRoute
+  '/kabinet/podpiska': typeof KabinetPodpiskaRoute
+  '/kabinet/temy': typeof KabinetTemyRoute
+  '/kabinet/trenazhery': typeof KabinetTrenazheryRoute
   '/repetitor/podpiska': typeof RepetitorPodpiskaRoute
   '/repetitor/temy': typeof RepetitorTemyRoute
   '/repetitor/trenazhery': typeof RepetitorTrenazheryRoute
   '/roditel/temy': typeof RoditelTemyRoute
   '/roditel/trenazhery': typeof RoditelTrenazheryRoute
   '/urok/$topicId': typeof UrokTopicIdRoute
+  '/kabinet/': typeof KabinetIndexRoute
   '/repetitor/': typeof RepetitorIndexRoute
   '/repetitor/uchenik/$childId': typeof RepetitorUchenikChildIdRoute
 }
@@ -254,12 +296,18 @@ export interface FileRoutesByTo {
   '/uchenik': typeof UchenikRoute
   '/vhod': typeof VhodRoute
   '/vosstanovlenie': typeof VosstanovlenieRoute
+  '/kabinet/$childId': typeof KabinetChildIdRoute
+  '/kabinet/nastroyki': typeof KabinetNastroykiRoute
+  '/kabinet/podpiska': typeof KabinetPodpiskaRoute
+  '/kabinet/temy': typeof KabinetTemyRoute
+  '/kabinet/trenazhery': typeof KabinetTrenazheryRoute
   '/repetitor/podpiska': typeof RepetitorPodpiskaRoute
   '/repetitor/temy': typeof RepetitorTemyRoute
   '/repetitor/trenazhery': typeof RepetitorTrenazheryRoute
   '/roditel/temy': typeof RoditelTemyRoute
   '/roditel/trenazhery': typeof RoditelTrenazheryRoute
   '/urok/$topicId': typeof UrokTopicIdRoute
+  '/kabinet': typeof KabinetIndexRoute
   '/repetitor': typeof RepetitorIndexRoute
   '/repetitor/uchenik/$childId': typeof RepetitorUchenikChildIdRoute
 }
@@ -288,12 +336,18 @@ export interface FileRoutesById {
   '/uchenik': typeof UchenikRoute
   '/vhod': typeof VhodRoute
   '/vosstanovlenie': typeof VosstanovlenieRoute
+  '/kabinet/$childId': typeof KabinetChildIdRoute
+  '/kabinet/nastroyki': typeof KabinetNastroykiRoute
+  '/kabinet/podpiska': typeof KabinetPodpiskaRoute
+  '/kabinet/temy': typeof KabinetTemyRoute
+  '/kabinet/trenazhery': typeof KabinetTrenazheryRoute
   '/repetitor/podpiska': typeof RepetitorPodpiskaRoute
   '/repetitor/temy': typeof RepetitorTemyRoute
   '/repetitor/trenazhery': typeof RepetitorTrenazheryRoute
   '/roditel_/temy': typeof RoditelTemyRoute
   '/roditel_/trenazhery': typeof RoditelTrenazheryRoute
   '/urok/$topicId': typeof UrokTopicIdRoute
+  '/kabinet/': typeof KabinetIndexRoute
   '/repetitor/': typeof RepetitorIndexRoute
   '/repetitor/uchenik/$childId': typeof RepetitorUchenikChildIdRoute
 }
@@ -323,12 +377,18 @@ export interface FileRouteTypes {
     | '/uchenik'
     | '/vhod'
     | '/vosstanovlenie'
+    | '/kabinet/$childId'
+    | '/kabinet/nastroyki'
+    | '/kabinet/podpiska'
+    | '/kabinet/temy'
+    | '/kabinet/trenazhery'
     | '/repetitor/podpiska'
     | '/repetitor/temy'
     | '/repetitor/trenazhery'
     | '/roditel/temy'
     | '/roditel/trenazhery'
     | '/urok/$topicId'
+    | '/kabinet/'
     | '/repetitor/'
     | '/repetitor/uchenik/$childId'
   fileRoutesByTo: FileRoutesByTo
@@ -356,12 +416,18 @@ export interface FileRouteTypes {
     | '/uchenik'
     | '/vhod'
     | '/vosstanovlenie'
+    | '/kabinet/$childId'
+    | '/kabinet/nastroyki'
+    | '/kabinet/podpiska'
+    | '/kabinet/temy'
+    | '/kabinet/trenazhery'
     | '/repetitor/podpiska'
     | '/repetitor/temy'
     | '/repetitor/trenazhery'
     | '/roditel/temy'
     | '/roditel/trenazhery'
     | '/urok/$topicId'
+    | '/kabinet'
     | '/repetitor'
     | '/repetitor/uchenik/$childId'
   id:
@@ -389,12 +455,18 @@ export interface FileRouteTypes {
     | '/uchenik'
     | '/vhod'
     | '/vosstanovlenie'
+    | '/kabinet/$childId'
+    | '/kabinet/nastroyki'
+    | '/kabinet/podpiska'
+    | '/kabinet/temy'
+    | '/kabinet/trenazhery'
     | '/repetitor/podpiska'
     | '/repetitor/temy'
     | '/repetitor/trenazhery'
     | '/roditel_/temy'
     | '/roditel_/trenazhery'
     | '/urok/$topicId'
+    | '/kabinet/'
     | '/repetitor/'
     | '/repetitor/uchenik/$childId'
   fileRoutesById: FileRoutesById
@@ -423,12 +495,18 @@ export interface RootRouteChildren {
   UchenikRoute: typeof UchenikRoute
   VhodRoute: typeof VhodRoute
   VosstanovlenieRoute: typeof VosstanovlenieRoute
+  KabinetChildIdRoute: typeof KabinetChildIdRoute
+  KabinetNastroykiRoute: typeof KabinetNastroykiRoute
+  KabinetPodpiskaRoute: typeof KabinetPodpiskaRoute
+  KabinetTemyRoute: typeof KabinetTemyRoute
+  KabinetTrenazheryRoute: typeof KabinetTrenazheryRoute
   RepetitorPodpiskaRoute: typeof RepetitorPodpiskaRoute
   RepetitorTemyRoute: typeof RepetitorTemyRoute
   RepetitorTrenazheryRoute: typeof RepetitorTrenazheryRoute
   RoditelTemyRoute: typeof RoditelTemyRoute
   RoditelTrenazheryRoute: typeof RoditelTrenazheryRoute
   UrokTopicIdRoute: typeof UrokTopicIdRoute
+  KabinetIndexRoute: typeof KabinetIndexRoute
   RepetitorIndexRoute: typeof RepetitorIndexRoute
   RepetitorUchenikChildIdRoute: typeof RepetitorUchenikChildIdRoute
 }
@@ -603,6 +681,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RepetitorIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/kabinet/': {
+      id: '/kabinet/'
+      path: '/kabinet'
+      fullPath: '/kabinet/'
+      preLoaderRoute: typeof KabinetIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/urok/$topicId': {
       id: '/urok/$topicId'
       path: '/urok/$topicId'
@@ -645,6 +730,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RepetitorPodpiskaRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/kabinet/trenazhery': {
+      id: '/kabinet/trenazhery'
+      path: '/kabinet/trenazhery'
+      fullPath: '/kabinet/trenazhery'
+      preLoaderRoute: typeof KabinetTrenazheryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/kabinet/temy': {
+      id: '/kabinet/temy'
+      path: '/kabinet/temy'
+      fullPath: '/kabinet/temy'
+      preLoaderRoute: typeof KabinetTemyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/kabinet/podpiska': {
+      id: '/kabinet/podpiska'
+      path: '/kabinet/podpiska'
+      fullPath: '/kabinet/podpiska'
+      preLoaderRoute: typeof KabinetPodpiskaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/kabinet/nastroyki': {
+      id: '/kabinet/nastroyki'
+      path: '/kabinet/nastroyki'
+      fullPath: '/kabinet/nastroyki'
+      preLoaderRoute: typeof KabinetNastroykiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/kabinet/$childId': {
+      id: '/kabinet/$childId'
+      path: '/kabinet/$childId'
+      fullPath: '/kabinet/$childId'
+      preLoaderRoute: typeof KabinetChildIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/repetitor/uchenik/$childId': {
       id: '/repetitor/uchenik/$childId'
       path: '/repetitor/uchenik/$childId'
@@ -679,12 +799,18 @@ const rootRouteChildren: RootRouteChildren = {
   UchenikRoute: UchenikRoute,
   VhodRoute: VhodRoute,
   VosstanovlenieRoute: VosstanovlenieRoute,
+  KabinetChildIdRoute: KabinetChildIdRoute,
+  KabinetNastroykiRoute: KabinetNastroykiRoute,
+  KabinetPodpiskaRoute: KabinetPodpiskaRoute,
+  KabinetTemyRoute: KabinetTemyRoute,
+  KabinetTrenazheryRoute: KabinetTrenazheryRoute,
   RepetitorPodpiskaRoute: RepetitorPodpiskaRoute,
   RepetitorTemyRoute: RepetitorTemyRoute,
   RepetitorTrenazheryRoute: RepetitorTrenazheryRoute,
   RoditelTemyRoute: RoditelTemyRoute,
   RoditelTrenazheryRoute: RoditelTrenazheryRoute,
   UrokTopicIdRoute: UrokTopicIdRoute,
+  KabinetIndexRoute: KabinetIndexRoute,
   RepetitorIndexRoute: RepetitorIndexRoute,
   RepetitorUchenikChildIdRoute: RepetitorUchenikChildIdRoute,
 }

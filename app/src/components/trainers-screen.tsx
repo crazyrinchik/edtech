@@ -1,7 +1,7 @@
 /**
  * «Тренажёры» отдельным разделом рядом с темами: выдача сразу нескольким
- * с настройками. Один экран на кабинет репетитора и кабинет родителя, как
- * и curriculum-screen: слова и адреса берутся из SCREEN_WORDS по audience.
+ * с настройками. Один экран и один адрес на обе роли, как и
+ * curriculum-screen: слова берутся из SCREEN_WORDS по роли из me().
  *
  * Подписи «что тренирует» и «когда задавать» с карточек убраны: сюда
  * приходят за кнопкой «задать», а не за описанием. Порядок тот же, что у
@@ -19,24 +19,14 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
+import { AssignDrillPanel } from "./assign-drill";
 import { QuietAction, SiteFooter, SiteHeader } from "./brand";
 import { AbacusIcon, BookIcon, GridIcon, MultiplyIcon, PencilIcon } from "./icons";
 import { me } from "../lib/api/app.functions";
-import { type Audience, SCREEN_WORDS, wrongDoor } from "../lib/cabinet";
-import type { DrillId, DrillSettings } from "../lib/drills";
-import {
-  defaultDrillSettings,
-  DRILL_OPTIONS,
-  drillTuneSummary,
-  trimDrillSettings,
-} from "../lib/drills";
-import { assignDrill } from "../lib/api/tutor.functions";
+import { type Audience, capsFor, SCREEN_WORDS, wrongDoor } from "../lib/cabinet";
+import { drillTuneSummary } from "../lib/drills";
 
 type Students = { id: string; name: string; grade: number }[];
-
-function defaultDue(): string {
-  return new Date(Date.now() + 7 * 864e5).toISOString().slice(0, 10);
-}
 
 const TRAINERS = [
   { id: "schet" as const, Icon: AbacusIcon, title: "Устный счёт" },
@@ -46,7 +36,13 @@ const TRAINERS = [
   { id: "shulte" as const, Icon: GridIcon, title: "Таблица Шульте" },
 ];
 
-export function TrainersScreen({ audience }: { audience: Audience }) {
+export function TrainersScreen() {
+  const [audience, setAudience] = useState<Audience>("parent");
+  /* Настройка захода — платная. У родителя, чьего ребёнка оплатил
+     репетитор, своей подписки нет, а настраивать он вправе: сервер решает
+     это по каждому ребёнку отдельно (assignDrill), здесь же — только
+     показывать ли форму. */
+  const [canTune, setCanTune] = useState(false);
   const words = SCREEN_WORDS[audience];
   const navigate = useNavigate();
   const [students, setStudents] = useState<Students>([]);
@@ -57,17 +53,19 @@ export function TrainersScreen({ audience }: { audience: Audience }) {
     (async () => {
       try {
         const account = await me();
-        const door = wrongDoor(audience, account, "trenazhery");
+        const door = wrongDoor(account);
         if (door) {
           await navigate({ to: door });
           return;
         }
+        setAudience(capsFor(account.user?.role).audience);
+        setCanTune(account.user?.subscriptionStatus === "active" || account.activeChildPaid);
         setStudents(account.children.map((c) => ({ id: c.id, name: c.name, grade: c.grade })));
       } catch (e) {
         setError(e instanceof Error ? e.message : "Не удалось загрузить список");
       }
     })();
-  }, [audience, navigate]);
+  }, [navigate]);
 
   return (
     <div className="sov">
@@ -83,8 +81,8 @@ export function TrainersScreen({ audience }: { audience: Audience }) {
       <main className="sov-shell" style={{ paddingBottom: 60 }}>
         <h1 style={{ fontSize: "var(--sov-t-display)" }}>Тренажёры</h1>
         <p style={{ marginTop: 12, color: "var(--sov-ink-soft)", fontWeight: 500 }}>
-          Не привязаны к темам и работают без подписки. Задать можно сразу нескольким — так же, как
-          тему.
+          Не привязаны к темам: сами упражнения открыты всем и всегда. По подписке заход
+          настраивается и результат сохраняется. Задать можно сразу нескольким — так же, как тему.
         </p>
 
         {error ? (
@@ -121,6 +119,7 @@ export function TrainersScreen({ audience }: { audience: Audience }) {
                   kind={t.id}
                   students={students}
                   words={words}
+                  canTune={canTune}
                   onDone={() => setOpenFor(null)}
                 />
               ) : null}
@@ -135,132 +134,6 @@ export function TrainersScreen({ audience }: { audience: Audience }) {
         ) : null}
       </main>
       <SiteFooter />
-    </div>
-  );
-}
-
-function AssignDrillPanel({
-  kind,
-  students,
-  words,
-  onDone,
-}: {
-  kind: DrillId;
-  students: Students;
-  words: (typeof SCREEN_WORDS)[Audience];
-  onDone: () => void;
-}) {
-  const [picked, setPicked] = useState<string[]>([]);
-  const [due, setDue] = useState(defaultDue());
-  const [pending, setPending] = useState(false);
-  const [done, setDone] = useState<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  // Настройки те же, что внутри тренажёра: задают не «скорочтение вообще»,
-  // а конкретный заход — 120 слов в минуту, тридцать примеров.
-  const [settings, setSettings] = useState<DrillSettings>(() => defaultDrillSettings(kind));
-
-  function setValue(key: string, value: string, multi: boolean) {
-    setSettings((prev) => {
-      if (!multi) return { ...prev, [key]: value };
-      const chosen = (prev[key] ?? "").split(",").filter(Boolean);
-      const next = chosen.includes(value) ? chosen.filter((v) => v !== value) : [...chosen, value];
-      // Последнюю галочку не снимаем: без единого действия тренажёру нечего
-      // показывать, и он просто не запустится.
-      if (next.length === 0) return prev;
-      return { ...prev, [key]: next.join(",") };
-    });
-  }
-
-  if (done !== null) {
-    return (
-      <p className="sov-prog__ok">
-        {words.assigned}: {done}.
-      </p>
-    );
-  }
-
-  return (
-    <div className="sov-prog__assign">
-      {error ? <div className="sov-alert">{error}</div> : null}
-      <div className="sov-chips">
-        {students.map((s) => (
-          <button
-            key={s.id}
-            type="button"
-            className="sov-chip"
-            data-active={picked.includes(s.id)}
-            onClick={() =>
-              setPicked((prev) =>
-                prev.includes(s.id) ? prev.filter((x) => x !== s.id) : [...prev, s.id],
-              )
-            }
-          >
-            {s.name}, {s.grade} класс
-          </button>
-        ))}
-      </div>
-
-      <div className="sov-drill-setup">
-        {DRILL_OPTIONS[kind].map((option) => {
-          const chosen = (settings[option.key] ?? "").split(",");
-          return (
-            <div key={option.key} className="sov-drill-setup__row">
-              <span className="sov-drill-setup__label">{option.label}</span>
-              <div className="sov-chips">
-                {option.values.map((value) => (
-                  <button
-                    key={value.value}
-                    type="button"
-                    className="sov-chip"
-                    data-active={chosen.includes(value.value)}
-                    onClick={() => setValue(option.key, value.value, option.multi)}
-                  >
-                    {value.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="sov-prog__row">
-        <label>
-          Срок
-          <input type="date" value={due} onChange={(e) => setDue(e.target.value)} />
-        </label>
-      </div>
-
-      <div className="sov-prog__row">
-        <button
-          type="button"
-          className="sov-act-child"
-          disabled={pending || picked.length === 0}
-          onClick={async () => {
-            setPending(true);
-            setError(null);
-            try {
-              const res = await assignDrill({
-                data: {
-                  kind,
-                  childIds: picked,
-                  dueAt: due ? new Date(due).toISOString() : null,
-                  settings: trimDrillSettings(kind, settings),
-                },
-              });
-              setDone(res.count);
-            } catch (e) {
-              setError(e instanceof Error ? e.message : "Не получилось задать");
-            }
-            setPending(false);
-          }}
-        >
-          {picked.length === 0 ? words.pick : `Задать ${picked.length}`}
-        </button>
-        <button type="button" className="sov-act-ghost" onClick={onDone}>
-          Отмена
-        </button>
-      </div>
     </div>
   );
 }

@@ -2,11 +2,11 @@
  * «Темы и задания»: вся программа по классам и учебникам, с заданиями,
  * ответами и разборами, и выдача темы сразу нескольким.
  *
- * Один экран на два кабинета. Репетитор открывает его с /repetitor/temy,
- * родитель — с /roditel/temy: тот, кто занимается с ребёнком сам, готовится
- * к занятию точно так же — «второй класс, Петерсон, что там дальше». От
- * audience зависят только слова и адреса соседних разделов; данные общие
- * (lib/api/tutor.functions.ts: programs, curriculum, topicTasks, assignTopic).
+ * Один экран и один адрес — /kabinet/temy — на обе роли. Тот, кто
+ * занимается с ребёнком сам, готовится к занятию так же, как репетитор:
+ * «второй класс, Петерсон, что там дальше». От роли зависят только слова и
+ * обратная дорога; данные общие (lib/api/tutor.functions.ts: programs,
+ * curriculum, topicTasks, assignTopic).
  */
 
 import { useNavigate } from "@tanstack/react-router";
@@ -15,7 +15,7 @@ import { useCallback, useEffect, useState } from "react";
 import { QuietAction, SiteFooter, SiteHeader } from "./brand";
 import { me } from "../lib/api/app.functions";
 import { assignTopic, curriculum, programs, topicTasks } from "../lib/api/tutor.functions";
-import { type Audience, SCREEN_WORDS, wrongDoor } from "../lib/cabinet";
+import { type Audience, capsFor, SCREEN_WORDS, wrongDoor } from "../lib/cabinet";
 import { plural } from "../lib/shop";
 
 type Data = Awaited<ReturnType<typeof curriculum>>;
@@ -39,7 +39,10 @@ function defaultDue(): string {
  * необязательна: если учебник неизвестен, открывается общий список в
  * порядке федеральной рабочей программы, а темы в нём те же самые.
  */
-export function CurriculumScreen({ audience }: { audience: Audience }) {
+export function CurriculumScreen() {
+  // Роль приезжает с ответом me(), а не пропом из маршрута: адрес у экрана
+  // теперь один на обоих, и знать заранее, кто откроет, неоткуда.
+  const [audience, setAudience] = useState<Audience>("parent");
   const words = SCREEN_WORDS[audience];
   const navigate = useNavigate();
   const [grade, setGrade] = useState(1);
@@ -54,11 +57,12 @@ export function CurriculumScreen({ audience }: { audience: Audience }) {
   useEffect(() => {
     (async () => {
       const account = await me();
-      const door = wrongDoor(audience, account, "temy");
+      const door = wrongDoor(account);
       if (door) {
         await navigate({ to: door });
         return;
       }
+      setAudience(capsFor(account.user?.role).audience);
       const saved = localStorage.getItem(PROGRAM_KEY);
       if (saved) setProgramId(saved);
       try {
@@ -67,7 +71,7 @@ export function CurriculumScreen({ audience }: { audience: Audience }) {
         setError(e instanceof Error ? e.message : "Не удалось загрузить список программ");
       }
     })();
-  }, [audience, navigate]);
+  }, [navigate]);
 
   const load = useCallback(async () => {
     setOpenTopic(null);

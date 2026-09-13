@@ -72,7 +72,7 @@ function LessonPage() {
         }
         const id = account.activeChildId ?? account.children[0]?.id ?? null;
         if (!id) {
-          await navigate({ to: "/roditel" });
+          await navigate({ to: "/kabinet" });
           return;
         }
         const data = await startTopic({ data: { childId: id, topicId, mode: search.mode } });

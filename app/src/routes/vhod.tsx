@@ -38,7 +38,7 @@ function LoginPage() {
       // взрослого открывается отдельно, кнопкой и кодом: чаще всего вход
       // происходит, чтобы посадить ребёнка заниматься, а не читать отчёты.
       const account = await me();
-      await navigate({ to: account.user?.role === "tutor" ? "/repetitor" : "/uchenik" });
+      await navigate({ to: account.user?.role === "tutor" ? "/kabinet" : "/uchenik" });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Не получилось войти");
       setPending(false);

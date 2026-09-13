@@ -98,7 +98,7 @@ function PupilPage() {
         }
         const first = account.activeChildId ?? account.children[0]?.id ?? null;
         if (!first) {
-          await navigate({ to: "/roditel" });
+          await navigate({ to: "/kabinet" });
           return;
         }
         if (alive) {
@@ -253,11 +253,11 @@ function PupilPage() {
             {/* Взрослый рядом с ребёнком теперь не обязательно родитель:
                 репетитору нужен список учеников, а не родительский кабинет. */}
             {adultRole === "tutor" ? (
-              <Link to="/repetitor" className="sov-act-ghost" style={{ textDecoration: "none" }}>
+              <Link to="/kabinet" className="sov-act-ghost" style={{ textDecoration: "none" }}>
                 К ученикам
               </Link>
             ) : (
-              <Link to="/roditel" className="sov-act-ghost" style={{ textDecoration: "none" }}>
+              <Link to="/kabinet" className="sov-act-ghost" style={{ textDecoration: "none" }}>
                 Кабинет родителя
               </Link>
             )}

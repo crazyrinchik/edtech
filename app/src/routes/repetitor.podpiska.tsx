@@ -60,7 +60,7 @@ function TutorBillingPage() {
         return;
       }
       if (account.user.role !== "tutor" && account.user.role !== "admin") {
-        await navigate({ to: "/roditel" });
+        await navigate({ to: "/kabinet" });
         return;
       }
       load().catch((e) => setError(e instanceof Error ? e.message : "Не удалось открыть подписку"));
@@ -69,7 +69,7 @@ function TutorBillingPage() {
 
   return (
     <div className="sov">
-      <SiteHeader right={<QuietAction to="/repetitor">К ученикам</QuietAction>} />
+      <SiteHeader right={<QuietAction to="/kabinet">К ученикам</QuietAction>} />
       <main className="sov-narrow sov-sub">
         <h1>Подписка</h1>
 

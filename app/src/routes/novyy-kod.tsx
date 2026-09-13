@@ -137,7 +137,7 @@ function NewPinPage() {
               уже воспользовались. Откройте кабинет родителя и попросите новую ссылку — это займёт
               минуту.
             </p>
-            <Link to="/roditel" className="sov-act-child">
+            <Link to="/kabinet" className="sov-act-child">
               В кабинет родителя
             </Link>
           </div>
@@ -154,7 +154,7 @@ function NewPinPage() {
             <button
               type="button"
               className="sov-act-child"
-              onClick={() => void navigate({ to: "/roditel" })}
+              onClick={() => void navigate({ to: "/kabinet" })}
             >
               В кабинет
             </button>

@@ -119,12 +119,12 @@ function PaymentResultPage() {
     };
   }, [p, navigate]);
 
-  const home = role === "tutor" ? "/repetitor/podpiska" : "/roditel";
-  /* После неудачи ведём сразу к форме оплаты, а не в кабинет вообще: человек
-     только что пытался заплатить, и заставлять его заново искать вкладку —
-     лишний шаг ровно там, где терпение уже потрачено. У репетитора подписка
-     и так отдельной страницей, ему хватает home. */
-  const retry = role === "tutor" ? undefined : { tab: "billing" };
+  /* После неудачи ведём сразу к форме оплаты, а не в кабинет вообще:
+     человек только что пытался заплатить, и заставлять его заново искать
+     страницу — лишний шаг ровно там, где терпение уже потрачено. Подписка
+     теперь отдельный адрес у обеих ролей, поэтому и «в кабинет», и «ещё
+     раз» ведут в одно место. */
+  const home = role === "tutor" ? "/repetitor/podpiska" : "/kabinet/podpiska";
 
   return (
     <div className="sov">
@@ -189,7 +189,7 @@ function PaymentResultPage() {
               средств — попробуйте ещё раз или другой картой.
             </p>
             <div style={{ marginTop: 26 }}>
-              <QuietAction to={home} search={retry}>
+              <QuietAction to={home}>
                 Вернуться к оплате
               </QuietAction>
             </div>

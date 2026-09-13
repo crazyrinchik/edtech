@@ -52,7 +52,7 @@ function WhoPage() {
         }
         if (!alive) return;
         if (account.children.length === 0) {
-          await navigate({ to: "/roditel" });
+          await navigate({ to: "/kabinet" });
           return;
         }
         setChildren(account.children as unknown as Child[]);
@@ -76,7 +76,7 @@ function WhoPage() {
     <div className="sov sov-kid">
       <SiteHeader
         right={
-          <Link to="/roditel" className="sov-act-ghost" style={{ textDecoration: "none" }}>
+          <Link to="/kabinet" className="sov-act-ghost" style={{ textDecoration: "none" }}>
             Кабинет родителя
           </Link>
         }
