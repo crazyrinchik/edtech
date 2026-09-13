@@ -1,9 +1,16 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 
+import {
+  ArcadeBest,
+  ArcadeCombo,
+  ArcadeReward,
+  ArcadeStage,
+  useArcade,
+} from "../components/arcade";
 import { ChildAction, Owl, SiteFooter } from "../components/brand";
 import { SpeakButton } from "../components/speak";
-import { ParentBridge, TrainerTop } from "../components/trainers";
+import { ParentBridge, SAVE_LOCKED, TrainerTop, TuneLock } from "../components/trainers";
 import { me, saveMentalDrill } from "../lib/api/app.functions";
 import { drillSearch, pickMany, pickNumber } from "../lib/drill-search";
 import { useEnterAction } from "../lib/keys";
@@ -125,6 +132,12 @@ function MentalPage() {
   const [childId, setChildId] = useState<string | null>(null);
   const [signedIn, setSignedIn] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [coins, setCoins] = useState(0);
+  const [record, setRecord] = useState(false);
+  /* Платный ли этот ребёнок: от этого зависит и настройка захода, и то,
+     сохранится ли результат. Сам тренажёр открыт всем и всегда. */
+  const [paid, setPaid] = useState(false);
+  const [locked, setLocked] = useState(false);
 
   const [example, setExample] = useState<Example | null>(null);
   const [index, setIndex] = useState(0);
@@ -132,6 +145,11 @@ function MentalPage() {
   const [correct, setCorrect] = useState(0);
   const [verdict, setVerdict] = useState<{ ok: boolean; answer: number } | null>(null);
   const [left, setLeft] = useState(0);
+
+  /* Серия, ночь и звук — общий слой всех пяти тренажёров, см.
+     components/arcade.tsx. Счёт примеров он не трогает: ведёт только то,
+     что ребёнок видит и слышит. */
+  const arcade = useArcade();
 
   const startedAt = useRef(Date.now());
   const answerRef = useRef<HTMLInputElement | null>(null);
@@ -150,9 +168,25 @@ function MentalPage() {
       .then((account) => {
         setSignedIn(!!account.user);
         setChildId(account.activeChildId ?? account.children[0]?.id ?? null);
+        setPaid(account.activeChildPaid);
+        // Без подписки настройка из адреса тоже не действует: иначе замок
+        // снимался бы правкой строки в браузере. Ссылку с настройками
+        // неоплаченному и не выдадут — их убирает сервер (assignDrill).
+        if (!account.activeChildPaid) {
+          setDigits(DEFAULTS.digits);
+          setOperations(DEFAULTS.operations);
+          setLimitSec(DEFAULTS.limitSec);
+          setCount(DEFAULTS.count);
+        }
       })
       .catch(() => undefined);
   }, []);
+
+  /* Салют на экране итога. Вызывать его из next() нельзя: небо в этот
+     момент ещё принадлежит стадии упражнения и исчезает вместе с ней. */
+  useEffect(() => {
+    if (stage === "done") arcade.finale();
+  }, [stage, arcade.finale]);
 
   // Таймер ответа. Ноль означает «без ограничения» — тогда обратный отсчёт
   // не запускается вовсе, а не крутится вхолостую.
@@ -166,6 +200,9 @@ function MentalPage() {
       if (rest <= 0) {
         window.clearInterval(timer);
         setVerdict({ ok: false, answer: example?.answer ?? 0 });
+        // Кончившееся время — это несданный пример, и серию оно рвёт так же,
+        // как неверный ответ: иначе выгоднее молчать, чем отвечать.
+        arcade.hit(false);
       }
     }, 200);
     return () => window.clearInterval(timer);
@@ -179,7 +216,9 @@ function MentalPage() {
     setValue("");
     setVerdict(null);
     setSaved(false);
+    setRecord(false);
     startedAt.current = Date.now();
+    arcade.reset();
     setStage("play");
   }
 
@@ -188,6 +227,8 @@ function MentalPage() {
     const ok = value.trim() !== "" && Number(value.trim()) === example.answer;
     if (ok) setCorrect((n) => n + 1);
     setVerdict({ ok, answer: example.answer });
+    // Искры летят из поля ввода: ребёнок смотрел туда, когда отвечал.
+    arcade.hit(ok, answerRef.current);
   }
 
   /* Enter после ответа значит «дальше»: рука уже на клавише, а поле
@@ -207,9 +248,13 @@ function MentalPage() {
           digits,
           operations,
           limitSec,
+          streak: arcade.best,
         },
-      }).catch(() => ({ saved: false }));
+      }).catch(() => ({ saved: false, coins: 0, record: false, locked: false }));
       setSaved(res.saved);
+      setCoins(res.coins);
+      setRecord(res.record);
+      setLocked(res.locked);
       return;
     }
     setIndex((i) => i + 1);
@@ -230,7 +275,7 @@ function MentalPage() {
               убрать совсем.
             </p>
 
-            <div className="sov-setup">
+            <fieldset className="sov-setup" disabled={!paid}>
               <div className="sov-setup__row">
                 <span className="sov-setup__label">Числа</span>
                 <div className="sov-chips" style={{ marginTop: 0 }}>
@@ -305,7 +350,9 @@ function MentalPage() {
                   ))}
                 </div>
               </div>
-            </div>
+            </fieldset>
+
+            {!paid ? <TuneLock /> : null}
 
             <div style={{ marginTop: 26 }}>
               <ChildAction onClick={start} disabled={!operations.length}>
@@ -330,119 +377,131 @@ function MentalPage() {
     const percent = Math.round((correct / count) * 100);
     return (
       <div className="sov sov-kid">
-        <div className="sov-play">
-          <TrainerTop current="schet" lessons={false} />
-          <div className="sov-card">
-            <Owl size={64} mood={percent >= 70 ? "happy" : "concerned"} animated />
-            <h2 style={{ marginTop: 16 }}>Готово</h2>
-            <p style={{ marginTop: 12, color: "var(--sov-ink-soft)" }}>
-              Верных ответов: {correct} из {count} ({percent}%).
-            </p>
-            {!saved ? (
-              <div className="sov-save-hint">
-                <strong>Результат не сохранён</strong>
-                <span>
-                  {signedIn
-                    ? "Выберите профиль ребёнка, чтобы тренировки попадали в отчёт родителя."
-                    : "Заведите аккаунт: тренировки будут копиться, а родитель увидит скорость и точность в кабинете."}
-                </span>
-              </div>
-            ) : (
-              <p className="sov-mono" style={{ marginTop: 14, color: "var(--sov-ok)" }}>
-                Результат сохранён в отчёте родителя.
+        <ArcadeStage arcade={arcade}>
+          <div className="sov-play">
+            <TrainerTop current="schet" lessons={false} />
+            <div className="sov-card">
+              <Owl size={64} mood={percent >= 70 ? "happy" : "concerned"} animated />
+              <h2 style={{ marginTop: 16 }}>Готово</h2>
+              <p style={{ marginTop: 12, color: "var(--sov-ink-soft)" }}>
+                Верных ответов: {correct} из {count} ({percent}%).
               </p>
-            )}
-            <div style={{ marginTop: 24, display: "flex", gap: 12, flexWrap: "wrap" }}>
-              <ChildAction onClick={() => setStage("setup")}>Ещё раз</ChildAction>
-              {!signedIn ? (
-                <button className="sov-act-ghost" onClick={() => navigate({ to: "/registraciya" })}>
-                  Сохранить прогресс
-                </button>
-              ) : null}
-            </div>
+              <ArcadeBest best={arcade.best} record={record} />
+              <ArcadeReward coins={coins} />
+              {!saved ? (
+                <div className="sov-save-hint">
+                  <strong>Результат не сохранён</strong>
+                  <span>
+                    {locked
+                      ? SAVE_LOCKED
+                      : signedIn
+                        ? "Выберите профиль ребёнка, чтобы тренировки попадали в отчёт родителя."
+                        : "Заведите аккаунт: тренировки будут копиться, а родитель увидит скорость и точность в кабинете."}
+                  </span>
+                </div>
+              ) : (
+                <p className="sov-mono" style={{ marginTop: 14, color: "var(--sov-ok)" }}>
+                  Результат сохранён в отчёте родителя.
+                </p>
+              )}
+              <div style={{ marginTop: 24, display: "flex", gap: 12, flexWrap: "wrap" }}>
+                <ChildAction onClick={() => setStage("setup")}>Ещё раз</ChildAction>
+                {!signedIn ? (
+                  <button
+                    className="sov-act-ghost"
+                    onClick={() => navigate({ to: "/registraciya" })}
+                  >
+                    Сохранить прогресс
+                  </button>
+                ) : null}
+              </div>
 
-            {!signedIn ? <ParentBridge /> : null}
+              {!signedIn ? <ParentBridge /> : null}
+            </div>
           </div>
-        </div>
+        </ArcadeStage>
       </div>
     );
   }
 
   return (
     <div className="sov sov-kid">
-      <div className="sov-play">
-        <TrainerTop current="schet" lessons={false} />
-        <div className="sov-play__bar" style={{ marginTop: 14 }}>
-          <Owl size={40} mood={verdict ? (verdict.ok ? "happy" : "concerned") : "idle"} />
-          <div className="sov-play__track">
-            <div className="sov-play__fill" style={{ width: `${(index / count) * 100}%` }} />
-          </div>
-          <span className="sov-mono">
-            {index + 1} из {count}
-          </span>
-        </div>
-
-        {limitSec && !verdict ? (
-          <div className="sov-timer" data-hot={left <= 3}>
-            <div className="sov-timer__fill" style={{ width: `${(left / limitSec) * 100}%` }} />
-            <span className="sov-timer__count">{left}</span>
-          </div>
-        ) : null}
-
-        <div className="sov-card">
-          <div className="sov-ask">
-            <h2 className="sov-example">
-              {example?.a} {example ? sign(example.op) : ""} {example?.b} = ?
-            </h2>
-            {example ? <SpeakButton text={spoken(example)} /> : null}
+      <ArcadeStage arcade={arcade}>
+        <div className="sov-play">
+          <TrainerTop current="schet" lessons={false} />
+          <div className="sov-play__bar" style={{ marginTop: 14 }}>
+            <Owl size={40} mood={verdict ? (verdict.ok ? "happy" : "concerned") : "idle"} />
+            <div className="sov-play__track">
+              <div className="sov-play__fill" style={{ width: `${(index / count) * 100}%` }} />
+            </div>
+            <span className="sov-mono">
+              {index + 1} из {count}
+            </span>
+            <ArcadeCombo arcade={arcade} />
           </div>
 
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              answer();
-            }}
-          >
-            <input
-              ref={answerRef}
-              className="sov-answer-input"
-              value={value}
-              onChange={(e) => setValue(e.target.value.replace(/[^\d-]/g, ""))}
-              disabled={!!verdict}
-              inputMode="numeric"
-              autoFocus
-              aria-label="Ответ"
-            />
-            {!verdict ? (
-              <div style={{ marginTop: 22 }}>
-                <ChildAction type="submit" disabled={!value.trim()}>
-                  Проверить
-                </ChildAction>
-              </div>
-            ) : null}
-          </form>
-
-          {verdict ? (
-            <>
-              <div className="sov-feedback" data-kind={verdict.ok ? "right" : "wrong"}>
-                <div>
-                  <strong>{verdict.ok ? "Верно" : "Пока не так"}</strong>
-                  <span>
-                    {verdict.ok
-                      ? "Идём дальше."
-                      : `Правильный ответ: ${verdict.answer}.${value.trim() ? "" : " Время вышло — попробуй следующий пример."}`}
-                  </span>
-                </div>
-              </div>
-              <div style={{ marginTop: 22 }}>
-                <ChildAction onClick={() => void next()}>
-                  {index + 1 < count ? "Дальше" : "Завершить"}
-                </ChildAction>
-              </div>
-            </>
+          {limitSec && !verdict ? (
+            <div className="sov-timer" data-hot={left <= 3}>
+              <div className="sov-timer__fill" style={{ width: `${(left / limitSec) * 100}%` }} />
+              <span className="sov-timer__count">{left}</span>
+            </div>
           ) : null}
+
+          <div className="sov-card">
+            <div className="sov-ask">
+              <h2 className="sov-example">
+                {example?.a} {example ? sign(example.op) : ""} {example?.b} = ?
+              </h2>
+              {example ? <SpeakButton text={spoken(example)} /> : null}
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                answer();
+              }}
+            >
+              <input
+                ref={answerRef}
+                className="sov-answer-input"
+                value={value}
+                onChange={(e) => setValue(e.target.value.replace(/[^\d-]/g, ""))}
+                disabled={!!verdict}
+                inputMode="numeric"
+                autoFocus
+                aria-label="Ответ"
+              />
+              {!verdict ? (
+                <div style={{ marginTop: 22 }}>
+                  <ChildAction type="submit" disabled={!value.trim()}>
+                    Проверить
+                  </ChildAction>
+                </div>
+              ) : null}
+            </form>
+
+            {verdict ? (
+              <>
+                <div className="sov-feedback" data-kind={verdict.ok ? "right" : "wrong"}>
+                  <div>
+                    <strong>{verdict.ok ? "Верно" : "Пока не так"}</strong>
+                    <span>
+                      {verdict.ok
+                        ? "Идём дальше."
+                        : `Правильный ответ: ${verdict.answer}.${value.trim() ? "" : " Время вышло — попробуй следующий пример."}`}
+                    </span>
+                  </div>
+                </div>
+                <div style={{ marginTop: 22 }}>
+                  <ChildAction onClick={() => void next()}>
+                    {index + 1 < count ? "Дальше" : "Завершить"}
+                  </ChildAction>
+                </div>
+              </>
+            ) : null}
+          </div>
         </div>
-      </div>
+      </ArcadeStage>
     </div>
   );
 }

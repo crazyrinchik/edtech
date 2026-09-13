@@ -128,32 +128,56 @@ export const me = createServerFn({ method: "GET" }).handler(async () => {
       user: null,
       children: [],
       activeChildId: null,
+      activeChildPaid: false,
+      needsChildConsent: false,
       parentPinSet: false,
       parentUnlocked: false,
     };
   }
-  // Учеников даёт child_access, а не children.parent_id: у ученика
-  // может быть и родитель, и репетитор, и видеть его должны оба.
+  /* Учеников даёт child_access, а не children.parent_id: у ученика может
+     быть и родитель, и репетитор, и видеть его должны оба.
+
+     Оттуда же приезжает роль связи — свой это ребёнок или ученик. Раньше
+     на этот вопрос отвечала роль учётной записи, и репетитор со своим
+     первоклассником был невозможен: всё, что он заводил, становилось
+     учеником. Роль записи решает другое — можно ли брать чужих детей
+     (это обязательства: приглашение законного представителя и его
+     согласие), а «чей это ребёнок» решает связь. */
   const children = await db()
     .prepare(
-      `SELECT c.* FROM children c
+      `SELECT c.*, a.role AS access FROM children c
          JOIN child_access a ON a.child_id = c.id
         WHERE a.user_id = ? ORDER BY c.created_at`,
     )
     .bind(user.id)
-    .all<ChildRecord>();
+    .all<ChildRecord & { access: string }>();
   const pinSet = await hasParentPin(user.id);
+  /* Согласие на обработку данных ребёнка: у родителя оно взято на
+     регистрации, у репетитора — нет, и спросить его нужно там, где он
+     заводит своего ребёнка (addChild). Форма узнаёт об этом отсюда. */
+  const consent = await db()
+    .prepare("SELECT consent_child_pd AS given FROM users WHERE id = ?")
+    .bind(user.id)
+    .first<{ given: number }>();
   // Кука активного ребёнка переживает смену аккаунта в том же браузере:
   // войдя другим взрослым, можно было получить id чужого профиля и упереться
   // в «профиль не найден» на первом же запросе. Отдаём её только если этот
   // ученик действительно доступен текущему пользователю.
-  const list = (children.results ?? []) as ChildRecord[];
+  const list = (children.results ?? []) as (ChildRecord & { access: string })[];
   const cookieChild = getCookie(CHILD_COOKIE) ?? null;
   const activeChildId = list.some((c) => c.id === cookieChild) ? cookieChild : null;
+  /* Открыт ли у этого ребёнка платный слой: сохранение результатов, рекорды
+     и настройка захода. Считается по child_access, а не по подписке самого
+     смотрящего: у ученика репетитора платит репетитор, а родитель заходит
+     тем же экраном. Тренажёры спрашивают ровно это — им нужен тот ребёнок,
+     за которого они пишут результат. */
+  const active = activeChildId ?? list[0]?.id ?? null;
   return {
     user,
     children: list,
     activeChildId,
+    activeChildPaid: active ? await childHasPaidAccess(active) : false,
+    needsChildConsent: !consent?.given,
     parentPinSet: pinSet,
     parentUnlocked: pinSet ? await isParentUnlocked(user.id) : true,
   };
@@ -653,6 +677,9 @@ export const addChild = createServerFn({ method: "POST" })
       grade: z.number().int().min(1).max(4),
       avatar: z.string().min(1),
       birthYear: z.number().int().min(2010).max(2025).nullable(),
+      // Нужно только тем, у кого согласия ещё нет: у родителя оно взято на
+      // регистрации, у репетитора — нет (см. обработчик).
+      consentChildPd: z.boolean().default(false),
     }),
   )
   .handler(async ({ data }) => {
@@ -665,16 +692,36 @@ export const addChild = createServerFn({ method: "POST" })
      * ребёнка завёл репетитор, а здесь заводят своего, с нуля. Семья с
      * двумя детьми у платящего репетитора ограничения не увидит.
      */
-    const role = user.role === "tutor" ? "tutor" : "parent";
+    /* Здесь заводят своего ребёнка — и репетитор тоже: у него бывает свой
+       первоклассник, и запирать его в роли «ученик» незачем. Учеников
+       заводит addStudent (tutor.functions.ts), и связь там другая. */
     if (user.subscriptionStatus !== "active") {
-      const already = await childCountFor(user.id, role);
+      const already = await childCountFor(user.id, "parent");
       if (already >= FREE_CHILD_LIMIT) {
         throw new Error(
-          role === "tutor"
-            ? "Без подписки можно вести одного ученика. Подписка открывает остальных."
-            : "Без подписки можно завести одного ребёнка. Подписка открывает остальных — или попросите код у репетитора, тогда платить не нужно.",
+          "Без подписки можно завести одного ребёнка. Подписка открывает остальных — или попросите код у репетитора, тогда платить не нужно.",
         );
       }
+    }
+    /* Согласие на обработку данных ребёнка даёт законный представитель, и
+       у родителя оно взято на регистрации. У репетитора его нет и быть не
+       могло: там детей подтверждают их родители по приглашению. Поэтому
+       заводя своего ребёнка, он даёт согласие здесь — форма показывает ту
+       же строку, что стоит в регистрации родителя. */
+    const consent = await db()
+      .prepare("SELECT consent_child_pd AS given FROM users WHERE id = ?")
+      .bind(user.id)
+      .first<{ given: number }>();
+    if (!consent?.given) {
+      if (!data.consentChildPd) {
+        throw new Error("Нужно согласие законного представителя на обработку данных ребёнка");
+      }
+      await db()
+        .prepare(
+          "UPDATE users SET consent_child_pd = 1, consent_at = COALESCE(consent_at, ?) WHERE id = ?",
+        )
+        .bind(nowIso(), user.id)
+        .run();
     }
     const id = uid("chd");
     await db()
@@ -686,7 +733,7 @@ export const addChild = createServerFn({ method: "POST" })
       .run();
     // Роль в child_access, а не parent_id, решает, кто видит ученика.
     // Родитель, заводящий ребёнка сам, получает обе: и владение, и доступ.
-    await grantChildAccess(id, user.id, user.role === "tutor" ? "tutor" : "parent");
+    await grantChildAccess(id, user.id, "parent");
     setCookie(CHILD_COOKIE, id, { path: "/", sameSite: "lax" });
     await track("child_created", { userId: user.id, childId: id });
     return { id };
@@ -1190,12 +1237,22 @@ export const parentReport = createServerFn({ method: "GET" })
     // «занимался ли ребёнок» — это не только пройденные темы.
     const drills = await db()
       .prepare(
-        `SELECT kind, COUNT(*) AS runs, COALESCE(SUM(correct), 0) AS correct,
-                COALESCE(SUM(total), 0) AS total, MAX(created_at) AS last_at
-           FROM drills WHERE child_id = ? GROUP BY kind`,
+        `SELECT d.kind AS kind, COUNT(*) AS runs, COALESCE(SUM(d.correct), 0) AS correct,
+                COALESCE(SUM(d.total), 0) AS total, MAX(d.created_at) AS last_at,
+                COALESCE(MAX(s.best), 0) AS best_streak
+           FROM drills d
+           LEFT JOIN drill_streaks s ON s.drill_id = d.id
+          WHERE d.child_id = ? GROUP BY d.kind`,
       )
       .bind(data.childId)
-      .all<{ kind: string; runs: number; correct: number; total: number; last_at: string }>();
+      .all<{
+        kind: string;
+        runs: number;
+        correct: number;
+        total: number;
+        last_at: string;
+        best_streak: number;
+      }>();
 
     // Доля верных по каждой теме, а не только по проблемным. Раньше здесь
     // был один список «зон риска» и абзац, объясняющий, что это такое;
@@ -1263,6 +1320,22 @@ export const parentReport = createServerFn({ method: "GET" })
       .bind(data.childId)
       .all<{ kind: string; correct: number; total: number; score: number; created_at: string }>();
 
+    /* Дни, в которые ребёнок вообще занимался, — темой или тренажёром.
+       Отдаются метками времени, а не числом «дней подряд»: календарный день
+       умеет считать только клиент, на сервере часового пояса ребёнка нет
+       (та же причина, что у weekRuns выше). Два месяца с запасом: серия
+       длиннее показывается числом, а рисовать её по дням никто не просит. */
+    const twoMonthsAgo = new Date(Date.now() - 60 * 864e5).toISOString();
+    const activeAt = await db()
+      .prepare(
+        `SELECT started_at AS active_at FROM lessons WHERE child_id = ? AND started_at > ?
+          UNION ALL
+         SELECT created_at AS active_at FROM drills WHERE child_id = ? AND created_at > ?
+          ORDER BY active_at`,
+      )
+      .bind(data.childId, twoMonthsAgo, data.childId, twoMonthsAgo)
+      .all<{ active_at: string }>();
+
     await track("parent_dashboard_opened", { userId: user.id, childId: data.childId });
 
     const attempts = totals?.attempts ?? 0;
@@ -1317,6 +1390,7 @@ export const parentReport = createServerFn({ method: "GET" })
         .reverse(),
       history: history.results ?? [],
       drills: drills.results ?? [],
+      activeAt: (activeAt.results ?? []).map((r) => r.active_at),
       subscription: user.subscriptionStatus,
       // Пока у ребёнка есть наставник, родителю в истории видна сноска о
       // судьбе его заданий — предупреждение до события, а не после: после
@@ -1618,7 +1692,19 @@ export const readingResult = createServerFn({ method: "POST" })
     });
     const correct = details.filter((d) => d.correct).length;
 
-    const saved = await saveDrillRow({
+    /* Серию здесь считает сервер, а не аркада: во время чтения ответов нет,
+       оба вопроса ребёнок отмечает до проверки, и какие из них верные,
+       клиент узнаёт из этого же ответа. Порядок тот же, в котором итог
+       разворачивает ответы на экране, — поэтому число совпадает с тем, что
+       ребёнок видит. */
+    let run = 0;
+    let streak = 0;
+    for (const d of details) {
+      run = d.correct ? run + 1 : 0;
+      if (run > streak) streak = run;
+    }
+
+    const outcome = await saveDrillRow({
       childId: data.childId,
       kind: "reading",
       settings: { textId: text.id, level: text.level },
@@ -1626,14 +1712,31 @@ export const readingResult = createServerFn({ method: "POST" })
       total: details.length,
       seconds: data.seconds,
       score: data.wpm,
+      streak,
     });
 
-    return { correct, total: details.length, details, saved };
+    return {
+      correct,
+      total: details.length,
+      details,
+      saved: outcome.saved,
+      coins: outcome.coins,
+      record: outcome.record,
+      locked: outcome.locked,
+    };
   });
 
 /**
- * Общая запись результата тренажёра. Без аккаунта или без выбранного ребёнка
- * возвращает false — интерфейс на это показывает предложение зарегистрироваться.
+ * Заход в тренажёр: строка в drills и пёрышки за него.
+ *
+ * Без аккаунта или без выбранного ребёнка ничего не пишется и не
+ * начисляется — интерфейс на это показывает предложение завести аккаунт.
+ *
+ * Пёрышки досчитываются здесь же, а не при следующем открытии экрана
+ * ученика, потому что их показывает итог тренажёра: «результат сохранён»
+ * без награды читается как «ничего не было». Сколько именно начислено,
+ * решает syncCoins — он же следит, чтобы за один заход не заплатили
+ * дважды и чтобы заходов в день оплачивалось не больше трёх.
  */
 async function saveDrillRow(opts: {
   childId: string | null;
@@ -1643,22 +1746,62 @@ async function saveDrillRow(opts: {
   total: number;
   seconds: number;
   score: number;
-}): Promise<boolean> {
-  if (!opts.childId) return false;
+  /** Лучшая серия за этот заход: сколько верных подряд до первой ошибки. */
+  streak: number;
+}): Promise<{ saved: boolean; coins: number; record: boolean; locked: boolean }> {
+  if (!opts.childId) return { saved: false, coins: 0, record: false, locked: false };
   const user = await currentUser();
-  if (!user) return false;
+  if (!user) return { saved: false, coins: 0, record: false, locked: false };
   try {
     await requireChildAccess(opts.childId, user.id);
   } catch {
-    return false;
+    return { saved: false, coins: 0, record: false, locked: false };
   }
+  /* Граница подписки проходит здесь: сами тренажёры открыты всем и всегда,
+     а копится результат только у тех, кто платит. Поэтому заход не
+     сохраняется — а не сохраняется наполовину: без строки в drills нет ни
+     рекорда, ни пёрышек, ни динамики в кабинете, и объяснять ребёнку,
+     почему одно посчиталось, а другое нет, не приходится.
+     locked отличает это от «не вошёл»: экран итога говорит разное. */
+  if (!(await childHasPaidAccess(opts.childId))) {
+    await track("drill_locked", {
+      userId: user.id,
+      childId: opts.childId,
+      props: { kind: opts.kind },
+    });
+    return { saved: false, coins: 0, record: false, locked: true };
+  }
+  /* Прежний рекорд — до вставки: после неё лучшая серия этого захода уже
+     лежала бы в MAX и рекорд никогда бы не «взялся». Считается по этому же
+     тренажёру: двенадцать слов подряд в правописании и двенадцать клеток в
+     Шульте — разные достижения, и мерить их одной планкой значит отнять
+     рекорд у того тренажёра, где он даётся тяжелее. */
+  const before =
+    (
+      await db()
+        .prepare(
+          `SELECT MAX(s.best) AS best FROM drill_streaks s
+             JOIN drills d ON d.id = s.drill_id
+            WHERE d.child_id = ? AND d.kind = ?`,
+        )
+        .bind(opts.childId, opts.kind)
+        .first<{ best: number | null }>()
+    )?.best ?? 0;
+
+  /* Серию присылает клиент, и верить ей на слово нельзя: длиннее, чем было
+     ответов, она быть не может. Ограничение здесь, а не в проверке входа:
+     «сколько было ответов» знает только сам заход. Ту же цену когда-то
+     заплатили за знаменатель проверочной работы, который считал клиент. */
+  const streak = Math.max(0, Math.min(opts.streak, opts.total));
+
+  const drillId = uid("drl");
   await db()
     .prepare(
       `INSERT INTO drills (id, child_id, kind, settings, correct, total, seconds, score, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
-      uid("drl"),
+      drillId,
       opts.childId,
       opts.kind,
       JSON.stringify(opts.settings),
@@ -1669,12 +1812,22 @@ async function saveDrillRow(opts: {
       nowIso(),
     )
     .run();
+  // Серия из одного — это просто верный ответ: счётчик в тренажёре его тоже
+  // не показывает, и заводить ради него строку незачем.
+  if (streak >= 2) {
+    await db()
+      .prepare("INSERT INTO drill_streaks (drill_id, best) VALUES (?, ?)")
+      .bind(drillId, streak)
+      .run();
+  }
   await track(`drill_${opts.kind}`, {
     userId: user.id,
     childId: opts.childId,
-    props: { correct: opts.correct, total: opts.total, score: opts.score },
+    props: { correct: opts.correct, total: opts.total, score: opts.score, streak },
   });
-  return true;
+  // Награда не должна ронять сохранение: строка о занятии важнее пёрышек.
+  const coins = await syncCoins(opts.childId).catch(() => 0);
+  return { saved: true, coins, record: streak >= 2 && streak > before, locked: false };
 }
 
 /** Итог тренажёра устного счёта: задания генерирует клиент, счёт хранится здесь. */
@@ -1688,10 +1841,13 @@ export const saveMentalDrill = createServerFn({ method: "POST" })
       digits: z.number().int().min(1).max(3),
       operations: z.array(z.enum(["add", "sub", "mul", "div"])).min(1),
       limitSec: z.number().int().min(0).max(120),
+      // Значение по умолчанию — ради вкладки, открытой до выкладки: на
+      // старом экране поля ещё нет, и терять из-за этого весь заход обидно.
+      streak: z.number().int().min(0).max(500).default(0),
     }),
   )
   .handler(async ({ data }) => {
-    const saved = await saveDrillRow({
+    const outcome = await saveDrillRow({
       childId: data.childId,
       kind: "mental",
       settings: { digits: data.digits, operations: data.operations, limitSec: data.limitSec },
@@ -1699,9 +1855,10 @@ export const saveMentalDrill = createServerFn({ method: "POST" })
       total: data.total,
       seconds: data.seconds,
       score: Math.round((data.correct / data.total) * 100),
+      streak: data.streak,
     });
 
-    if (saved && data.childId) {
+    if (outcome.saved && data.childId) {
       const user = await currentUser();
       if (user) {
         // Только событие: ни имени, ни счёта, ни времени — см. комментарий
@@ -1709,7 +1866,12 @@ export const saveMentalDrill = createServerFn({ method: "POST" })
         await notifyParent(user.id, "Совёнок: окончен устный счёт. Подробности — в кабинете.");
       }
     }
-    return { saved };
+    return {
+      saved: outcome.saved,
+      coins: outcome.coins,
+      record: outcome.record,
+      locked: outcome.locked,
+    };
   });
 
 /* --------------------------------------------- напоминания в мессенджер */
@@ -2244,11 +2406,12 @@ export const saveShulteDrill = createServerFn({ method: "POST" })
       size: z.number().int().min(3).max(5),
       seconds: z.number().int().min(1).max(3600),
       misses: z.number().int().min(0),
+      streak: z.number().int().min(0).max(500).default(0),
     }),
   )
   .handler(async ({ data }) => {
     const cells = data.size * data.size;
-    const saved = await saveDrillRow({
+    const outcome = await saveDrillRow({
       childId: data.childId,
       kind: "shulte",
       settings: { size: data.size, misses: data.misses },
@@ -2256,8 +2419,15 @@ export const saveShulteDrill = createServerFn({ method: "POST" })
       total: cells + data.misses,
       seconds: data.seconds,
       score: Math.round((data.seconds / cells) * 10),
+      streak: data.streak,
     });
-    return { saved, cells };
+    return {
+      saved: outcome.saved,
+      coins: outcome.coins,
+      record: outcome.record,
+      locked: outcome.locked,
+      cells,
+    };
   });
 
 /**
@@ -2273,10 +2443,11 @@ export const saveSpellingDrill = createServerFn({ method: "POST" })
       total: z.number().int().min(1).max(200),
       seconds: z.number().int().min(0).max(7200),
       rules: z.array(z.string().max(40)).min(1).max(40),
+      streak: z.number().int().min(0).max(500).default(0),
     }),
   )
   .handler(async ({ data }) => {
-    const saved = await saveDrillRow({
+    const outcome = await saveDrillRow({
       childId: data.childId,
       kind: "spelling",
       settings: { rules: data.rules },
@@ -2284,8 +2455,14 @@ export const saveSpellingDrill = createServerFn({ method: "POST" })
       total: data.total,
       seconds: data.seconds,
       score: Math.round((data.correct / data.total) * 100),
+      streak: data.streak,
     });
-    return { saved };
+    return {
+      saved: outcome.saved,
+      coins: outcome.coins,
+      record: outcome.record,
+      locked: outcome.locked,
+    };
   });
 
 /** Таблица умножения: уровень и то, в какую сторону спрашивали. */
@@ -2298,10 +2475,11 @@ export const saveTableDrill = createServerFn({ method: "POST" })
       seconds: z.number().int().min(0).max(7200),
       level: z.enum(["ten", "hundred", "beyond"]),
       directions: z.array(z.enum(["mul", "div", "factor"])).min(1),
+      streak: z.number().int().min(0).max(500).default(0),
     }),
   )
   .handler(async ({ data }) => {
-    const saved = await saveDrillRow({
+    const outcome = await saveDrillRow({
       childId: data.childId,
       kind: "table",
       settings: { level: data.level, directions: data.directions },
@@ -2309,6 +2487,12 @@ export const saveTableDrill = createServerFn({ method: "POST" })
       total: data.total,
       seconds: data.seconds,
       score: Math.round((data.correct / data.total) * 100),
+      streak: data.streak,
     });
-    return { saved };
+    return {
+      saved: outcome.saved,
+      coins: outcome.coins,
+      record: outcome.record,
+      locked: outcome.locked,
+    };
   });

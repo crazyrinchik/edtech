@@ -9,7 +9,13 @@
  * заработано, дописали недостающие строки.
  */
 
-import { COINS_PER_HOMEWORK_ITEM, COINS_PER_TOPIC, shopItem } from "./shop";
+import {
+  COINS_PER_DRILL,
+  COINS_PER_HOMEWORK_ITEM,
+  COINS_PER_TOPIC,
+  pickPaidDrills,
+  shopItem,
+} from "./shop";
 import { db, nowIso } from "./core.server";
 
 /**
@@ -51,6 +57,26 @@ async function doneAssignmentItems(childId: string): Promise<{ id: string }[]> {
   return rows.results ?? [];
 }
 
+/**
+ * Заходы в тренажёры, за которые положены пёрышки.
+ *
+ * Тысяча последних строк — это годы занятий одного ребёнка; отбор по
+ * порогу и дневному пределу делает pickPaidDrills, чтобы его можно было
+ * проверить без базы.
+ */
+async function paidDrills(childId: string): Promise<{ id: string }[]> {
+  const rows = await db()
+    .prepare(
+      `SELECT id, correct, total, created_at FROM drills
+        WHERE child_id = ? AND total > 0
+        ORDER BY created_at DESC
+        LIMIT 1000`,
+    )
+    .bind(childId)
+    .all<{ id: string; correct: number; total: number; created_at: string }>();
+  return pickPaidDrills(rows.results ?? []);
+}
+
 /** Досчитать награды за всё, что уже сделано. Возвращает, сколько начислено сейчас. */
 export async function syncCoins(childId: string): Promise<number> {
   const granted = await db()
@@ -74,6 +100,12 @@ export async function syncCoins(childId: string): Promise<number> {
   for (const t of topics.results ?? []) {
     if (!seen.has(`topic:${t.topic_id}`)) {
       pending.push({ source: "topic", refId: t.topic_id, coins: COINS_PER_TOPIC });
+    }
+  }
+
+  for (const drill of await paidDrills(childId)) {
+    if (!seen.has(`drill:${drill.id}`)) {
+      pending.push({ source: "drill", refId: drill.id, coins: COINS_PER_DRILL });
     }
   }
 

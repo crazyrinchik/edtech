@@ -59,6 +59,7 @@ import {
   unclaimedDeadlineIso,
   unclaimedExpired,
 } from "../retention.server";
+import { DRILL_ROW_KIND } from "../drills";
 
 /**
  * Названия тренажёров для домашнего задания. Ключ — тот же код, что уходит
@@ -72,19 +73,8 @@ const DRILL_TITLES: Record<string, string> = {
   shulte: "Таблица Шульте",
 };
 
-/**
- * Тот же тренажёр в таблице drills зовётся иначе: там kind описывает вид
- * упражнения («mental»), а в задании стоит адрес страницы («schet»). Пока
- * сравнивали напрямую, выполнение засчитывалось только у Шульте — у неё
- * одной оба имени совпадали. Перевод живёт здесь.
- */
-const DRILL_ROWS: Record<string, string> = {
-  schet: "mental",
-  tablica: "table",
-  pravopisanie: "spelling",
-  chtenie: "reading",
-  shulte: "shulte",
-};
+/** Перевод «schet» → «mental» общий с кабинетом, см. lib/drills.ts. */
+const DRILL_ROWS: Record<string, string> = DRILL_ROW_KIND;
 
 const INVITE_DAYS = 14;
 const INVITE_DIGITS = 6;
@@ -886,6 +876,10 @@ export const studentCard = createServerFn({ method: "GET" })
         grade: child.grade,
         parentLinked: !!parent,
       },
+      // Кем смотрящий приходится этому ребёнку. От этого зависит половина
+      // карточки: заметка и приглашение родителя — дело репетитора, лимит
+      // времени и звук — дело семьи.
+      access: viewerRole === "parent" ? ("parent" as const) : ("tutor" as const),
       note: note?.note ?? "",
       paid,
       subjects: subjects.results ?? [],
@@ -1771,6 +1765,12 @@ export const assignDrill = createServerFn({ method: "POST" })
     // оставил половину группы с заданием, а половину без.
     for (const childId of data.childIds) await requireAssignable(childId, user.id);
     for (const childId of data.childIds) {
+      /* Настройка захода — платная, как и сохранение результата, поэтому
+         проверяется по ребёнку, а не по тому, кто задаёт: в группе может
+         быть и оплаченный ученик, и нет. Без подписки задание всё равно
+         выдаётся — просто тренажёр откроется в базовой настройке, той же,
+         что ребёнок увидит, открыв его сам. */
+      const tuned = (await childHasPaidAccess(childId)) ? settings : null;
       const id = uid("asg");
       const itemId = uid("ai");
       await db().batch([
@@ -1786,11 +1786,11 @@ export const assignDrill = createServerFn({ method: "POST" })
              VALUES (?, ?, 'drill', ?, 0, 0)`,
           )
           .bind(itemId, id, data.kind),
-        ...(settings
+        ...(tuned
           ? [
               db()
                 .prepare("INSERT INTO assignment_item_settings (item_id, settings) VALUES (?, ?)")
-                .bind(itemId, settings),
+                .bind(itemId, tuned),
             ]
           : []),
       ]);

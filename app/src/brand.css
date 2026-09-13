@@ -2519,14 +2519,44 @@ a.sov-level:active .sov-level__num {
    Различать пять карточек помогает то, что у них и так разное: свой
    рисунок в кружке и своё название. */
 
+/* Настройки захода. Разметка — fieldset, чтобы одним disabled гасить все
+   пилюли сразу: без подписки настраивать нечего, а тренажёр открыт. Сброс
+   рамки и отступов нужен именно поэтому: у fieldset они свои. */
 .sov-setup {
   display: grid;
   gap: 22px;
   margin-top: 24px;
+  border: 0;
+  padding: 0;
+  margin-inline: 0;
+  min-inline-size: 0;
 }
 .sov-setup__row {
   display: grid;
   gap: 10px;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-inline-size: 0;
+}
+/* Погашенная настройка не выглядит сломанной: она выглядит закрытой. */
+.sov-setup:disabled .sov-chip,
+.sov-setup__row:disabled .sov-chip,
+.sov-setup:disabled .sov-rulegroup,
+.sov-setup__row:disabled .sov-reading-item {
+  opacity: 0.5;
+}
+.sov-setup:disabled .sov-chip,
+.sov-setup__row:disabled .sov-chip {
+  cursor: not-allowed;
+}
+/* Строка про подписку под погашенными настройками. */
+.sov-setup__lock {
+  margin-top: 14px;
+  font-size: var(--sov-t-cap);
+  font-weight: 600;
+  color: var(--sov-ink-soft);
+  max-width: 52ch;
 }
 .sov-setup__label {
   font-weight: 800;
@@ -5218,6 +5248,83 @@ button.sov-stone:disabled {
   color: var(--sov-ink-soft);
 }
 
+/* Неделя точками прямо в выводе: «занимался ли» и «когда» рядом, одной
+   строкой, а не четырьмя плитками над экраном, как было во вкладках. */
+.sov-verdict__week {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--sov-ink-soft);
+}
+.sov-verdict__week > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Заголовок раздела кабинета. Кабинет разъехался по адресам, и внутри
+   каждого разделы отбиваются одинаково — иначе каждая страница выглядит
+   как отдельный продукт. */
+.sov-kabinet__h {
+  margin-top: 34px;
+  font-size: var(--sov-t-h2);
+  font-weight: 700;
+}
+.sov-kabinet__sub {
+  margin-top: 8px;
+  color: var(--sov-ink-soft);
+  font-weight: 500;
+  font-size: var(--sov-t-cap);
+  max-width: 62ch;
+}
+
+/* Рекорд серии в карточке тренажёра. Та же охра, что у счётчика серии на
+   экране ребёнка: взрослый и ребёнок говорят про одно и то же число. */
+.sov-record {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 2px 9px;
+  border-radius: var(--sov-radius-pill);
+  background: var(--sov-amber);
+  color: #1b1200;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+/* История и разбор по темам под раскрытием: они нужны раз в месяц, а
+   места занимали больше, чем всё остальное вместе. */
+.sov-more {
+  margin-top: 16px;
+}
+.sov-more > summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--sov-ink-soft);
+  font-size: 0.94rem;
+}
+.sov-more[open] > summary {
+  margin-bottom: 12px;
+  color: var(--sov-ink);
+}
+
+/* Перечень того, что даёт подписка. Маркеры возвращаются вручную: в
+   сбросе стилей у списков их нет. */
+.sov-list {
+  display: grid;
+  gap: 8px;
+  padding-left: 22px;
+  list-style: disc;
+  color: var(--sov-ink-soft);
+  font-weight: 500;
+}
+.sov-list li {
+  list-style: inherit;
+}
+
 .sov-risks {
   display: grid;
   gap: 14px;
@@ -6191,4 +6298,269 @@ button.sov-risks__state:hover {
   font-size: 0.95rem;
   font-weight: 600;
   color: var(--sov-ink-soft);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Аркада: ночь вокруг тренажёра.
+
+   Правила системы — бежевая бумага, один насыщенный цвет, плоскость —
+   написаны для экранов, где читают и принимают решения: витрина, кабинет
+   родителя, карта тем. На экране, где первоклассник считает на скорость,
+   они дают спокойные примеры на светлом фоне, и он уходит туда, где
+   интереснее. Поэтому у стадии упражнения в тренажёрах своя ночь.
+
+   Сделана она переопределением токенов, а не новыми правилами для каждого
+   элемента: всё, что уже написано через переменные — карточка, пилюли,
+   разбор ответа, полоса прогресса — перекрашивается разом и не разъедется
+   с системой, когда ту поправят. Точечных правил ниже ровно столько,
+   сколько элементов залито белым напрямую.
+
+   Ночь живёт только внутри .sov-arcade. Ни один экран взрослого её не
+   видит, и снять её — значит убрать одну обёртку в тренажёре.
+   ═══════════════════════════════════════════════════════════════════ */
+
+.sov-arcade {
+  --sov-paper: #0b1530;
+  --sov-paper-2: #16264f;
+  --sov-paper-3: #1d3163;
+  --sov-ink: #eef3ff;
+  --sov-ink-soft: #adc0e8;
+  --sov-ink-off: #8ea1cb;
+  --sov-line: #2c3f70;
+  --sov-line-strong: #7d92c4;
+  /* Заливка кнопок остаётся насыщенной: на ней стоит белая подпись, и
+     светлый синий уронил бы её контраст ниже читаемого. Ссылки и мелкие
+     акценты берут свой цвет ниже. */
+  --sov-cobalt: #3c6df0;
+  --sov-cobalt-deep: #2b57cc;
+  --sov-cobalt-soft: #1a2c58;
+  --sov-ok: #6ee3a5;
+  --sov-ok-deep: #4fd08c;
+  --sov-ok-bg: #10361f;
+  --sov-warn: #ffc178;
+  --sov-warn-bg: #3a2710;
+  --sov-bad: #ff9c93;
+  --sov-bad-bg: #3b1a17;
+  --sov-shadow: rgba(0, 0, 0, 0.45) 0 6px 22px 0;
+  --sov-shadow-sm: rgba(0, 0, 0, 0.4) 0 2px 6px 0;
+  /* Янтарь клюва — второй цвет аркады. Им горит серия и ничего больше:
+     как только им начнут красить кнопки, разгон перестанет быть заметен. */
+  --sov-amber: #ffb43f;
+
+  position: relative;
+  min-height: 100dvh;
+  overflow: hidden;
+  color: var(--sov-ink);
+  background: radial-gradient(120% 78% at 50% -12%, #172a5e 0%, #0c1734 58%, #070f24 100%);
+}
+.sov-arcade__sky {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+}
+.sov-arcade__flash {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: #fff;
+  opacity: 0;
+  pointer-events: none;
+}
+.sov-arcade__body {
+  position: relative;
+  z-index: 2;
+}
+.sov-arcade[data-big="1"] .sov-arcade__flash {
+  animation: sov-arcade-flash 0.44s ease-out;
+}
+.sov-arcade[data-big="1"] .sov-arcade__body {
+  animation: sov-arcade-shake 0.46s;
+}
+@keyframes sov-arcade-flash {
+  from {
+    opacity: 0.5;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@keyframes sov-arcade-shake {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  20% {
+    transform: translate(-6px, 4px);
+  }
+  40% {
+    transform: translate(5px, -4px);
+  }
+  60% {
+    transform: translate(-4px, -3px);
+  }
+  80% {
+    transform: translate(4px, 3px);
+  }
+}
+
+/* Поверхности, залитые белым напрямую: их переменными не достать. */
+.sov-arcade .sov-card {
+  background: rgba(21, 37, 79, 0.82);
+  border-color: rgba(140, 170, 240, 0.22);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.34);
+}
+.sov-arcade .sov-option,
+.sov-arcade .sov-reading-item,
+.sov-arcade .sov-shulte__cell {
+  background: rgba(21, 37, 79, 0.88);
+}
+/* Поле, в котором вспыхивают слова при чтении: тоже белое напрямую.
+   Слово здесь — единственное, на что смотрят, поэтому панель уходит почти
+   в чёрное, а буквы остаются светлыми: так глаз не сбивается на границу
+   белого прямоугольника после каждой вспышки. */
+.sov-arcade .sov-flash {
+  background: rgba(7, 15, 36, 0.72);
+  border-color: rgba(140, 170, 240, 0.2);
+}
+
+/* Кнопка-ушко залита белым и берёт цвет подписи из --sov-ink: в ночи это
+   белое по белому. Перекрашиваем её целиком, а не подпись, — белая пилюля
+   рядом с примером светилась бы ярче самого примера. */
+.sov-arcade .sov-ear {
+  background: rgba(21, 37, 79, 0.88);
+  border-color: var(--sov-line-strong);
+  color: var(--sov-ink);
+}
+.sov-arcade .sov-answer-input {
+  background: rgba(7, 15, 36, 0.82);
+  color: var(--sov-ink);
+}
+.sov-arcade .sov-chip:not([data-active="true"]) {
+  background: rgba(21, 37, 79, 0.7);
+}
+/* Ссылки и служебные подписи: на ночном фоне им нужен светлый синий,
+   а не тот, которым залиты кнопки. */
+.sov-arcade a:not(.sov-act-start):not(.sov-act-ghost) {
+  color: #a9c4ff;
+}
+/* Совёнок нарисован тёмно-синим — на ночном фоне он тонул. Свечение
+   вокруг него дешевле, чем вторая, светлая версия маскота. */
+.sov-arcade .sov-card > svg {
+  filter: drop-shadow(0 0 16px rgba(120, 160, 255, 0.4));
+}
+
+/* Пример и слово — то, ради чего экран открыт: они светятся ярче всего. */
+.sov-arcade .sov-example,
+.sov-arcade .sov-word {
+  text-shadow: 0 3px 24px rgba(0, 0, 0, 0.45);
+}
+
+/* ── счётчик серии ───────────────────────────────────────────────── */
+
+.sov-combo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+.sov-combo__count {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  padding: 0;
+  border-radius: var(--sov-radius-pill);
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: #1b1200;
+  background: var(--sov-amber);
+  opacity: 0;
+  transform: scale(0.7);
+  transition:
+    opacity 0.18s,
+    transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.sov-combo__count[data-on="1"] {
+  opacity: 1;
+  transform: scale(1);
+  padding: 6px 12px;
+}
+.sov-combo__count b {
+  font-family: var(--sov-mono);
+  font-size: 0.98rem;
+  font-variant-numeric: tabular-nums;
+}
+.sov-combo__count[data-hot="1"] {
+  animation: sov-combo-pulse 0.4s;
+}
+@keyframes sov-combo-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.18);
+  }
+}
+.sov-combo__sound {
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 6px 11px;
+  border-radius: var(--sov-radius-pill);
+  border: 1px solid var(--sov-line-strong);
+  background: transparent;
+  color: var(--sov-ink-soft);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.sov-combo__sound[aria-pressed="true"] {
+  color: var(--sov-amber);
+  border-color: var(--sov-amber);
+}
+.sov-arcade__best {
+  margin-top: 10px;
+  color: var(--sov-ink-soft);
+}
+.sov-arcade__best b {
+  color: var(--sov-ink);
+  font-family: var(--sov-mono);
+  font-variant-numeric: tabular-nums;
+}
+/* Рекорд — той же охрой и той же пилюлей, что счётчик серии: ребёнок
+   видел её весь заход, и узнавать второй значок ему не придётся. */
+.sov-arcade__record {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 4px 10px;
+  border-radius: var(--sov-radius-pill);
+  background: var(--sov-amber);
+  color: #1b1200;
+  font-size: 0.8rem;
+  font-weight: 700;
+  animation: sov-combo-pulse 0.4s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sov-arcade[data-big="1"] .sov-arcade__flash,
+  .sov-arcade[data-big="1"] .sov-arcade__body,
+  .sov-combo__count[data-hot="1"],
+  .sov-arcade__record {
+    animation: none;
+  }
+}
+.sov-arcade__coins {
+  margin-top: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: var(--sov-radius-pill);
+  background: var(--sov-amber);
+  color: #1b1200;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
 }

@@ -48,6 +48,35 @@ export function weekBuckets<T>(rows: T[], at: (row: T) => string) {
 }
 
 /**
+ * Сколько дней подряд ребёнок занимался, считая назад от сегодня.
+ *
+ * Считается на клиенте по той же причине, что и неделя выше: день у
+ * ребёнка календарный и местный, а у сервера его нет вовсе.
+ *
+ * Сегодняшний день не обязателен. Серия, которая обнуляется в полночь и
+ * весь день до занятия показывает ноль, наказывает за то, что человек
+ * ещё не сел за стол: вчерашние четыре дня превращаются в «ничего нет» в
+ * восемь утра. Поэтому отсчёт начинается со вчера, а сегодняшнее занятие
+ * только продлевает серию.
+ */
+export function dayStreak(times: string[], now: Date = new Date()): number {
+  const dayKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+  const active = new Set(times.map((iso) => dayKey(new Date(iso))));
+  if (active.size === 0) return 0;
+
+  const cursor = new Date(now);
+  cursor.setHours(0, 0, 0, 0);
+  if (!active.has(dayKey(cursor))) cursor.setDate(cursor.getDate() - 1);
+
+  let days = 0;
+  while (active.has(dayKey(cursor))) {
+    days += 1;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return days;
+}
+
+/**
  * Кольцо с засечкой порога.
  *
  * Засечка — главное здесь. «82%» отвечает на вопрос «сколько», а родитель

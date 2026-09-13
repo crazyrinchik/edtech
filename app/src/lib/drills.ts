@@ -21,6 +21,22 @@ import { SPELLING_RULES } from "./content/spelling";
 
 export type DrillId = "schet" | "tablica" | "pravopisanie" | "chtenie" | "shulte";
 
+/**
+ * Тот же тренажёр в таблице drills зовётся иначе: там kind описывает вид
+ * упражнения («mental»), а в задании и в адресе страницы стоит «schet».
+ * Пока сравнивали напрямую, выполнение домашки засчитывалось только у
+ * Шульте — у неё одной оба имени совпадали. Перевод живёт здесь, и им
+ * пользуются обе стороны: сервер, когда считает сделанное, и кабинет,
+ * когда кладёт заходы из базы на карточки тренажёров.
+ */
+export const DRILL_ROW_KIND: Record<DrillId, string> = {
+  schet: "mental",
+  tablica: "table",
+  pravopisanie: "spelling",
+  chtenie: "reading",
+  shulte: "shulte",
+};
+
 export type DrillOption = {
   /** Ключ в адресе тренажёра. */
   key: string;

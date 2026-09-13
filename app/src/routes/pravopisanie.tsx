@@ -1,8 +1,15 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 
+import {
+  ArcadeBest,
+  ArcadeCombo,
+  ArcadeReward,
+  ArcadeStage,
+  useArcade,
+} from "../components/arcade";
 import { ChildAction, Owl, SiteFooter } from "../components/brand";
-import { ParentBridge, TrainerTop } from "../components/trainers";
+import { ParentBridge, SAVE_LOCKED, TrainerTop, TuneLock } from "../components/trainers";
 import { me, saveSpellingDrill } from "../lib/api/app.functions";
 import { drillSearch, pickMany, pickNumber } from "../lib/drill-search";
 import { useEnterAction } from "../lib/keys";
@@ -95,6 +102,14 @@ function SpellingPage() {
   const [childId, setChildId] = useState<string | null>(null);
   const [signedIn, setSignedIn] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [coins, setCoins] = useState(0);
+  const [record, setRecord] = useState(false);
+  /* Настройка захода и сохранение результата — платные, см. trainers.tsx. */
+  const [paid, setPaid] = useState(false);
+  const [locked, setLocked] = useState(false);
+  /* Серия, ночь и звук — общий слой тренажёров, см. components/arcade.tsx. */
+  const arcade = useArcade();
+
   const startedAt = useRef(Date.now());
 
   useEffect(() => {
@@ -102,11 +117,23 @@ function SpellingPage() {
       .then((account) => {
         setSignedIn(!!account.user);
         setChildId(account.activeChildId ?? account.children[0]?.id ?? null);
+        setPaid(account.activeChildPaid);
+        // Набор правил из адреса без подписки не действует — см. schet.tsx.
+        if (!account.activeChildPaid) {
+          setPicked(SPELLING_RULES.map((r) => r.id));
+          setCount(10);
+        }
       })
       .catch(() => undefined);
   }, []);
 
   const card = queue[index] ?? null;
+
+  /* Салют на экране итога: небо живёт внутри стадии и исчезает вместе с ней,
+     поэтому залп даётся уже после перехода. */
+  useEffect(() => {
+    if (stage === "done") arcade.finale();
+  }, [stage, arcade.finale]);
 
   function start(ruleIds: string[] = picked) {
     if (!ruleIds.length) return;
@@ -117,13 +144,17 @@ function SpellingPage() {
     setMisses([]);
     setCorrect(0);
     setSaved(false);
+    setRecord(false);
     startedAt.current = Date.now();
+    arcade.reset();
     setStage("play");
   }
 
-  function answer(option: string) {
+  function answer(option: string, from?: Element | null) {
     if (!card || given !== null) return;
     setGiven(option);
+    // Искры вылетают из нажатой буквы — туда ребёнок и смотрел.
+    arcade.hit(option === card.item.answer, from);
     if (option === card.item.answer) {
       setCorrect((n) => n + 1);
       return;
@@ -158,9 +189,13 @@ function SpellingPage() {
           total: queue.length,
           seconds,
           rules: picked,
+          streak: arcade.best,
         },
-      }).catch(() => ({ saved: false }));
+      }).catch(() => ({ saved: false, coins: 0, record: false, locked: false }));
       setSaved(res.saved);
+      setCoins(res.coins);
+      setRecord(res.record);
+      setLocked(res.locked);
       return;
     }
     setIndex((i) => i + 1);
@@ -180,7 +215,7 @@ function SpellingPage() {
               до ответа: подсмотреть в него не считается ошибкой, ради этого он и сделан.
             </p>
 
-            <div className="sov-setup">
+            <fieldset className="sov-setup" disabled={!paid}>
               <div className="sov-setup__row">
                 <span className="sov-setup__label">Правила</span>
                 {/* Правила сложены по темам и свёрнуты.
@@ -279,7 +314,9 @@ function SpellingPage() {
                   ))}
                 </div>
               </div>
-            </div>
+            </fieldset>
+
+            {!paid ? <TuneLock /> : null}
 
             <div style={{ marginTop: 26 }}>
               <ChildAction onClick={() => start()} disabled={!picked.length}>
@@ -306,75 +343,81 @@ function SpellingPage() {
     const weakRules = [...new Set(misses.map((m) => m.ruleId))];
     return (
       <div className="sov sov-kid">
-        <div className="sov-play">
-          <TrainerTop current="pravopisanie" />
-          <div className="sov-card">
-            <Owl size={64} mood={percent >= 70 ? "happy" : "concerned"} animated />
-            <h2 style={{ marginTop: 16 }}>Готово</h2>
-            <p style={{ marginTop: 12, color: "var(--sov-ink-soft)", fontWeight: 500 }}>
-              Верных ответов: {correct} из {total} ({percent}%).
-            </p>
-
-            {misses.length ? (
-              <div className="sov-missed">
-                <h3>Слова, где ошибся</h3>
-                {misses.map((m, i) => (
-                  <div key={`${m.gap}-${i}`} className="sov-missed__row">
-                    <strong>{m.gap.replace("_", m.answer)}</strong>
-                    <span>
-                      написано «{m.given}», нужно «{m.answer}». {m.why}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-
-            {!saved ? (
-              <div className="sov-save-hint">
-                <strong>Результат не сохранён</strong>
-                <span>
-                  {signedIn
-                    ? "Выберите профиль ребёнка, чтобы тренировки попадали в отчёт родителя."
-                    : "Заведите аккаунт: тренировки будут копиться, а родитель увидит, какие правила просели."}
-                </span>
-              </div>
-            ) : (
-              <p className="sov-mono" style={{ marginTop: 14, color: "var(--sov-ok)" }}>
-                Результат сохранён в отчёте родителя.
+        <ArcadeStage arcade={arcade}>
+          <div className="sov-play">
+            <TrainerTop current="pravopisanie" />
+            <div className="sov-card">
+              <Owl size={64} mood={percent >= 70 ? "happy" : "concerned"} animated />
+              <h2 style={{ marginTop: 16 }}>Готово</h2>
+              <p style={{ marginTop: 12, color: "var(--sov-ink-soft)", fontWeight: 500 }}>
+                Верных ответов: {correct} из {total} ({percent}%).
               </p>
-            )}
+              <ArcadeBest best={arcade.best} record={record} />
+              <ArcadeReward coins={coins} />
 
-            <div style={{ marginTop: 24, display: "flex", gap: 12, flexWrap: "wrap" }}>
-              <ChildAction onClick={() => start()}>Ещё раз</ChildAction>
-              {weakRules.length ? (
-                <button
-                  type="button"
-                  className="sov-act-ghost"
-                  onClick={() => {
-                    setPicked(weakRules);
-                    start(weakRules);
-                  }}
-                >
-                  Повторить трудные правила
-                </button>
+              {misses.length ? (
+                <div className="sov-missed">
+                  <h3>Слова, где ошибся</h3>
+                  {misses.map((m, i) => (
+                    <div key={`${m.gap}-${i}`} className="sov-missed__row">
+                      <strong>{m.gap.replace("_", m.answer)}</strong>
+                      <span>
+                        написано «{m.given}», нужно «{m.answer}». {m.why}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               ) : null}
-              <button type="button" className="sov-act-ghost" onClick={() => setStage("setup")}>
-                Выбрать правила
-              </button>
-              {!signedIn ? (
-                <button
-                  type="button"
-                  className="sov-act-ghost"
-                  onClick={() => navigate({ to: "/registraciya" })}
-                >
-                  Сохранить прогресс
+
+              {!saved ? (
+                <div className="sov-save-hint">
+                  <strong>Результат не сохранён</strong>
+                  <span>
+                    {locked
+                      ? SAVE_LOCKED
+                      : signedIn
+                        ? "Выберите профиль ребёнка, чтобы тренировки попадали в отчёт родителя."
+                        : "Заведите аккаунт: тренировки будут копиться, а родитель увидит, какие правила просели."}
+                  </span>
+                </div>
+              ) : (
+                <p className="sov-mono" style={{ marginTop: 14, color: "var(--sov-ok)" }}>
+                  Результат сохранён в отчёте родителя.
+                </p>
+              )}
+
+              <div style={{ marginTop: 24, display: "flex", gap: 12, flexWrap: "wrap" }}>
+                <ChildAction onClick={() => start()}>Ещё раз</ChildAction>
+                {weakRules.length ? (
+                  <button
+                    type="button"
+                    className="sov-act-ghost"
+                    onClick={() => {
+                      setPicked(weakRules);
+                      start(weakRules);
+                    }}
+                  >
+                    Повторить трудные правила
+                  </button>
+                ) : null}
+                <button type="button" className="sov-act-ghost" onClick={() => setStage("setup")}>
+                  Выбрать правила
                 </button>
-              ) : null}
+                {!signedIn ? (
+                  <button
+                    type="button"
+                    className="sov-act-ghost"
+                    onClick={() => navigate({ to: "/registraciya" })}
+                  >
+                    Сохранить прогресс
+                  </button>
+                ) : null}
+              </div>
+
+              {!signedIn ? <ParentBridge /> : null}
             </div>
-
-            {!signedIn ? <ParentBridge /> : null}
           </div>
-        </div>
+        </ArcadeStage>
       </div>
     );
   }
@@ -384,81 +427,87 @@ function SpellingPage() {
 
   return (
     <div className="sov sov-kid">
-      <div className="sov-play">
-        <TrainerTop current="pravopisanie" />
+      <ArcadeStage arcade={arcade}>
+        <div className="sov-play">
+          <TrainerTop current="pravopisanie" />
 
-        <div className="sov-play__bar" style={{ marginTop: 14 }}>
-          <Owl
-            size={40}
-            mood={state === "idle" ? "idle" : state === "right" ? "happy" : "concerned"}
-          />
-          <div className="sov-play__track">
-            <div className="sov-play__fill" style={{ width: `${(index / queue.length) * 100}%` }} />
+          <div className="sov-play__bar" style={{ marginTop: 14 }}>
+            <Owl
+              size={40}
+              mood={state === "idle" ? "idle" : state === "right" ? "happy" : "concerned"}
+            />
+            <div className="sov-play__track">
+              <div
+                className="sov-play__fill"
+                style={{ width: `${(index / queue.length) * 100}%` }}
+              />
+            </div>
+            <span className="sov-mono">
+              {index + 1} из {queue.length}
+            </span>
+            <ArcadeCombo arcade={arcade} />
           </div>
-          <span className="sov-mono">
-            {index + 1} из {queue.length}
-          </span>
-        </div>
 
-        <div className="sov-card">
-          <span className="sov-card__tag">{card.rule.title}</span>
-          <p className="sov-word" data-long={card.item.gap.includes(" ")}>
-            <GapText gap={card.item.gap} fill={given} state={state} />
-          </p>
+          <div className="sov-card">
+            <span className="sov-card__tag">{card.rule.title}</span>
+            <p className="sov-word" data-long={card.item.gap.includes(" ")}>
+              <GapText gap={card.item.gap} fill={given} state={state} />
+            </p>
 
-          {/* Буква и сочетание букв — короткие варианты: во всю ширину
+            {/* Буква и сочетание букв — короткие варианты: во всю ширину
               карточки кнопка с одним «ь» читается как пустая полоса. */}
-          <div className="sov-options" data-tight={card.options.every((o) => o.length <= 4)}>
-            {card.options.map((option) => (
-              <button
-                key={option}
-                type="button"
-                className="sov-option"
-                disabled={given !== null}
-                data-state={
-                  given === null
-                    ? undefined
-                    : option === card.item.answer
-                      ? "right"
-                      : option === given
-                        ? "wrong"
-                        : undefined
-                }
-                onClick={() => answer(option)}
-              >
-                {option}
-              </button>
-            ))}
-          </div>
+            <div className="sov-options" data-tight={card.options.every((o) => o.length <= 4)}>
+              {card.options.map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  className="sov-option"
+                  disabled={given !== null}
+                  data-state={
+                    given === null
+                      ? undefined
+                      : option === card.item.answer
+                        ? "right"
+                        : option === given
+                          ? "wrong"
+                          : undefined
+                  }
+                  onClick={(e) => answer(option, e.currentTarget)}
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
 
-          {/* Разбор стоит выше правила, а кнопка «дальше» ниже: после ошибки
+            {/* Разбор стоит выше правила, а кнопка «дальше» ниже: после ошибки
               правило разворачивается само, и если бы оно было последним, за
               ним пришлось бы искать разбор. Так порядок чтения совпадает с
               порядком мысли: что вышло → почему → идём дальше. */}
-          {given !== null ? (
-            <div className="sov-feedback" data-kind={state === "right" ? "right" : "wrong"}>
-              <div>
-                <strong>{state === "right" ? "Верно" : "Пока не так"}</strong>
-                <span>
-                  {state === "right"
-                    ? card.item.why
-                    : `Правильно «${filled(card.item)}». ${card.item.why}`}
-                </span>
+            {given !== null ? (
+              <div className="sov-feedback" data-kind={state === "right" ? "right" : "wrong"}>
+                <div>
+                  <strong>{state === "right" ? "Верно" : "Пока не так"}</strong>
+                  <span>
+                    {state === "right"
+                      ? card.item.why
+                      : `Правильно «${filled(card.item)}». ${card.item.why}`}
+                  </span>
+                </div>
               </div>
-            </div>
-          ) : null}
+            ) : null}
 
-          <RuleReveal rule={card.rule} open={openRule} onToggle={() => setOpenRule((o) => !o)} />
+            <RuleReveal rule={card.rule} open={openRule} onToggle={() => setOpenRule((o) => !o)} />
 
-          {given !== null ? (
-            <div style={{ marginTop: 22 }}>
-              <ChildAction onClick={() => void next()}>
-                {index + 1 < queue.length ? "Дальше" : "Завершить"}
-              </ChildAction>
-            </div>
-          ) : null}
+            {given !== null ? (
+              <div style={{ marginTop: 22 }}>
+                <ChildAction onClick={() => void next()}>
+                  {index + 1 < queue.length ? "Дальше" : "Завершить"}
+                </ChildAction>
+              </div>
+            ) : null}
+          </div>
         </div>
-      </div>
+      </ArcadeStage>
     </div>
   );
 }

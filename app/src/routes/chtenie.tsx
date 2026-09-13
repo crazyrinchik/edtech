@@ -1,9 +1,16 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 
+import {
+  ArcadeBest,
+  ArcadeCombo,
+  ArcadeReward,
+  ArcadeStage,
+  useArcade,
+} from "../components/arcade";
 import { ChildAction, Owl, SiteFooter } from "../components/brand";
 import { SpeakButton } from "../components/speak";
-import { ParentBridge, TrainerTop } from "../components/trainers";
+import { ParentBridge, SAVE_LOCKED, TrainerTop, TuneLock } from "../components/trainers";
 import { me, readingResult, readingTexts } from "../lib/api/app.functions";
 import { drillSearch, pickNumber } from "../lib/drill-search";
 import { pageHead } from "../lib/seo";
@@ -27,6 +34,13 @@ type Outcome = {
   total: number;
   details: { prompt: string; answer: string; correct: boolean }[];
   saved: boolean;
+  coins: number;
+  /* Серию в скорочтении считает сервер: во время чтения ответов нет, а
+     какие из отмеченных верны, экран узнаёт из того же ответа, которым
+     заход и сохраняется (readingResult в app.functions.ts). */
+  record: boolean;
+  /** Результату некуда лечь: подписки нет. Отличается от «не вошёл». */
+  locked: boolean;
 };
 
 /** Скорость показа слов. 80 слов в минуту — темп чтения первоклассника вслух. */
@@ -55,6 +69,10 @@ function ReadingPage() {
   const [textId, setTextId] = useState<string | null>(null);
   // Скорость задаёт педагог — см. lib/drill-search.ts.
   const [wpm, setWpm] = useState(() => pickNumber(given.wpm, SPEEDS, 80));
+  /* Скорость и сохранение результата — платные, см. trainers.tsx. Выбор
+     текста к этой границе не относится: он и так ограничен подпиской
+     по-своему — уровни выше простого закрыты (lockedLevels). */
+  const [paid, setPaid] = useState(false);
   const [wordIndex, setWordIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [outcome, setOutcome] = useState<Outcome | null>(null);
@@ -71,6 +89,8 @@ function ReadingPage() {
    */
   const [loadError, setLoadError] = useState(false);
 
+  /* Серия, ночь и звук — общий слой тренажёров, см. components/arcade.tsx. */
+  const arcade = useArcade();
   const startedAt = useRef(Date.now());
 
   async function load() {
@@ -83,6 +103,9 @@ function ReadingPage() {
       setLockedLevels(list.lockedLevels);
       setTextId(list.texts[0]?.id ?? null);
       if (account?.user) setChildId(account.activeChildId ?? account.children[0]?.id ?? null);
+      setPaid(!!account?.activeChildPaid);
+      // Скорость из адреса без подписки не действует — см. schet.tsx.
+      if (!account?.activeChildPaid) setWpm(80);
     } catch {
       setLoadError(true);
     }
@@ -114,6 +137,7 @@ function ReadingPage() {
 
   function startReading() {
     if (!text) return;
+    arcade.reset();
     setWordIndex(0);
     setAnswers({});
     setOutcome(null);
@@ -138,6 +162,30 @@ function ReadingPage() {
     setStage("done");
     setPending(false);
   }
+
+  /*
+   * Серия в чтении считается не по словам, а по вопросам, и разворачивается
+   * на экране итога.
+   *
+   * Слова показываются без ответов — считать там нечего, — а оба вопроса
+   * ребёнок отмечает до проверки, и в момент ответа неизвестно, верен он
+   * или нет. Поэтому результат проверяется вслух: ответы загораются по
+   * одному, нота поднимается на верных, и только потом даётся залп. Это
+   * же единственный экран тренажёра, где результат появляется сразу весь,
+   * и разворачивать его по частям — единственный способ показать серию.
+   */
+  useEffect(() => {
+    if (stage !== "done" || !outcome) return;
+    arcade.reset();
+    const steps = outcome.details.map((d, i) =>
+      window.setTimeout(() => arcade.hit(d.correct), 320 + i * 420),
+    );
+    const salute = window.setTimeout(() => arcade.finale(), 520 + outcome.details.length * 420);
+    return () => {
+      steps.forEach((t) => window.clearTimeout(t));
+      window.clearTimeout(salute);
+    };
+  }, [stage, outcome, arcade.hit, arcade.reset, arcade.finale]);
 
   /* Три состояния до основного экрана, и все три говорят разное:
      не получилось — что делать; грузится — сколько ждать и чего;
@@ -215,28 +263,30 @@ function ReadingPage() {
   if (stage === "read" && text) {
     return (
       <div className="sov sov-kid">
-        <div className="sov-play">
-          <div className="sov-flash">
-            <span className="sov-flash__word">{words[wordIndex]}</span>
+        <ArcadeStage arcade={arcade}>
+          <div className="sov-play">
+            <div className="sov-flash">
+              <span className="sov-flash__word">{words[wordIndex]}</span>
+            </div>
+            <div className="sov-play__track" style={{ marginTop: 20 }}>
+              <div
+                className="sov-play__fill"
+                style={{ width: `${((wordIndex + 1) / words.length) * 100}%` }}
+              />
+            </div>
+            <p
+              className="sov-mono"
+              style={{ marginTop: 14, color: "var(--sov-ink-soft)", textAlign: "center" }}
+            >
+              {wpm} слов в минуту · {wordIndex + 1} из {words.length}
+            </p>
+            <div style={{ marginTop: 20, textAlign: "center" }}>
+              <button className="sov-act-ghost" onClick={() => setStage("quiz")}>
+                Хватит, перейти к вопросам
+              </button>
+            </div>
           </div>
-          <div className="sov-play__track" style={{ marginTop: 20 }}>
-            <div
-              className="sov-play__fill"
-              style={{ width: `${((wordIndex + 1) / words.length) * 100}%` }}
-            />
-          </div>
-          <p
-            className="sov-mono"
-            style={{ marginTop: 14, color: "var(--sov-ink-soft)", textAlign: "center" }}
-          >
-            {wpm} слов в минуту · {wordIndex + 1} из {words.length}
-          </p>
-          <div style={{ marginTop: 20, textAlign: "center" }}>
-            <button className="sov-act-ghost" onClick={() => setStage("quiz")}>
-              Хватит, перейти к вопросам
-            </button>
-          </div>
-        </div>
+        </ArcadeStage>
       </div>
     );
   }
@@ -245,44 +295,46 @@ function ReadingPage() {
     const ready = text.questions.every((q) => answers[q.index]);
     return (
       <div className="sov sov-kid">
-        <div className="sov-play">
-          <TrainerTop current="chtenie" />
-          <div className="sov-card">
-            <h2>Что запомнилось?</h2>
-            <p style={{ marginTop: 10, color: "var(--sov-ink-soft)" }}>
-              Два вопроса по тексту «{text.title}».
-            </p>
-            {text.questions.map((q) => (
-              <div key={q.index} style={{ marginTop: 24 }}>
-                <div className="sov-ask">
-                  <p style={{ fontWeight: 600 }}>{q.prompt}</p>
-                  <SpeakButton compact text={q.prompt} />
-                </div>
-                <div className="sov-options">
-                  {q.options.map((option) => (
-                    <button
-                      key={option}
-                      type="button"
-                      className="sov-option"
-                      /* «picked», а не «right»: ответ ещё не проверен,
+        <ArcadeStage arcade={arcade}>
+          <div className="sov-play">
+            <TrainerTop current="chtenie" />
+            <div className="sov-card">
+              <h2>Что запомнилось?</h2>
+              <p style={{ marginTop: 10, color: "var(--sov-ink-soft)" }}>
+                Два вопроса по тексту «{text.title}».
+              </p>
+              {text.questions.map((q) => (
+                <div key={q.index} style={{ marginTop: 24 }}>
+                  <div className="sov-ask">
+                    <p style={{ fontWeight: 600 }}>{q.prompt}</p>
+                    <SpeakButton compact text={q.prompt} />
+                  </div>
+                  <div className="sov-options">
+                    {q.options.map((option) => (
+                      <button
+                        key={option}
+                        type="button"
+                        className="sov-option"
+                        /* «picked», а не «right»: ответ ещё не проверен,
                          зелёное «верно» здесь было бы неправдой. */
-                      data-state={answers[q.index] === option ? "picked" : undefined}
-                      aria-pressed={answers[q.index] === option}
-                      onClick={() => setAnswers((prev) => ({ ...prev, [q.index]: option }))}
-                    >
-                      {option}
-                    </button>
-                  ))}
+                        data-state={answers[q.index] === option ? "picked" : undefined}
+                        aria-pressed={answers[q.index] === option}
+                        onClick={() => setAnswers((prev) => ({ ...prev, [q.index]: option }))}
+                      >
+                        {option}
+                      </button>
+                    ))}
+                  </div>
                 </div>
+              ))}
+              <div style={{ marginTop: 26 }}>
+                <ChildAction onClick={() => void submitQuiz()} disabled={!ready || pending}>
+                  Проверить
+                </ChildAction>
               </div>
-            ))}
-            <div style={{ marginTop: 26 }}>
-              <ChildAction onClick={() => void submitQuiz()} disabled={!ready || pending}>
-                Проверить
-              </ChildAction>
             </div>
           </div>
-        </div>
+        </ArcadeStage>
       </div>
     );
   }
@@ -290,69 +342,81 @@ function ReadingPage() {
   if (stage === "done" && outcome && text) {
     return (
       <div className="sov sov-kid">
-        <div className="sov-play">
-          <TrainerTop current="chtenie" />
-          <div className="sov-card">
-            <Owl
-              size={64}
-              mood={outcome.correct === outcome.total ? "happy" : "concerned"}
-              animated
-            />
-            <h2 style={{ marginTop: 16 }}>Прочитано</h2>
-            <div className="sov-metrics" style={{ gridTemplateColumns: "repeat(2, 1fr)" }}>
-              <div className="sov-metric">
-                <b>{wpm}</b>
-                <span>слов в минуту</span>
+        <ArcadeStage arcade={arcade}>
+          <div className="sov-play">
+            <TrainerTop current="chtenie" />
+            <div className="sov-card">
+              <div className="sov-play__bar" style={{ justifyContent: "flex-end" }}>
+                <ArcadeCombo arcade={arcade} />
               </div>
-              <div className="sov-metric">
-                <b>
-                  {outcome.correct} из {outcome.total}
-                </b>
-                <span>вопросов понято</span>
-              </div>
-            </div>
-            <div style={{ marginTop: 18 }}>
-              {outcome.details.map((d) => (
-                <div
-                  key={d.prompt}
-                  className="sov-risk"
-                  style={{ borderLeftColor: d.correct ? "var(--sov-ok)" : "var(--sov-warn)" }}
-                >
-                  <strong>{d.prompt}</strong>
-                  <div className="sov-mono" style={{ marginTop: 4 }}>
-                    {d.correct ? "верно" : `правильный ответ: ${d.answer}`}
-                  </div>
+              <Owl
+                size={64}
+                mood={outcome.correct === outcome.total ? "happy" : "concerned"}
+                animated
+              />
+              <h2 style={{ marginTop: 16 }}>Прочитано</h2>
+              <div className="sov-metrics" style={{ gridTemplateColumns: "repeat(2, 1fr)" }}>
+                <div className="sov-metric">
+                  <b>{wpm}</b>
+                  <span>слов в минуту</span>
                 </div>
-              ))}
-            </div>
-
-            {!outcome.saved ? (
-              <div className="sov-save-hint">
-                <strong>Результат не сохранён</strong>
-                <span>
-                  {signedIn
-                    ? "Выберите профиль ребёнка, чтобы скорость чтения попадала в отчёт родителя."
-                    : "С аккаунтом видно, как скорость растёт от недели к неделе, а родитель получает отчёт."}
-                </span>
+                <div className="sov-metric">
+                  <b>
+                    {outcome.correct} из {outcome.total}
+                  </b>
+                  <span>вопросов понято</span>
+                </div>
               </div>
-            ) : (
-              <p className="sov-mono" style={{ marginTop: 14, color: "var(--sov-ok)" }}>
-                Результат сохранён в отчёте родителя.
-              </p>
-            )}
+              <ArcadeBest best={arcade.best} record={outcome.record} />
+              <ArcadeReward coins={outcome.coins} />
+              <div style={{ marginTop: 18 }}>
+                {outcome.details.map((d) => (
+                  <div
+                    key={d.prompt}
+                    className="sov-risk"
+                    style={{ borderLeftColor: d.correct ? "var(--sov-ok)" : "var(--sov-warn)" }}
+                  >
+                    <strong>{d.prompt}</strong>
+                    <div className="sov-mono" style={{ marginTop: 4 }}>
+                      {d.correct ? "верно" : `правильный ответ: ${d.answer}`}
+                    </div>
+                  </div>
+                ))}
+              </div>
 
-            <div style={{ marginTop: 24, display: "flex", gap: 12, flexWrap: "wrap" }}>
-              <ChildAction onClick={() => setStage("setup")}>Другой текст</ChildAction>
-              {!signedIn ? (
-                <button className="sov-act-ghost" onClick={() => navigate({ to: "/registraciya" })}>
-                  Сохранить прогресс
-                </button>
-              ) : null}
+              {!outcome.saved ? (
+                <div className="sov-save-hint">
+                  <strong>Результат не сохранён</strong>
+                  <span>
+                    {outcome.locked
+                      ? SAVE_LOCKED
+                      : signedIn
+                        ? "Выберите профиль ребёнка, чтобы скорость чтения попадала в отчёт родителя."
+                        : "С аккаунтом видно, как скорость растёт от недели к неделе, а родитель получает отчёт."}
+                  </span>
+                </div>
+              ) : (
+                <p className="sov-mono" style={{ marginTop: 14, color: "var(--sov-ok)" }}>
+                  Результат сохранён в отчёте родителя.
+                </p>
+              )}
+
+              <div style={{ marginTop: 24, display: "flex", gap: 12, flexWrap: "wrap" }}>
+                <ChildAction onClick={() => setStage("setup")}>Другой текст</ChildAction>
+                {!signedIn ? (
+                  <button
+                    className="sov-act-ghost"
+                    onClick={() => navigate({ to: "/registraciya" })}
+                  >
+                    Сохранить прогресс
+                  </button>
+                ) : null}
+              </div>
+
+              {!signedIn ? <ParentBridge /> : null}
             </div>
-
-            {!signedIn ? <ParentBridge /> : null}
           </div>
-        </div>
+        </ArcadeStage>
       </div>
     );
   }
@@ -369,7 +433,7 @@ function ReadingPage() {
           </p>
 
           <div className="sov-setup">
-            <div className="sov-setup__row">
+            <fieldset className="sov-setup__row" disabled={!paid}>
               <span className="sov-setup__label">Скорость</span>
               <div className="sov-chips" style={{ marginTop: 0 }}>
                 {SPEEDS.map((s) => (
@@ -384,7 +448,8 @@ function ReadingPage() {
                   </button>
                 ))}
               </div>
-            </div>
+              {!paid ? <TuneLock /> : null}
+            </fieldset>
 
             <div className="sov-setup__row">
               <span className="sov-setup__label">Текст</span>

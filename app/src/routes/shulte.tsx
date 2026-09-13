@@ -1,8 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import {
+  ArcadeBest,
+  ArcadeCombo,
+  ArcadeReward,
+  ArcadeStage,
+  useArcade,
+} from "../components/arcade";
 import { ChildAction, Owl, SiteFooter } from "../components/brand";
-import { ParentBridge, TrainerTop } from "../components/trainers";
+import { ParentBridge, SAVE_LOCKED, TrainerTop, TuneLock } from "../components/trainers";
 import { me, saveShulteDrill } from "../lib/api/app.functions";
 import { drillSearch, pickNumber } from "../lib/drill-search";
 import { pageHead } from "../lib/seo";
@@ -43,11 +50,24 @@ function ShultePage() {
   const [elapsed, setElapsed] = useState(0);
   const [childId, setChildId] = useState<string | null>(null);
   const [saved, setSaved] = useState<boolean | null>(null);
+  const [coins, setCoins] = useState(0);
+  const [record, setRecord] = useState(false);
+  /* Размер таблицы и сохранение результата — платные, см. trainers.tsx. */
+  const [paid, setPaid] = useState(false);
+  const [locked, setLocked] = useState(false);
   const startedAt = useRef(0);
+  /* Серия, ночь и звук — общий слой тренажёров, см. components/arcade.tsx.
+     Здесь серия считается по числам, найденным подряд без промаха. */
+  const arcade = useArcade();
 
   useEffect(() => {
     me()
-      .then((a) => setChildId(a.activeChildId ?? a.children[0]?.id ?? null))
+      .then((a) => {
+        setChildId(a.activeChildId ?? a.children[0]?.id ?? null);
+        setPaid(a.activeChildPaid);
+        // Размер из адреса без подписки не действует — см. schet.tsx.
+        if (!a.activeChildPaid) setSize(3);
+      })
       .catch(() => setChildId(null));
   }, []);
 
@@ -65,10 +85,24 @@ function ShultePage() {
   useEffect(() => {
     if (!done || saved !== null) return;
     const seconds = Math.max(1, Math.floor((Date.now() - startedAt.current) / 1000));
-    saveShulteDrill({ data: { childId, size, seconds, misses } })
-      .then((r) => setSaved(r.saved))
+    // Серия к этому моменту уже не меняется: таблица пройдена, нажимать
+    // больше нечего, — поэтому в зависимостях она ничего не перезапускает.
+    saveShulteDrill({ data: { childId, size, seconds, misses, streak: arcade.best } })
+      .then((r) => {
+        setSaved(r.saved);
+        setCoins(r.coins);
+        setRecord(r.record);
+        setLocked(r.locked);
+      })
       .catch(() => setSaved(false));
-  }, [done, saved, childId, size, misses]);
+  }, [done, saved, childId, size, misses, arcade.best]);
+
+  /* Салют на экране итога. Таблица и итог живут в одном возвращаемом
+     дереве, поэтому небо не пересоздаётся — но залп всё равно даётся по
+     появлению итога, а не из tap: там он совпал бы с последней искрой. */
+  useEffect(() => {
+    if (done) arcade.finale();
+  }, [done, arcade.finale]);
 
   const perCell = useMemo(
     () => (done && elapsed > 0 ? (elapsed / total).toFixed(1) : null),
@@ -82,126 +116,140 @@ function ShultePage() {
     setWrong(null);
     setElapsed(0);
     setSaved(null);
+    setRecord(false);
     startedAt.current = Date.now();
+    arcade.reset();
   }
 
-  function tap(value: number) {
+  function tap(value: number, from?: Element | null) {
     if (!cells || done) return;
     if (value === next) {
       setNext((n) => n + 1);
       setWrong(null);
+      // Искры вылетают из найденной клетки: взгляд ребёнка уже там.
+      arcade.hit(true, from);
       return;
     }
     setMisses((m) => m + 1);
     setWrong(value);
+    arcade.hit(false);
     window.setTimeout(() => setWrong((w) => (w === value ? null : w)), 350);
   }
 
+  /* Выбор размера остаётся на бумаге: там читают, что вообще делать.
+     Ночь включается вместе с таблицей и держится до итога. */
+  const body = (
+    <div className="sov-shell">
+      <div style={{ padding: "18px 0" }}>
+        <TrainerTop current="shulte" />
+      </div>
+
+      <div className="sov-play">
+        {cells === null ? (
+          <div className="sov-card">
+            <h2>Таблица Шульте</h2>
+            <p style={{ marginTop: 10, color: "var(--sov-ink-soft)", fontWeight: 500 }}>
+              Числа расставлены вразнобой. Находи их по порядку: сначала 1, потом 2 и дальше до
+              конца. Смотри в середину таблицы и старайся замечать числа боковым зрением — так
+              тренируется поле зрения, а вместе с ним скорость чтения.
+            </p>
+
+            <fieldset className="sov-setup" disabled={!paid} style={{ marginTop: 22 }}>
+              <div className="sov-setup__row">
+                <span className="sov-setup__label">Размер</span>
+                <div className="sov-chips">
+                  {SIZES.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      className="sov-chip"
+                      data-active={size === s}
+                      onClick={() => setSize(s)}
+                    >
+                      {s} × {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </fieldset>
+
+            {!paid ? <TuneLock /> : null}
+
+            <div style={{ marginTop: 26 }}>
+              <ChildAction onClick={start}>Начать</ChildAction>
+            </div>
+          </div>
+        ) : done ? (
+          <div className="sov-card">
+            <Owl size={64} mood="happy" />
+            <h2 style={{ marginTop: 14 }}>Готово за {elapsed} сек</h2>
+            <p style={{ marginTop: 10, color: "var(--sov-ink-soft)", fontWeight: 500 }}>
+              {perCell} секунды на клетку
+              {misses > 0 ? `, промахов: ${misses}` : ", ни одного промаха"}.
+            </p>
+            <ArcadeBest best={arcade.best} record={record} />
+            <ArcadeReward coins={coins} />
+            {saved === false ? (
+              <div className="sov-save-hint" style={{ marginTop: 20 }}>
+                <strong>Результат не сохранён</strong>
+                <span>
+                  {locked ? SAVE_LOCKED : "Чтобы результаты копились, нужно войти в аккаунт."}
+                </span>
+              </div>
+            ) : null}
+            <div style={{ marginTop: 24, display: "flex", gap: 12, flexWrap: "wrap" }}>
+              <ChildAction onClick={start}>Ещё раз</ChildAction>
+              <button type="button" className="sov-act-ghost" onClick={() => setCells(null)}>
+                Другой размер
+              </button>
+            </div>
+
+            {saved === false ? <ParentBridge /> : null}
+          </div>
+        ) : (
+          <>
+            <div className="sov-play__bar">
+              <Owl size={40} />
+              <div className="sov-shulte__status">
+                <strong>Ищи {next}</strong>
+                <span className="sov-mono">
+                  {elapsed} сек · {next - 1} из {total}
+                </span>
+              </div>
+              <ArcadeCombo arcade={arcade} />
+            </div>
+
+            <div
+              className="sov-shulte"
+              style={{ gridTemplateColumns: `repeat(${size}, 1fr)` }}
+              data-size={size}
+            >
+              {cells.map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  className="sov-shulte__cell"
+                  data-done={value < next}
+                  data-wrong={wrong === value}
+                  onClick={(e) => tap(value, e.currentTarget)}
+                >
+                  {value}
+                </button>
+              ))}
+            </div>
+
+            <button type="button" className="sov-leave" onClick={() => setCells(null)}>
+              Закончить
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <div className="sov sov-kid">
-      <div className="sov-shell">
-        <div style={{ padding: "18px 0" }}>
-          <TrainerTop current="shulte" />
-        </div>
-
-        <div className="sov-play">
-          {cells === null ? (
-            <div className="sov-card">
-              <h2>Таблица Шульте</h2>
-              <p style={{ marginTop: 10, color: "var(--sov-ink-soft)", fontWeight: 500 }}>
-                Числа расставлены вразнобой. Находи их по порядку: сначала 1, потом 2 и дальше
-                до конца. Смотри в середину таблицы и старайся замечать числа боковым зрением —
-                так тренируется поле зрения, а вместе с ним скорость чтения.
-              </p>
-
-              <div className="sov-setup" style={{ marginTop: 22 }}>
-                <div className="sov-setup__row">
-                  <span className="sov-setup__label">Размер</span>
-                  <div className="sov-chips">
-                    {SIZES.map((s) => (
-                      <button
-                        key={s}
-                        type="button"
-                        className="sov-chip"
-                        data-active={size === s}
-                        onClick={() => setSize(s)}
-                      >
-                        {s} × {s}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ marginTop: 26 }}>
-                <ChildAction onClick={start}>Начать</ChildAction>
-              </div>
-            </div>
-          ) : done ? (
-            <div className="sov-card">
-              <Owl size={64} mood="happy" />
-              <h2 style={{ marginTop: 14 }}>Готово за {elapsed} сек</h2>
-              <p style={{ marginTop: 10, color: "var(--sov-ink-soft)", fontWeight: 500 }}>
-                {perCell} секунды на клетку
-                {misses > 0 ? `, промахов: ${misses}` : ", ни одного промаха"}.
-              </p>
-              {saved === false ? (
-                <div className="sov-save-hint" style={{ marginTop: 20 }}>
-                  <strong>Результат не сохранён</strong>
-                  <span>Чтобы результаты копились, нужно войти в аккаунт.</span>
-                </div>
-              ) : null}
-              <div style={{ marginTop: 24, display: "flex", gap: 12, flexWrap: "wrap" }}>
-                <ChildAction onClick={start}>Ещё раз</ChildAction>
-                <button type="button" className="sov-act-ghost" onClick={() => setCells(null)}>
-                  Другой размер
-                </button>
-              </div>
-
-              {saved === false ? <ParentBridge /> : null}
-            </div>
-          ) : (
-            <>
-              <div className="sov-play__bar">
-                <Owl size={40} />
-                <div className="sov-shulte__status">
-                  <strong>Ищи {next}</strong>
-                  <span className="sov-mono">
-                    {elapsed} сек · {next - 1} из {total}
-                  </span>
-                </div>
-              </div>
-
-              <div
-                className="sov-shulte"
-                style={{ gridTemplateColumns: `repeat(${size}, 1fr)` }}
-                data-size={size}
-              >
-                {cells.map((value) => (
-                  <button
-                    key={value}
-                    type="button"
-                    className="sov-shulte__cell"
-                    data-done={value < next}
-                    data-wrong={wrong === value}
-                    onClick={() => tap(value)}
-                  >
-                    {value}
-                  </button>
-                ))}
-              </div>
-
-              <button
-                type="button"
-                className="sov-leave"
-                onClick={() => setCells(null)}
-              >
-                Закончить
-              </button>
-            </>
-          )}
-        </div>
-      </div>
+      {cells === null ? body : <ArcadeStage arcade={arcade}>{body}</ArcadeStage>}
       <SiteFooter />
     </div>
   );
