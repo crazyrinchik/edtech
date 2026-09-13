@@ -11,7 +11,7 @@ import {
 import { ChildAction, Owl, SiteFooter } from "../components/brand";
 import { SpeakButton } from "../components/speak";
 import {
-  AdultBridge,
+  ResultBridge,
   SAVE_LOCKED,
   SAVE_NO_ACCOUNT,
   TrainerTop,
@@ -413,7 +413,12 @@ function MentalPage() {
                 <ChildAction onClick={() => setStage("setup")}>Ещё раз</ChildAction>
               </div>
 
-              {!signedIn ? <AdultBridge /> : null}
+              <ResultBridge
+                signedIn={signedIn}
+                saved={saved}
+                locked={locked}
+                streak={arcade.best}
+              />
             </div>
           </div>
         </ArcadeStage>

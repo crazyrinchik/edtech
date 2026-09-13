@@ -11,7 +11,7 @@ import {
 import { ChildAction, Owl, SiteFooter } from "../components/brand";
 import { SpeakButton } from "../components/speak";
 import {
-  AdultBridge,
+  ResultBridge,
   SAVE_LOCKED,
   SAVE_NO_ACCOUNT,
   TrainerTop,
@@ -411,7 +411,12 @@ function ReadingPage() {
                 <ChildAction onClick={() => setStage("setup")}>Другой текст</ChildAction>
               </div>
 
-              {!signedIn ? <AdultBridge /> : null}
+              <ResultBridge
+                signedIn={signedIn}
+                saved={outcome.saved}
+                locked={outcome.locked}
+                streak={arcade.best}
+              />
             </div>
           </div>
         </ArcadeStage>

@@ -10,7 +10,7 @@ import {
 } from "../components/arcade";
 import { ChildAction, Owl, SiteFooter } from "../components/brand";
 import {
-  AdultBridge,
+  ResultBridge,
   SAVE_LOCKED,
   SAVE_NO_ACCOUNT,
   TrainerTop,
@@ -214,7 +214,7 @@ function ShultePage() {
               </button>
             </div>
 
-            {!signedIn ? <AdultBridge /> : null}
+            <ResultBridge signedIn={signedIn} saved={saved} locked={locked} streak={arcade.best} />
           </div>
         ) : (
           <>
