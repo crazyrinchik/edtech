@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 
 import {
@@ -10,7 +10,13 @@ import {
 } from "../components/arcade";
 import { ChildAction, Owl, SiteFooter } from "../components/brand";
 import { SpeakButton } from "../components/speak";
-import { ParentBridge, SAVE_LOCKED, TrainerTop, TuneLock } from "../components/trainers";
+import {
+  AdultBridge,
+  SAVE_LOCKED,
+  SAVE_NO_ACCOUNT,
+  TrainerTop,
+  TuneLock,
+} from "../components/trainers";
 import { me, saveMentalDrill } from "../lib/api/app.functions";
 import { drillSearch, pickMany, pickNumber } from "../lib/drill-search";
 import { useEnterAction } from "../lib/keys";
@@ -115,7 +121,6 @@ function spoken(example: Example): string {
  * вещи, и родители просят крутить их по отдельности.
  */
 function MentalPage() {
-  const navigate = useNavigate();
   const given = Route.useSearch();
   const [stage, setStage] = useState<"setup" | "play" | "done">("setup");
   const [digits, setDigits] = useState<1 | 2 | 3>(() =>
@@ -396,7 +401,7 @@ function MentalPage() {
                       ? SAVE_LOCKED
                       : signedIn
                         ? "Выберите профиль ребёнка, чтобы тренировки попадали в отчёт родителя."
-                        : "Заведите аккаунт: тренировки будут копиться, а родитель увидит скорость и точность в кабинете."}
+                        : SAVE_NO_ACCOUNT}
                   </span>
                 </div>
               ) : (
@@ -406,17 +411,9 @@ function MentalPage() {
               )}
               <div style={{ marginTop: 24, display: "flex", gap: 12, flexWrap: "wrap" }}>
                 <ChildAction onClick={() => setStage("setup")}>Ещё раз</ChildAction>
-                {!signedIn ? (
-                  <button
-                    className="sov-act-ghost"
-                    onClick={() => navigate({ to: "/registraciya" })}
-                  >
-                    Сохранить прогресс
-                  </button>
-                ) : null}
               </div>
 
-              {!signedIn ? <ParentBridge /> : null}
+              {!signedIn ? <AdultBridge /> : null}
             </div>
           </div>
         </ArcadeStage>

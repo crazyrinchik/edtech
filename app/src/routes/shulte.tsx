@@ -9,7 +9,13 @@ import {
   useArcade,
 } from "../components/arcade";
 import { ChildAction, Owl, SiteFooter } from "../components/brand";
-import { ParentBridge, SAVE_LOCKED, TrainerTop, TuneLock } from "../components/trainers";
+import {
+  AdultBridge,
+  SAVE_LOCKED,
+  SAVE_NO_ACCOUNT,
+  TrainerTop,
+  TuneLock,
+} from "../components/trainers";
 import { me, saveShulteDrill } from "../lib/api/app.functions";
 import { drillSearch, pickNumber } from "../lib/drill-search";
 import { pageHead } from "../lib/seo";
@@ -49,6 +55,11 @@ function ShultePage() {
   const [wrong, setWrong] = useState<number | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const [childId, setChildId] = useState<string | null>(null);
+  /* Вошёл ли взрослый вообще. Отдельно от `saved`, хотя раньше мостик для
+     взрослого показывался просто по несохранённому результату: не сохраняется
+     он и у вошедшего, если у ребёнка нет подписки, — и тому предлагалось
+     «завести аккаунт», который у него уже есть. */
+  const [signedIn, setSignedIn] = useState(false);
   const [saved, setSaved] = useState<boolean | null>(null);
   const [coins, setCoins] = useState(0);
   const [record, setRecord] = useState(false);
@@ -63,6 +74,7 @@ function ShultePage() {
   useEffect(() => {
     me()
       .then((a) => {
+        setSignedIn(!!a.user);
         setChildId(a.activeChildId ?? a.children[0]?.id ?? null);
         setPaid(a.activeChildPaid);
         // Размер из адреса без подписки не действует — см. schet.tsx.
@@ -192,9 +204,7 @@ function ShultePage() {
             {saved === false ? (
               <div className="sov-save-hint" style={{ marginTop: 20 }}>
                 <strong>Результат не сохранён</strong>
-                <span>
-                  {locked ? SAVE_LOCKED : "Чтобы результаты копились, нужно войти в аккаунт."}
-                </span>
+                <span>{locked ? SAVE_LOCKED : SAVE_NO_ACCOUNT}</span>
               </div>
             ) : null}
             <div style={{ marginTop: 24, display: "flex", gap: 12, flexWrap: "wrap" }}>
@@ -204,7 +214,7 @@ function ShultePage() {
               </button>
             </div>
 
-            {saved === false ? <ParentBridge /> : null}
+            {!signedIn ? <AdultBridge /> : null}
           </div>
         ) : (
           <>

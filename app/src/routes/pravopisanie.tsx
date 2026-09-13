@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 
 import {
@@ -9,7 +9,13 @@ import {
   useArcade,
 } from "../components/arcade";
 import { ChildAction, Owl, SiteFooter } from "../components/brand";
-import { ParentBridge, SAVE_LOCKED, TrainerTop, TuneLock } from "../components/trainers";
+import {
+  AdultBridge,
+  SAVE_LOCKED,
+  SAVE_NO_ACCOUNT,
+  TrainerTop,
+  TuneLock,
+} from "../components/trainers";
 import { me, saveSpellingDrill } from "../lib/api/app.functions";
 import { drillSearch, pickMany, pickNumber } from "../lib/drill-search";
 import { useEnterAction } from "../lib/keys";
@@ -67,7 +73,6 @@ function buildQueue(ruleIds: string[], count: number): Card[] {
  * а после ошибки оно раскрывается само.
  */
 function SpellingPage() {
-  const navigate = useNavigate();
   // Настройки задания приезжают в адресе — см. lib/drill-search.ts.
   // Имя `given` здесь уже занято ответом ребёнка, поэтому `assigned`.
   const assigned = Route.useSearch();
@@ -377,7 +382,7 @@ function SpellingPage() {
                       ? SAVE_LOCKED
                       : signedIn
                         ? "Выберите профиль ребёнка, чтобы тренировки попадали в отчёт родителя."
-                        : "Заведите аккаунт: тренировки будут копиться, а родитель увидит, какие правила просели."}
+                        : SAVE_NO_ACCOUNT}
                   </span>
                 </div>
               ) : (
@@ -403,18 +408,9 @@ function SpellingPage() {
                 <button type="button" className="sov-act-ghost" onClick={() => setStage("setup")}>
                   Выбрать правила
                 </button>
-                {!signedIn ? (
-                  <button
-                    type="button"
-                    className="sov-act-ghost"
-                    onClick={() => navigate({ to: "/registraciya" })}
-                  >
-                    Сохранить прогресс
-                  </button>
-                ) : null}
               </div>
 
-              {!signedIn ? <ParentBridge /> : null}
+              {!signedIn ? <AdultBridge /> : null}
             </div>
           </div>
         </ArcadeStage>

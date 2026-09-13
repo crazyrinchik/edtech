@@ -10,7 +10,13 @@ import {
 } from "../components/arcade";
 import { ChildAction, Owl, SiteFooter } from "../components/brand";
 import { SpeakButton } from "../components/speak";
-import { ParentBridge, SAVE_LOCKED, TrainerTop, TuneLock } from "../components/trainers";
+import {
+  AdultBridge,
+  SAVE_LOCKED,
+  SAVE_NO_ACCOUNT,
+  TrainerTop,
+  TuneLock,
+} from "../components/trainers";
 import { me, readingResult, readingTexts } from "../lib/api/app.functions";
 import { drillSearch, pickNumber } from "../lib/drill-search";
 import { pageHead } from "../lib/seo";
@@ -392,7 +398,7 @@ function ReadingPage() {
                       ? SAVE_LOCKED
                       : signedIn
                         ? "Выберите профиль ребёнка, чтобы скорость чтения попадала в отчёт родителя."
-                        : "С аккаунтом видно, как скорость растёт от недели к неделе, а родитель получает отчёт."}
+                        : SAVE_NO_ACCOUNT}
                   </span>
                 </div>
               ) : (
@@ -403,17 +409,9 @@ function ReadingPage() {
 
               <div style={{ marginTop: 24, display: "flex", gap: 12, flexWrap: "wrap" }}>
                 <ChildAction onClick={() => setStage("setup")}>Другой текст</ChildAction>
-                {!signedIn ? (
-                  <button
-                    className="sov-act-ghost"
-                    onClick={() => navigate({ to: "/registraciya" })}
-                  >
-                    Сохранить прогресс
-                  </button>
-                ) : null}
               </div>
 
-              {!signedIn ? <ParentBridge /> : null}
+              {!signedIn ? <AdultBridge /> : null}
             </div>
           </div>
         </ArcadeStage>

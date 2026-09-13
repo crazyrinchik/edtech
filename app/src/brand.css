@@ -2283,19 +2283,40 @@ a.sov-level:active .sov-level__num {
   color: var(--sov-warn);
 }
 
-/* ── взрослая сноска под результатом тренажёра ──────────────────── */
+/* ── мостик для взрослого под результатом тренажёра ─────────────── */
+/* Подвал карточки, а не плашка: выше уже стоит цветная .sov-save-hint, и
+   вторая заливка подряд превратила бы экран ребёнка в рекламный щит.
+   Черта сверху отделяет угол взрослого от детских кнопок, а моноширинная
+   подпись «Взрослому» говорит ребёнку, что читать это не ему, — тем же
+   шрифтом набраны все служебные строки в системе. */
 .sov-bridge {
-  margin-top: 18px;
-  font-size: 0.92rem;
+  display: block;
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid var(--sov-line);
+}
+.sov-bridge > b {
+  display: block;
+  font-family: var(--sov-mono);
+  font-size: 0.76rem;
   font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sov-ink-off);
+}
+.sov-bridge p {
+  margin-top: 9px;
+  max-width: var(--sov-measure);
+  font-size: 0.92rem;
+  font-weight: 500;
+  line-height: 1.55;
   color: var(--sov-ink-soft);
 }
-.sov-bridge a {
-  color: inherit;
-  text-underline-offset: 3px;
-}
-.sov-bridge a:hover {
-  color: var(--sov-cobalt);
+.sov-bridge__acts {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 16px;
 }
 
 /* ── тропа занятия: пройденные вопросы ──────────────────────────── */

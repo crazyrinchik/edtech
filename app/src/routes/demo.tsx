@@ -1,9 +1,9 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 
 import { ChildAction, Owl, Wordmark } from "../components/brand";
 import { AutoSpeakToggle, SpeakButton, useAutoSpeak } from "../components/speak";
-import { ParentBridge } from "../components/trainers";
+import { AdultBridge, SAVE_NO_ACCOUNT } from "../components/trainers";
 import { demoAnswer, demoFinished, demoLesson } from "../lib/api/app.functions";
 import { reachGoal } from "../lib/metrika";
 import { pageHead } from "../lib/seo";
@@ -25,7 +25,6 @@ type Verdict = { correct: boolean; explanation: string | null; answer: string | 
  * темы — только задания и счётчик верных ответов.
  */
 function DemoPage() {
-  const navigate = useNavigate();
   const [tasks, setTasks] = useState<DemoTask[] | null>(null);
   const [index, setIndex] = useState(0);
   const [value, setValue] = useState("");
@@ -140,19 +139,23 @@ function DemoPage() {
               Верных ответов: {correct} из {tasks.length}. Это была короткая проба — в занятиях темы
               идут по порядку, а ошибки разбираются так же, как здесь.
             </p>
+            {/* Плашка говорит, что случилось, и молчит о том, что с этим
+                делать: предложение стоит в мостике для взрослого ниже.
+                Раньше здесь был второй такой же уговор, да ещё и обещавший
+                регистрацию за минуту, — а посадочные и мостик обещают три.
+                Одно и то же время, названное на сайте двумя разными
+                числами, дороже любой экономии в тексте. */}
             <div className="sov-save-hint">
-              <strong>Сохранить результат?</strong>
-              <span>
-                Без аккаунта прогресс не сохраняется. Регистрация занимает минуту: нужны только
-                почта взрослого, имя ребёнка и класс.
-              </span>
+              <strong>Результат не сохранён</strong>
+              <span>{SAVE_NO_ACCOUNT}</span>
             </div>
+            {/* Детская кнопка теперь про то, что делает ребёнок, — пройти
+                ещё раз. Здесь стояло «Сохранить прогресс»: самая заметная
+                кнопка на экране ребёнка звала его в форму регистрации, где
+                он и почты-то своей не имеет. Регистрация переехала в мостик
+                для взрослого ниже, вместе с объяснением, зачем она. */}
             <div style={{ marginTop: 24, display: "flex", gap: 12, flexWrap: "wrap" }}>
-              <ChildAction onClick={() => navigate({ to: "/registraciya" })}>
-                Сохранить прогресс
-              </ChildAction>
-              <button
-                className="sov-act-ghost"
+              <ChildAction
                 onClick={() => {
                   setIndex(0);
                   setValue("");
@@ -163,10 +166,10 @@ function DemoPage() {
                 }}
               >
                 Пройти ещё раз
-              </button>
+              </ChildAction>
             </div>
 
-            <ParentBridge />
+            <AdultBridge />
           </div>
         </div>
       </div>

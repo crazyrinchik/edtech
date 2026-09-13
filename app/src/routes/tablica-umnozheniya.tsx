@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 
 import {
@@ -10,7 +10,13 @@ import {
 } from "../components/arcade";
 import { ChildAction, Owl, SiteFooter } from "../components/brand";
 import { SpeakButton } from "../components/speak";
-import { ParentBridge, SAVE_LOCKED, TrainerTop, TuneLock } from "../components/trainers";
+import {
+  AdultBridge,
+  SAVE_LOCKED,
+  SAVE_NO_ACCOUNT,
+  TrainerTop,
+  TuneLock,
+} from "../components/trainers";
 import { me, saveTableDrill } from "../lib/api/app.functions";
 import { drillSearch, pickMany, pickNumber, pickOne } from "../lib/drill-search";
 import { useEnterAction } from "../lib/keys";
@@ -134,7 +140,6 @@ function makeQuestion(level: Level, directions: Direction[]): Question {
  * собираются в список «стоит повторить» на финальном экране.
  */
 function TablePage() {
-  const navigate = useNavigate();
   // Настройки задания приезжают в адресе — см. lib/drill-search.ts.
   const given = Route.useSearch();
   const [stage, setStage] = useState<"setup" | "play" | "done">("setup");
@@ -382,7 +387,7 @@ function TablePage() {
                       ? SAVE_LOCKED
                       : signedIn
                         ? "Выберите профиль ребёнка, чтобы тренировки попадали в отчёт родителя."
-                        : "Заведите аккаунт: тренировки будут копиться, а родитель увидит скорость и точность в кабинете."}
+                        : SAVE_NO_ACCOUNT}
                   </span>
                 </div>
               ) : (
@@ -396,18 +401,9 @@ function TablePage() {
                 <button type="button" className="sov-act-ghost" onClick={() => setStage("setup")}>
                   Изменить настройки
                 </button>
-                {!signedIn ? (
-                  <button
-                    type="button"
-                    className="sov-act-ghost"
-                    onClick={() => navigate({ to: "/registraciya" })}
-                  >
-                    Сохранить прогресс
-                  </button>
-                ) : null}
               </div>
 
-              {!signedIn ? <ParentBridge /> : null}
+              {!signedIn ? <AdultBridge /> : null}
             </div>
           </div>
         </ArcadeStage>
