@@ -23,6 +23,7 @@ import { TRAINERS } from "../components/trainers";
 import { lockParentCabinet, parentReport, selectChild } from "../lib/api/app.functions";
 import { saveStudentNote, studentCard } from "../lib/api/tutor.functions";
 import { capsFor, linkCaps } from "../lib/cabinet";
+import { PROBE_SEARCH } from "../lib/drill-search";
 import { DRILL_ROW_KIND } from "../lib/drills";
 import { closedHead } from "../lib/seo";
 import { plural } from "../lib/shop";
@@ -312,7 +313,7 @@ function PaywallHint({ to }: { to: string }) {
 }
 
 /**
- * Пять карточек тренажёров: рекорд, последние заходы и «задать».
+ * Пять карточек тренажёров: рекорд, последние заходы, «открыть» и «задать».
  *
  * Рекорд стоит первым числом. Доля верных отвечает на вопрос взрослого
  * («справляется?»), а рекорд серии — на вопрос ребёнка («получилось!»), и
@@ -377,6 +378,18 @@ function Trainers({
               </div>
               <div className="sov-prog__actions">
                 {change !== null ? <Delta value={change} /> : null}
+                {/* «Открыть» — пройти тренажёр самому: прежде чем задать его
+                    ребёнку, полезно увидеть, что там на экране. Заход помечен
+                    пробным и не ложится ни в чей отчёт — в том числе в этот,
+                    открытый рядом (см. drillWho в lib/drill-search.ts). */}
+                <Link
+                  to={trainer.to}
+                  search={PROBE_SEARCH as never}
+                  className="sov-act-ghost"
+                  style={{ textDecoration: "none" }}
+                >
+                  Открыть
+                </Link>
                 <button
                   type="button"
                   className="sov-act-ghost"

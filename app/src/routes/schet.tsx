@@ -14,11 +14,12 @@ import {
   ResultBridge,
   SAVE_LOCKED,
   SAVE_NO_ACCOUNT,
+  SAVE_PROBE,
   TrainerTop,
   TuneLock,
 } from "../components/trainers";
 import { me, saveMentalDrill } from "../lib/api/app.functions";
-import { drillSearch, pickMany, pickNumber } from "../lib/drill-search";
+import { drillSearch, drillWho, pickMany, pickNumber } from "../lib/drill-search";
 import { useEnterAction } from "../lib/keys";
 import { pageHead } from "../lib/seo";
 
@@ -122,6 +123,9 @@ function spoken(example: Example): string {
  */
 function MentalPage() {
   const given = Route.useSearch();
+  // Заход взрослого «на пробу» из кабинета: не пишется никому, см.
+  // lib/drill-search.ts.
+  const probe = given.proba === "1";
   const [stage, setStage] = useState<"setup" | "play" | "done">("setup");
   const [digits, setDigits] = useState<1 | 2 | 3>(() =>
     pickNumber(given.digits, [1, 2, 3] as const, DEFAULTS.digits),
@@ -172,12 +176,15 @@ function MentalPage() {
     me()
       .then((account) => {
         setSignedIn(!!account.user);
-        setChildId(account.activeChildId ?? account.children[0]?.id ?? null);
-        setPaid(account.activeChildPaid);
+        // Кому пишется заход и открыта ли настройка, решает drillWho:
+        // у пробного захода из кабинета ребёнка нет вовсе.
+        const who = drillWho(account, probe);
+        setChildId(who.childId);
+        setPaid(who.paid);
         // Без подписки настройка из адреса тоже не действует: иначе замок
         // снимался бы правкой строки в браузере. Ссылку с настройками
         // неоплаченному и не выдадут — их убирает сервер (assignDrill).
-        if (!account.activeChildPaid) {
+        if (!who.paid) {
           setDigits(DEFAULTS.digits);
           setOperations(DEFAULTS.operations);
           setLimitSec(DEFAULTS.limitSec);
@@ -185,7 +192,7 @@ function MentalPage() {
         }
       })
       .catch(() => undefined);
-  }, []);
+  }, [probe]);
 
   /* Салют на экране итога. Вызывать его из next() нельзя: небо в этот
      момент ещё принадлежит стадии упражнения и исчезает вместе с ней. */
@@ -397,11 +404,13 @@ function MentalPage() {
                 <div className="sov-save-hint">
                   <strong>Результат не сохранён</strong>
                   <span>
-                    {locked
-                      ? SAVE_LOCKED
-                      : signedIn
-                        ? "Выберите профиль ребёнка, чтобы тренировки попадали в отчёт родителя."
-                        : SAVE_NO_ACCOUNT}
+                    {probe
+                      ? SAVE_PROBE
+                      : locked
+                        ? SAVE_LOCKED
+                        : signedIn
+                          ? "Выберите профиль ребёнка, чтобы тренировки попадали в отчёт родителя."
+                          : SAVE_NO_ACCOUNT}
                   </span>
                 </div>
               ) : (

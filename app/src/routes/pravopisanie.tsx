@@ -13,11 +13,12 @@ import {
   ResultBridge,
   SAVE_LOCKED,
   SAVE_NO_ACCOUNT,
+  SAVE_PROBE,
   TrainerTop,
   TuneLock,
 } from "../components/trainers";
 import { me, saveSpellingDrill } from "../lib/api/app.functions";
-import { drillSearch, pickMany, pickNumber } from "../lib/drill-search";
+import { drillSearch, drillWho, pickMany, pickNumber } from "../lib/drill-search";
 import { useEnterAction } from "../lib/keys";
 import type { SpellingItem, SpellingRule } from "../lib/content/spelling";
 import { filled, groupRules, SPELLING_GROUPS, SPELLING_RULES } from "../lib/content/spelling";
@@ -76,6 +77,9 @@ function SpellingPage() {
   // Настройки задания приезжают в адресе — см. lib/drill-search.ts.
   // Имя `given` здесь уже занято ответом ребёнка, поэтому `assigned`.
   const assigned = Route.useSearch();
+  // Заход взрослого «на пробу» из кабинета: не пишется никому, см.
+  // lib/drill-search.ts.
+  const probe = assigned.proba === "1";
   const [stage, setStage] = useState<"setup" | "play" | "done">("setup");
   const [picked, setPicked] = useState<string[]>(() =>
     pickMany(
@@ -121,16 +125,19 @@ function SpellingPage() {
     me()
       .then((account) => {
         setSignedIn(!!account.user);
-        setChildId(account.activeChildId ?? account.children[0]?.id ?? null);
-        setPaid(account.activeChildPaid);
+        // Кому пишется заход и открыта ли настройка, решает drillWho:
+        // у пробного захода из кабинета ребёнка нет вовсе.
+        const who = drillWho(account, probe);
+        setChildId(who.childId);
+        setPaid(who.paid);
         // Набор правил из адреса без подписки не действует — см. schet.tsx.
-        if (!account.activeChildPaid) {
+        if (!who.paid) {
           setPicked(SPELLING_RULES.map((r) => r.id));
           setCount(10);
         }
       })
       .catch(() => undefined);
-  }, []);
+  }, [probe]);
 
   const card = queue[index] ?? null;
 
@@ -378,11 +385,13 @@ function SpellingPage() {
                 <div className="sov-save-hint">
                   <strong>Результат не сохранён</strong>
                   <span>
-                    {locked
-                      ? SAVE_LOCKED
-                      : signedIn
-                        ? "Выберите профиль ребёнка, чтобы тренировки попадали в отчёт родителя."
-                        : SAVE_NO_ACCOUNT}
+                    {probe
+                      ? SAVE_PROBE
+                      : locked
+                        ? SAVE_LOCKED
+                        : signedIn
+                          ? "Выберите профиль ребёнка, чтобы тренировки попадали в отчёт родителя."
+                          : SAVE_NO_ACCOUNT}
                   </span>
                 </div>
               ) : (

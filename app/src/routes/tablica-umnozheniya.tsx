@@ -14,11 +14,12 @@ import {
   ResultBridge,
   SAVE_LOCKED,
   SAVE_NO_ACCOUNT,
+  SAVE_PROBE,
   TrainerTop,
   TuneLock,
 } from "../components/trainers";
 import { me, saveTableDrill } from "../lib/api/app.functions";
-import { drillSearch, pickMany, pickNumber, pickOne } from "../lib/drill-search";
+import { drillSearch, drillWho, pickMany, pickNumber, pickOne } from "../lib/drill-search";
 import { useEnterAction } from "../lib/keys";
 import { pageHead } from "../lib/seo";
 
@@ -142,6 +143,9 @@ function makeQuestion(level: Level, directions: Direction[]): Question {
 function TablePage() {
   // Настройки задания приезжают в адресе — см. lib/drill-search.ts.
   const given = Route.useSearch();
+  // Заход взрослого «на пробу» из кабинета: не пишется никому, см.
+  // lib/drill-search.ts.
+  const probe = given.proba === "1";
   const [stage, setStage] = useState<"setup" | "play" | "done">("setup");
   const [level, setLevel] = useState<Level>(() =>
     pickOne(given.level, ["ten", "hundred", "beyond"] as const, "hundred"),
@@ -176,17 +180,20 @@ function TablePage() {
     me()
       .then((account) => {
         setSignedIn(!!account.user);
-        setChildId(account.activeChildId ?? account.children[0]?.id ?? null);
-        setPaid(account.activeChildPaid);
+        // Кому пишется заход и открыта ли настройка, решает drillWho:
+        // у пробного захода из кабинета ребёнка нет вовсе.
+        const who = drillWho(account, probe);
+        setChildId(who.childId);
+        setPaid(who.paid);
         // Настройка из адреса без подписки тоже не действует — см. schet.tsx.
-        if (!account.activeChildPaid) {
+        if (!who.paid) {
           setLevel("hundred");
           setDirections(["mul", "div"]);
           setCount(10);
         }
       })
       .catch(() => undefined);
-  }, []);
+  }, [probe]);
 
   useEffect(() => {
     if (verdict) return;
@@ -383,11 +390,13 @@ function TablePage() {
                 <div className="sov-save-hint">
                   <strong>Результат не сохранён</strong>
                   <span>
-                    {locked
-                      ? SAVE_LOCKED
-                      : signedIn
-                        ? "Выберите профиль ребёнка, чтобы тренировки попадали в отчёт родителя."
-                        : SAVE_NO_ACCOUNT}
+                    {probe
+                      ? SAVE_PROBE
+                      : locked
+                        ? SAVE_LOCKED
+                        : signedIn
+                          ? "Выберите профиль ребёнка, чтобы тренировки попадали в отчёт родителя."
+                          : SAVE_NO_ACCOUNT}
                   </span>
                 </div>
               ) : (

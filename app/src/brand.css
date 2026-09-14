@@ -2662,11 +2662,21 @@ a.sov-level:active .sov-level__num {
   margin: 0;
   min-inline-size: 0;
 }
-/* Погашенная настройка не выглядит сломанной: она выглядит закрытой. */
-.sov-setup:disabled .sov-chip,
-.sov-setup__row:disabled .sov-chip,
-.sov-setup:disabled .sov-rulegroup,
-.sov-setup__row:disabled .sov-reading-item {
+/* Погашенная настройка не выглядит сломанной: она выглядит закрытой.
+
+   Гаснет при этом невыбранное. Пока опустошался весь ряд разом, экран без
+   подписки читался как «здесь ничего не работает»: тренажёр-то открыт и
+   идёт в базовой настройке, но какая она — по серому ряду не видно было
+   никак. Теперь выбранное остаётся синим и под замком (см.
+   .sov-chip[data-active="true"]:disabled ниже), и видно, чем этот заход
+   отличается от настроенного: однозначные, плюс и минус, десять секунд.
+
+   Группы правил в правописании больше не гасятся целиком: прозрачность
+   родителя перебила бы синеву отмеченных пилюль внутри них. Гаснут те же
+   невыбранные пилюли, что и везде. */
+.sov-setup:disabled .sov-chip:not([data-active="true"]),
+.sov-setup__row:disabled .sov-chip:not([data-active="true"]),
+.sov-setup__row:disabled .sov-reading-item:not([data-active="true"]) {
   opacity: 0.5;
 }
 .sov-setup:disabled .sov-chip,
@@ -3074,6 +3084,20 @@ a.sov-level:active .sov-level__num {
 .sov-chip:disabled:hover {
   border-color: var(--sov-line);
   background: #fff;
+}
+/* Отмеченное под замком остаётся отмеченным.
+
+   Правило стоит после .sov-chip:disabled и специфичнее его нарочно: иначе
+   серая заливка закрытой пилюли ложилась и на выбранную, и настройки
+   тренажёра без подписки выглядели как ряд одинаковых серых плашек, в
+   котором не прочесть, с чем сейчас пойдёт заход. Наведение тоже
+   перечислено: .sov-chip:disabled:hover возвращает белый фон, и без этой
+   строки выбранная пилюля белела под курсором. */
+.sov-chip[data-active="true"]:disabled,
+.sov-chip[data-active="true"]:disabled:hover {
+  border-color: var(--sov-cobalt);
+  background: var(--sov-cobalt);
+  color: #fff;
 }
 
 .sov-risk {

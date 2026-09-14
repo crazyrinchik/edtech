@@ -13,11 +13,12 @@ import {
   ResultBridge,
   SAVE_LOCKED,
   SAVE_NO_ACCOUNT,
+  SAVE_PROBE,
   TrainerTop,
   TuneLock,
 } from "../components/trainers";
 import { me, saveShulteDrill } from "../lib/api/app.functions";
-import { drillSearch, pickNumber } from "../lib/drill-search";
+import { drillSearch, drillWho, pickNumber } from "../lib/drill-search";
 import { pageHead } from "../lib/seo";
 
 export const Route = createFileRoute("/shulte")({
@@ -48,6 +49,9 @@ function shuffled(n: number): number[] {
 function ShultePage() {
   // Размер задаёт педагог — см. lib/drill-search.ts.
   const given = Route.useSearch();
+  // Заход взрослого «на пробу» из кабинета: не пишется никому, см.
+  // lib/drill-search.ts.
+  const probe = given.proba === "1";
   const [size, setSize] = useState<(typeof SIZES)[number]>(() => pickNumber(given.size, SIZES, 3));
   const [cells, setCells] = useState<number[] | null>(null);
   const [next, setNext] = useState(1);
@@ -75,13 +79,16 @@ function ShultePage() {
     me()
       .then((a) => {
         setSignedIn(!!a.user);
-        setChildId(a.activeChildId ?? a.children[0]?.id ?? null);
-        setPaid(a.activeChildPaid);
+        // Кому пишется заход и открыта ли настройка, решает drillWho:
+        // у пробного захода из кабинета ребёнка нет вовсе.
+        const who = drillWho(a, probe);
+        setChildId(who.childId);
+        setPaid(who.paid);
         // Размер из адреса без подписки не действует — см. schet.tsx.
-        if (!a.activeChildPaid) setSize(3);
+        if (!who.paid) setSize(3);
       })
       .catch(() => setChildId(null));
-  }, []);
+  }, [probe]);
 
   const total = size * size;
   const done = cells !== null && next > total;
@@ -204,7 +211,7 @@ function ShultePage() {
             {saved === false ? (
               <div className="sov-save-hint" style={{ marginTop: 20 }}>
                 <strong>Результат не сохранён</strong>
-                <span>{locked ? SAVE_LOCKED : SAVE_NO_ACCOUNT}</span>
+                <span>{probe ? SAVE_PROBE : locked ? SAVE_LOCKED : SAVE_NO_ACCOUNT}</span>
               </div>
             ) : null}
             <div style={{ marginTop: 24, display: "flex", gap: 12, flexWrap: "wrap" }}>

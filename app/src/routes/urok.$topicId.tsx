@@ -221,7 +221,7 @@ function LessonPage() {
                         : `Открылась тема «${done.next.name}»`}
                     </strong>
                     {done.next.locked ? (
-                      <span>Покажи этот экран взрослому: подписка включается в кабинете родителя.</span>
+                      <span>Подписка активируется в кабинете.</span>
                     ) : null}
                   </div>
                 ) : null}

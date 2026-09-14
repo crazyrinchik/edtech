@@ -14,11 +14,12 @@ import {
   ResultBridge,
   SAVE_LOCKED,
   SAVE_NO_ACCOUNT,
+  SAVE_PROBE,
   TrainerTop,
   TuneLock,
 } from "../components/trainers";
 import { me, readingResult, readingTexts } from "../lib/api/app.functions";
-import { drillSearch, pickNumber } from "../lib/drill-search";
+import { drillSearch, drillWho, pickNumber } from "../lib/drill-search";
 import { pageHead } from "../lib/seo";
 
 export const Route = createFileRoute("/chtenie")({
@@ -66,6 +67,9 @@ const LEVEL_NAMES = ["", "простой", "средний", "сложный"];
 function ReadingPage() {
   const navigate = useNavigate();
   const given = Route.useSearch();
+  // Заход взрослого «на пробу» из кабинета: не пишется никому, см.
+  // lib/drill-search.ts.
+  const probe = given.proba === "1";
   const [texts, setTexts] = useState<TextItem[] | null>(null);
   const [signedIn, setSignedIn] = useState(false);
   const [lockedLevels, setLockedLevels] = useState(0);
@@ -108,10 +112,13 @@ function ReadingPage() {
       setSignedIn(list.signedIn);
       setLockedLevels(list.lockedLevels);
       setTextId(list.texts[0]?.id ?? null);
-      if (account?.user) setChildId(account.activeChildId ?? account.children[0]?.id ?? null);
-      setPaid(!!account?.activeChildPaid);
+      // Кому пишется заход и открыта ли настройка, решает drillWho:
+      // у пробного захода из кабинета ребёнка нет вовсе.
+      const who = account ? drillWho(account, probe) : { childId: null, paid: false };
+      setChildId(who.childId);
+      setPaid(who.paid);
       // Скорость из адреса без подписки не действует — см. schet.tsx.
-      if (!account?.activeChildPaid) setWpm(80);
+      if (!who.paid) setWpm(80);
     } catch {
       setLoadError(true);
     }
@@ -394,11 +401,13 @@ function ReadingPage() {
                 <div className="sov-save-hint">
                   <strong>Результат не сохранён</strong>
                   <span>
-                    {outcome.locked
-                      ? SAVE_LOCKED
-                      : signedIn
-                        ? "Выберите профиль ребёнка, чтобы скорость чтения попадала в отчёт родителя."
-                        : SAVE_NO_ACCOUNT}
+                    {probe
+                      ? SAVE_PROBE
+                      : outcome.locked
+                        ? SAVE_LOCKED
+                        : signedIn
+                          ? "Выберите профиль ребёнка, чтобы скорость чтения попадала в отчёт родителя."
+                          : SAVE_NO_ACCOUNT}
                   </span>
                 </div>
               ) : (
