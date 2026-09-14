@@ -716,6 +716,19 @@ export function needsPin(account: Account): boolean {
  * внутри вкладки «Задания», то есть на третьем уровне от входа. Теперь
  * список один, а роль меняет в нём две вещи: куда ведёт «домой» и есть ли
  * дверь, которую можно закрыть за собой.
+ *
+ * «Темы» в этом списке стали «Повторением». Раздел никуда не делся и
+ * работает как раньше, но после разворота на тренажёры он не то, ради чего
+ * сюда приходят: выдачей домашки по темам почти не пользуются, а имя
+ * обещало главный раздел кабинета. Новое обещает ровно то, зачем туда
+ * всё-таки заходят, — повторить пройденное в школе.
+ *
+ * В навигации раздел зовётся одним словом, а экран, который за ним
+ * открывается, — полностью: «Повторение школьной программы». Целиком имя в
+ * пилюлю не помещается: на окне уже 1200 px строка разделов уезжает на вторую
+ * и удваивает шапку (с одним словом она держится в одну до 1100), а на 375 px
+ * переносится внутри самой пилюли. Так же подписана и ссылка сюда с
+ * тренажёров — навигация называет раздел одинаково везде.
  */
 export function CabinetHeader({ account, onLock }: { account: Account; onLock: () => void }) {
   const navigate = useNavigate();
@@ -726,7 +739,7 @@ export function CabinetHeader({ account, onLock }: { account: Account; onLock: (
         <>
           <QuietAction to="/kabinet">{caps.homeLabel}</QuietAction>
           <QuietAction to="/kabinet/trenazhery">Тренажёры</QuietAction>
-          <QuietAction to="/kabinet/temy">Темы</QuietAction>
+          <QuietAction to="/kabinet/temy">Повторение</QuietAction>
           <QuietAction to="/kabinet/nastroyki">Настройки</QuietAction>
           <QuietAction to={caps.audience === "tutor" ? "/repetitor/podpiska" : "/kabinet/podpiska"}>
             Подписка

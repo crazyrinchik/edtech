@@ -72,7 +72,7 @@ export function TrainersScreen() {
       <SiteHeader
         right={
           <>
-            <QuietAction to={words.topicsTo}>Темы и задания</QuietAction>
+            <QuietAction to={words.topicsTo}>Повторение</QuietAction>
             <QuietAction to={words.backTo}>{words.back}</QuietAction>
           </>
         }
