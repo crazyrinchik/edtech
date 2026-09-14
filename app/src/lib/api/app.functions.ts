@@ -1740,7 +1740,7 @@ export const readingResult = createServerFn({ method: "POST" })
  */
 async function saveDrillRow(opts: {
   childId: string | null;
-  kind: "mental" | "reading" | "shulte" | "spelling" | "table";
+  kind: "mental" | "reading" | "shulte" | "spelling" | "sudoku" | "table";
   settings: unknown;
   correct: number;
   total: number;
@@ -2427,6 +2427,54 @@ export const saveShulteDrill = createServerFn({ method: "POST" })
       record: outcome.record,
       locked: outcome.locked,
       cells,
+    };
+  });
+
+/**
+ * Судоку: цифра проверяется в тот же миг, когда её ставят, поэтому верных
+ * ровно столько, сколько в задаче было пустых клеток, а знаменатель —
+ * вместе с промахами. Тем же способом считается заход в Шульте, и по той
+ * же причине: доля верных в обоих тренажёрах говорит не о знании, а о том,
+ * сколько раз ребёнок ткнул наугад.
+ *
+ * score — секунды на клетку ×10, как в Шульте: заходы на полях 4×4 и 9×9
+ * иначе не сравнить между собой вовсе, а в кабинете они лежат одной
+ * динамикой.
+ *
+ * Пустых клеток сервер на слово не берёт: больше, чем клеток в поле, их
+ * быть не может. Той же проверкой ограничена присланная серия в
+ * saveDrillRow.
+ */
+export const saveSudokuDrill = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      childId: z.string().nullable(),
+      size: z.number().int().min(4).max(9),
+      clues: z.enum(["easy", "normal", "hard"]),
+      blanks: z.number().int().min(1).max(81),
+      seconds: z.number().int().min(1).max(7200),
+      mistakes: z.number().int().min(0),
+      streak: z.number().int().min(0).max(500).default(0),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const blanks = Math.min(data.blanks, data.size * data.size);
+    const outcome = await saveDrillRow({
+      childId: data.childId,
+      kind: "sudoku",
+      settings: { size: data.size, clues: data.clues, mistakes: data.mistakes },
+      correct: blanks,
+      total: blanks + data.mistakes,
+      seconds: data.seconds,
+      score: Math.round((data.seconds / blanks) * 10),
+      streak: data.streak,
+    });
+    return {
+      saved: outcome.saved,
+      coins: outcome.coins,
+      record: outcome.record,
+      locked: outcome.locked,
+      blanks,
     };
   });
 

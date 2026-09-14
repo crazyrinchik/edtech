@@ -155,7 +155,7 @@ function MentalPage() {
   const [verdict, setVerdict] = useState<{ ok: boolean; answer: number } | null>(null);
   const [left, setLeft] = useState(0);
 
-  /* Серия, ночь и звук — общий слой всех пяти тренажёров, см.
+  /* Серия, ночь и звук — общий слой всех шести тренажёров, см.
      components/arcade.tsx. Счёт примеров он не трогает: ведёт только то,
      что ребёнок видит и слышит. */
   const arcade = useArcade();

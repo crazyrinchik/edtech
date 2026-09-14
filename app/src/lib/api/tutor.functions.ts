@@ -71,6 +71,7 @@ const DRILL_TITLES: Record<string, string> = {
   pravopisanie: "Правописание",
   chtenie: "Скорочтение",
   shulte: "Таблица Шульте",
+  sudoku: "Судоку",
 };
 
 /** Перевод «schet» → «mental» общий с кабинетом, см. lib/drills.ts. */
@@ -1750,7 +1751,7 @@ export const tutorCancelSubscription = createServerFn({ method: "POST" }).handle
 export const assignDrill = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
-      kind: z.enum(["schet", "tablica", "pravopisanie", "chtenie", "shulte"]),
+      kind: z.enum(["schet", "tablica", "pravopisanie", "chtenie", "shulte", "sudoku"]),
       childIds: z.array(z.string()).min(1, "Выберите хотя бы одного ученика"),
       dueAt: z.string().nullable(),
       settings: z.record(z.string(), z.string()).nullable().default(null),

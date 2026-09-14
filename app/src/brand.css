@@ -4650,6 +4650,138 @@ a.sov-level:active .sov-level__num {
   color: var(--sov-ink-soft);
 }
 
+/* ── судоку ──────────────────────────────────────────────────────────
+   Поле считается по той же формуле, что и таблица Шульте: квадрат,
+   ограниченный высотой окна, — с поправкой на ряд цифр под ним. Клетки
+   вплотную, без зазора: границы в судоку несут смысл (толстая — край
+   квадрата, тонкая — край клетки), и зазор между клетками спорил бы с
+   ними за ту же роль. */
+.sov-sudoku {
+  display: grid;
+  margin: 24px auto 0;
+  width: var(--sov-sudoku-side);
+  aspect-ratio: 1;
+  background: #fff;
+  border: 2px solid var(--sov-line-strong);
+  border-radius: var(--sov-radius);
+  overflow: hidden;
+}
+.sov-play:has(.sov-sudoku) {
+  --sov-sudoku-side: min(100%, calc(100dvh - 330px), 520px);
+}
+.sov-play:has(.sov-sudoku) .sov-play__bar {
+  width: var(--sov-sudoku-side);
+  margin-inline: auto;
+}
+.sov-sudoku__cell {
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  font-family: var(--sov-font);
+  font-weight: 800;
+  color: var(--sov-cobalt);
+  transition: background 0.1s;
+}
+/* Ни одна клетка не выключена по-настоящему: заполненная просто больше не
+   нажимается. Поэтому ни курсора «нельзя», ни цвета выключенного. */
+.sov-sudoku__cell:disabled {
+  cursor: default;
+}
+/* Открытая с самого начала цифра — чернилами: её не ставил ребёнок.
+   Вписанные им стоят синим, и по одному взгляду видно, сколько поля
+   сделано своими руками. */
+.sov-sudoku__cell[data-given="true"] {
+  color: var(--sov-ink);
+  background: var(--sov-paper-2);
+}
+.sov-sudoku__cell[data-picked="true"] {
+  background: var(--sov-cobalt-soft);
+}
+.sov-sudoku__cell[data-wrong="true"] {
+  background: var(--sov-bad-bg);
+}
+.sov-sudoku__cell[data-right="cell"] {
+  border-right: 1px solid var(--sov-line);
+}
+.sov-sudoku__cell[data-right="box"] {
+  border-right: 2px solid var(--sov-line-strong);
+}
+.sov-sudoku__cell[data-bottom="cell"] {
+  border-bottom: 1px solid var(--sov-line);
+}
+.sov-sudoku__cell[data-bottom="box"] {
+  border-bottom: 2px solid var(--sov-line-strong);
+}
+.sov-sudoku[data-size="4"] .sov-sudoku__cell {
+  font-size: 2.2rem;
+}
+.sov-sudoku[data-size="6"] .sov-sudoku__cell {
+  font-size: 1.7rem;
+}
+.sov-sudoku[data-size="9"] .sov-sudoku__cell {
+  font-size: 1.2rem;
+}
+/* Ряд цифр под полем — сетка в столько колонок, сколько цифр, а не flex с
+   переносом: девять кнопок по 44 px в ширину поля не встают, и девятка
+   уезжала на вторую строку одна. Сетка сжимает кнопки под поле, и на 9×9
+   каждая оказывается ровно под своим столбцом.
+
+   Ширина та же, что у поля: разъехавшись, они перестают читаться как одно
+   целое — то же правило, по которому строка «Ищи 7» выровнена по таблице
+   Шульте. */
+.sov-sudoku__pad {
+  display: grid;
+  gap: 8px;
+  width: var(--sov-sudoku-side);
+  margin: 16px auto 0;
+}
+.sov-sudoku__key {
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  font-family: var(--sov-font);
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--sov-ink);
+  background: #fff;
+  border: 1px solid var(--sov-line-strong);
+  border-radius: var(--sov-radius);
+  transition:
+    background 0.1s,
+    color 0.1s;
+}
+/* Цифра, которой на поле больше не осталось места: гаснет, но остаётся
+   читаемой и нажимаемой — «уже везде стоит» это подсказка, а не запрет,
+   и ошибиться ею ребёнок вправе. */
+.sov-sudoku__key[data-spent="true"] {
+  color: var(--sov-ink-off);
+  background: var(--sov-paper-2);
+}
+/* Пока клетка не выбрана, ставить цифру некуда. Гасим ряд целиком: так
+   видно, что первым делом выбирают клетку, а не цифру. */
+.sov-sudoku__key:disabled {
+  cursor: default;
+  color: var(--sov-ink-off);
+  background: var(--sov-paper-2);
+  border-color: var(--sov-line);
+}
+.sov-sudoku__status {
+  display: grid;
+  gap: 2px;
+}
+.sov-sudoku__status strong {
+  font-size: 1.3rem;
+  font-weight: 800;
+}
+.sov-sudoku__status span {
+  color: var(--sov-ink-soft);
+}
+
 /* ── свои задания репетитора ────────────────────────────────────────
    Их проверяет человек, поэтому «верно/неверно» тут нет: есть ответ
    ученика и оценка, когда педагог посмотрел. */
@@ -6563,6 +6695,45 @@ button.sov-risks__state:hover {
 .sov-arcade .sov-reading-item,
 .sov-arcade .sov-shulte__cell {
   background: rgba(21, 37, 79, 0.88);
+}
+/* Судоку в ночи. Границы, погашенные цифры и промах берут цвет из
+   переменных и темнеют сами; правится то, что переменными не достать.
+
+   Поле залито белым напрямую — как таблица Шульте и панель чтения рядом.
+
+   Цифры, вписанные ребёнком, идут светлее: --sov-cobalt в аркаде остаётся
+   насыщенным ради белых подписей на залитых кнопках, и на тёмном поле он
+   даёт 3:1. Здесь синий светлее — это не заливка, а текст.
+
+   Выбранная клетка — единственное место, где ночная переменная не годится
+   по смыслу: --sov-cobalt-soft в аркаде это почти цвет самого поля, и на
+   9×9 выбор приходилось искать глазами. Синий берётся заливкой. */
+.sov-arcade .sov-sudoku {
+  background: rgba(21, 37, 79, 0.88);
+}
+.sov-arcade .sov-sudoku__cell[data-picked="true"] {
+  background: rgba(60, 109, 240, 0.42);
+}
+/* Промах — сразу за выбором и не выше: клетка в этот момент и выбрана, и
+   промахнулась, вес у правил одинаковый, и решает порядок. Пока строчки
+   стояли наоборот, вспышки не было видно вовсе — синий выбор перекрывал
+   её целиком, и ребёнок не понимал, почему цифра не встала. */
+.sov-arcade .sov-sudoku__cell[data-wrong="true"] {
+  background: rgba(163, 35, 27, 0.55);
+}
+/* :enabled и :not() здесь не украшение: без них это правило совпало бы по
+   весу с погашенной цифрой и перекрыло её — оно стоит ниже по файлу. */
+.sov-arcade .sov-sudoku__key:enabled:not([data-spent="true"]) {
+  background: rgba(21, 37, 79, 0.88);
+}
+.sov-arcade .sov-sudoku__cell[data-filled="true"] {
+  color: #9db9ff;
+}
+/* Открытая цифра на бумаге лежит на клетке чуть темнее белой. В ночи тем
+   же ходом клетка уходит глубже поля: --sov-paper-2 совпал бы с ним почти
+   в тон, и различить своё и данное стало бы нечем, кроме цвета цифры. */
+.sov-arcade .sov-sudoku__cell[data-given="true"] {
+  background: rgba(9, 18, 44, 0.66);
 }
 /* Поле, в котором вспыхивают слова при чтении: тоже белое напрямую.
    Слово здесь — единственное, на что смотрят, поэтому панель уходит почти

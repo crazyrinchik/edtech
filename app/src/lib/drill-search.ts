@@ -43,7 +43,7 @@ export function drillSearch<K extends string>(
   keys: readonly K[],
 ): Partial<Record<K | typeof PROBE_KEY, string>> {
   const out: Partial<Record<K | typeof PROBE_KEY, string>> = {};
-  // Пробу принимают все пять тренажёров, поэтому перечислять её в каждом
+  // Пробу принимают все шесть тренажёров, поэтому перечислять её в каждом
   // списке ключей незачем: она не настройка, а то, чей это заход.
   for (const key of [...keys, PROBE_KEY] as (K | typeof PROBE_KEY)[]) {
     const value = search[key];

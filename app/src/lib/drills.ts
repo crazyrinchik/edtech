@@ -2,7 +2,8 @@
  * Настройки тренажёров глазами того, кто их задаёт.
  *
  * Внутри каждого тренажёра есть экран настройки: разрядность в устном счёте,
- * уровень таблицы, набор правил, скорость чтения, размер таблицы Шульте.
+ * уровень таблицы, набор правил, скорость чтения, размер таблицы Шульте,
+ * размер поля и число подсказок в судоку.
  * Пока задать тренажёр можно было только целиком, педагог просил ребёнка
  * «поставь двузначные и без таймера» словами — и это не выполнялось.
  *
@@ -19,7 +20,7 @@
 
 import { SPELLING_RULES } from "./content/spelling";
 
-export type DrillId = "schet" | "tablica" | "pravopisanie" | "chtenie" | "shulte";
+export type DrillId = "schet" | "tablica" | "pravopisanie" | "chtenie" | "shulte" | "sudoku";
 
 /**
  * Тот же тренажёр в таблице drills зовётся иначе: там kind описывает вид
@@ -35,6 +36,7 @@ export const DRILL_ROW_KIND: Record<DrillId, string> = {
   pravopisanie: "spelling",
   chtenie: "reading",
   shulte: "shulte",
+  sudoku: "sudoku",
 };
 
 export type DrillOption = {
@@ -151,6 +153,32 @@ export const DRILL_OPTIONS: Record<DrillId, DrillOption[]> = {
       multi: false,
       values: [3, 4, 5].map((n) => ({ value: String(n), label: `${n} × ${n}` })),
       fallback: "3",
+    },
+  ],
+  sudoku: [
+    {
+      key: "size",
+      label: "Размер",
+      multi: false,
+      // Между 4 и 9 стоит 6: у поля 6×6 квадраты прямоугольные, 3 на 2, и
+      // это единственный способ разбить шесть на шесть. Зачем нужен шаг
+      // между маленьким полем и настоящим — см. lib/sudoku.ts.
+      values: [4, 6, 9].map((n) => ({ value: String(n), label: `${n} × ${n}` })),
+      fallback: "4",
+    },
+    {
+      key: "clues",
+      label: "Подсказки",
+      multi: false,
+      // Сложность в судоку — это и есть количество открытых цифр: правило
+      // одно и то же, разница только в том, от скольких клеток отталкиваться.
+      // Поэтому настройка названа тем, чем является, а не «лёгкий уровень».
+      values: [
+        { value: "easy", label: "много" },
+        { value: "normal", label: "поменьше" },
+        { value: "hard", label: "мало" },
+      ],
+      fallback: "easy",
     },
   ],
 };
